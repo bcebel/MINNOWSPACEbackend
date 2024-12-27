@@ -5,8 +5,7 @@ const PORT = process.env.PORT || 3001;
 
      app.use(
        cors({
-         origin:
-           "https://vercel.com/bcebels-projects/minnowspacexpo/2Srx47L8gZRjZz5Bn1ssmnNs9saT", // Allow requests from this origin
+         origin: "https://minnowspacexpo.vercel.app/", // Allow requests from this origin
          methods: ["GET", "POST", "PUT", "DELETE"], // Specify allowed methods
          allowedHeaders: ["Content-Type", "Authorization"], // Specify allowed headers
          credentials: true, // Enable sending cookies if needed
