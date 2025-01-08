@@ -21,3 +21,25 @@ app.get("/api", (req, res) => {
 app.listen(PORT, () => {
   console.log(`Backend running on http://localhost:${PORT}`);
 });
+
+const io = require("socket.io")(3000);
+
+io.on("connection", (socket) => {
+  console.log("A user connected");
+
+  socket.on("offer", (offer) => {
+    socket.broadcast.emit("offer", offer);
+  });
+
+  socket.on("answer", (answer) => {
+    socket.broadcast.emit("answer", answer);
+  });
+
+  socket.on("candidate", (candidate) => {
+    socket.broadcast.emit("candidate", candidate);
+  });
+
+  socket.on("disconnect", () => {
+    console.log("A user disconnected");
+  });
+});
