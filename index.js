@@ -1,7 +1,10 @@
 // backend/server.js
+
 const express = require("express");
+require("dotenv").config();
 const app = express();
 const mongoose = require("mongoose");
+
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const http = require("http");
@@ -14,13 +17,14 @@ const io = require("socket.io")(server, {
     credentials: true,
   },
 });
-
+const URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017";
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
-
+const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, "./.env") });
 // MongoDB connection
 mongoose.connect(
-  process.env.MONGODB_URI || "mongodb://localhost:27017/chat-app"
+  URI
 );
 
 // User Model
