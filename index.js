@@ -5,6 +5,7 @@ const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const http = require("http");
+const cors = require("cors");
 const server = http.createServer(app);
 const io = require("socket.io")(server, {
   cors: {
@@ -18,7 +19,9 @@ const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
 // MongoDB connection
-mongoose.connect(process.env.MONGODB_URI || "mongodb://localhost/chat-app");
+mongoose.connect(
+  process.env.MONGODB_URI || "mongodb://localhost:27017/chat-app"
+);
 
 // User Model
 const UserSchema = new mongoose.Schema({
