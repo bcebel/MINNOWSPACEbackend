@@ -9,6 +9,32 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const http = require("http");
 const cors = require("cors");
+
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', 'https://minnowspacexpo.vercel.app'  ||        'http://localhost:8081');
+    res.setHeader(
+      "Access-Control-Allow-Origin",
+      "http://localhost:3001"
+    );
+
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  next();
+});
+
+
+var corsOptions = {
+  optionsSuccessStatus: 200,
+  origin: [
+    "https://minnowspacexpo.vercel.app",
+    "http://localhost:3001",
+    "http://localhost:8081",
+  ],
+  methods: ["GET", "POST"],
+  credentials: true, //
+  //  some legacy browsers (IE11, various SmartTVs) choke on 204
+};
+app.use(cors(corsOptions));
 const server = http.createServer(app);
 const io = require("socket.io")(server, {
   cors: {
@@ -28,20 +54,7 @@ const path = require("path");
 require("dotenv").config({ path: path.resolve(__dirname, "./.env") });
 // MongoDB connection
 mongoose.connect(URI);
-app.use(express.json());
 
-var corsOptions = {
-  optionsSuccessStatus: 200,
-  origin: [
-    "https://minnowspacexpo.vercel.app",
-    "http://localhost:3001",
-    "http://localhost:8081",
-  ],
-  methods: ["GET", "POST"],
-  credentials: true, //
-  //  some legacy browsers (IE11, various SmartTVs) choke on 204
-};
-app.use(cors(corsOptions));
 // User Model
 const UserSchema = new mongoose.Schema({
   username: { type: String, unique: true, required: true },
@@ -79,7 +92,7 @@ const authenticateToken = (req, res, next) => {
 };
 
 // Auth routes
-app.post("/api/register", cors(corsOptions), async (req, res) => {
+app.post("/api/register", async (req, res) => {
   try {
     const hashedPassword = await bcrypt.hash(req.body.password, 10);
     const user = new User({
@@ -92,12 +105,13 @@ app.post("/api/register", cors(corsOptions), async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-app.get("api/test", cors(corsOptions), async (req, res) => {
+
+app.get("api/test", async (req, res) => {
   res.send("Hello World");
 });
 // Login route
 
-app.post("/api/login", cors(corsOptions), async (req, res) => {
+app.post("/api/login", async (req, res) => {
   try {
     const user = await User.findOne({ username: req.body.username });
     if (!user) return res.status(400).json({ error: "User not found" });
@@ -188,6 +202,9 @@ io.on("connection", (socket) => {
     console.log(`User disconnected: ${socket.user.username}`);
   });
 });
+app.use(express.json());
+
+
 
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
