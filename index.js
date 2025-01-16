@@ -26,7 +26,11 @@ require("dotenv").config({ path: path.resolve(__dirname, "./.env") });
 mongoose.connect(
   URI
 );
-
+app.use(express.json());
+var corsOptions = {
+  origin: "https://minnowspacexpo.vercel.app/",
+  optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
+};
 // User Model
 const UserSchema = new mongoose.Schema({
   username: { type: String, unique: true, required: true },
@@ -48,15 +52,6 @@ const MessageSchema = new mongoose.Schema({
 const Message = mongoose.model("Message", MessageSchema);
 
 // Middleware
-app.use(express.json());
-app.use(
-  cors({
-    origin: ["https://minnowspacexpo.vercel.app", "http://localhost:8081"],
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
-  })
-);
 
 // Auth middleware
 const authenticateToken = (req, res, next) => {
@@ -73,7 +68,7 @@ const authenticateToken = (req, res, next) => {
 };
 
 // Auth routes
-app.post("/api/register", async (req, res) => {
+app.post("/api/register", cors(corsOptions), async (req, res) => {
   try {
     const hashedPassword = await bcrypt.hash(req.body.password, 10);
     const user = new User({
@@ -87,7 +82,7 @@ app.post("/api/register", async (req, res) => {
   }
 });
 
-app.post("/api/login", async (req, res) => {
+app.post("/api/login", cors(corsOptions), async (req, res) => {
   try {
     const user = await User.findOne({ username: req.body.username });
     if (!user) return res.status(400).json({ error: "User not found" });
@@ -110,7 +105,7 @@ app.post("/api/login", async (req, res) => {
 });
 
 // Message routes
-app.get("/api/messages/:room", authenticateToken, async (req, res) => {
+app.get("/api/messages/:room", cors(corsOptions), authenticateToken, async (req, res) => {
   try {
     const messages = await Message.find({ room: req.params.room })
       .populate("sender", "username")
