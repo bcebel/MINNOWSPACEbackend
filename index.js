@@ -12,14 +12,18 @@ const cors = require("cors");
 const server = http.createServer(app);
 const io = require("socket.io")(server, {
   cors: {
-    origin: ["https://minnowspacexpo.vercel.app/", "http://localhost:8081"],
+    origin: [
+      "https://minnowspacexpo.vercel.app",
+      "https://localhost:8081",
+      "http://localhost:3001",
+    ],
     methods: ["GET", "POST"],
     credentials: true,
   },
 });
 const URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017";
 const PORT = process.env.PORT || 3001;
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
+const JWT_SECRET = process.env.JWT_SECRET;
 const path = require("path");
 require("dotenv").config({ path: path.resolve(__dirname, "./.env") });
 // MongoDB connection
@@ -28,7 +32,11 @@ app.use(express.json());
 
 var corsOptions = {
   optionsSuccessStatus: 200,
-  origin: ["https://minnowspacexpo.vercel.app/", "http://localhost:8081"],
+  origin: [
+    "https://minnowspacexpo.vercel.app",
+    "http://localhost:3001",
+    "http://localhost:8081",
+  ],
   methods: ["GET", "POST"],
   credentials: true, //
   //  some legacy browsers (IE11, various SmartTVs) choke on 204
@@ -84,6 +92,10 @@ app.post("/api/register", cors(corsOptions), async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+app.get("api/test", cors(corsOptions), async (req, res) => {
+  res.send("Hello World");
+});
+// Login route
 
 app.post("/api/login", cors(corsOptions), async (req, res) => {
   try {
