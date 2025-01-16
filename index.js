@@ -23,14 +23,17 @@ const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 const path = require("path");
 require("dotenv").config({ path: path.resolve(__dirname, "./.env") });
 // MongoDB connection
-mongoose.connect(
-  URI
-);
+mongoose.connect(URI);
 app.use(express.json());
+
 var corsOptions = {
-  origin: "https://minnowspacexpo.vercel.app/",
-  optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
+  optionsSuccessStatus: 200,
+  origin: ["https://minnowspacexpo.vercel.app/", "http://localhost:8081"],
+  methods: ["GET", "POST"],
+  credentials: true, //
+  //  some legacy browsers (IE11, various SmartTVs) choke on 204
 };
+app.use(cors(corsOptions));
 // User Model
 const UserSchema = new mongoose.Schema({
   username: { type: String, unique: true, required: true },
@@ -105,17 +108,22 @@ app.post("/api/login", cors(corsOptions), async (req, res) => {
 });
 
 // Message routes
-app.get("/api/messages/:room", cors(corsOptions), authenticateToken, async (req, res) => {
-  try {
-    const messages = await Message.find({ room: req.params.room })
-      .populate("sender", "username")
-      .sort("-createdAt")
-      .limit(50);
-    res.json(messages);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+app.get(
+  "/api/messages/:room",
+  cors(corsOptions),
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const messages = await Message.find({ room: req.params.room })
+        .populate("sender", "username")
+        .sort("-createdAt")
+        .limit(50);
+      res.json(messages);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
   }
-});
+);
 
 // Socket.io handling
 io.use((socket, next) => {
