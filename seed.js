@@ -4,10 +4,7 @@ const bcrypt = require("bcrypt");
 
 // MongoDB connection
 const URI = process.env.MONGODB_URI;
-mongoose.connect(URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
+mongoose.connect(URI);
 
 const UserSchema = new mongoose.Schema({
   username: { type: String, unique: true, required: true },
@@ -19,6 +16,9 @@ const User = mongoose.model("User", UserSchema);
 
 async function seedDatabase() {
   try {
+    await User.deleteMany({});
+    console.log("All existing records have been removed.");
+    
     const hashedPassword1 = await bcrypt.hash("password123", 10);
     const hashedPassword2 = await bcrypt.hash("testpass456", 10);
 
