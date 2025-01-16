@@ -14,7 +14,7 @@ const io = require("socket.io")(server, {
   cors: {
     origin: [
       "https://minnowspacexpo.vercel.app",
-      "https://localhost:8081",
+      "http://localhost:8081",
       "http://localhost:3001",
     ],
     methods: ["GET", "POST"],
