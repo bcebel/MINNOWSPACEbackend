@@ -1,70 +1,59 @@
-// backend/server.js
-
 const express = require("express");
-require("dotenv").config();
-const app = express();
 const mongoose = require("mongoose");
-
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const http = require("http");
 const cors = require("cors");
+require("dotenv").config();
+const app = express();
 
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', 'https://minnowspacexpo.vercel.app'  ||        'http://localhost:8081');
-    res.setHeader(
-      "Access-Control-Allow-Origin",
-      "http://localhost:3001"
-    );
+app.use(express.json());
 
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  next();
-});
-
-
-var corsOptions = {
-  optionsSuccessStatus: 200,
-  origin: [
-    "https://minnowspacexpo.vercel.app",
-    "http://localhost:3001",
-    "http://localhost:8081",
-  ],
+const corsOptions = {
+  origin: (origin, callback) => {
+    const allowedOrigins = [
+      "https://minnowspacexpo.vercel.app",
+      "http://localhost:3001",
+      "http://localhost:8081",
+    ];
+    if (allowedOrigins.includes(origin) || !origin) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   methods: ["GET", "POST"],
-  credentials: true, //
-  //  some legacy browsers (IE11, various SmartTVs) choke on 204
+  credentials: true,
 };
 app.use(cors(corsOptions));
+
 const server = http.createServer(app);
 const io = require("socket.io")(server, {
   cors: {
-    origin: [
-      "https://minnowspacexpo.vercel.app",
-      "http://localhost:8081",
-      "http://localhost:3001",
-    ],
-    methods: ["GET", "POST"],
-    credentials: true,
+    origin: corsOptions.origin,
+    methods: corsOptions.methods,
+    credentials: corsOptions.credentials,
   },
 });
+
 const URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017";
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET;
-const path = require("path");
-require("dotenv").config({ path: path.resolve(__dirname, "./.env") });
-// MongoDB connection
-mongoose.connect(URI);
 
-// User Model
+mongoose
+  .connect(URI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log("Connected to MongoDB"))
+  .catch((error) => console.error("MongoDB connection error:", error));
+
+// User Schema and Model
 const UserSchema = new mongoose.Schema({
   username: { type: String, unique: true, required: true },
   password: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },
 });
-
 const User = mongoose.model("User", UserSchema);
 
-// Message Model
+// Message Schema and Model
 const MessageSchema = new mongoose.Schema({
   sender: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   content: String,
@@ -72,16 +61,12 @@ const MessageSchema = new mongoose.Schema({
   room: String,
   createdAt: { type: Date, default: Date.now },
 });
-
 const Message = mongoose.model("Message", MessageSchema);
 
 // Middleware
-
-// Auth middleware
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
-
   if (!token) return res.sendStatus(401);
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
@@ -91,7 +76,7 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-// Auth routes
+// Routes
 app.post("/api/register", async (req, res) => {
   try {
     const hashedPassword = await bcrypt.hash(req.body.password, 10);
@@ -105,11 +90,6 @@ app.post("/api/register", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
-app.get("api/test", async (req, res) => {
-  res.send("Hello World");
-});
-// Login route
 
 app.post("/api/login", async (req, res) => {
   try {
@@ -133,30 +113,26 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
-// Message routes
-app.get(
-  "/api/messages/:room",
-  cors(corsOptions),
-  authenticateToken,
-  async (req, res) => {
-    try {
-      const messages = await Message.find({ room: req.params.room })
-        .populate("sender", "username")
-        .sort("-createdAt")
-        .limit(50);
-      res.json(messages);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  }
-);
+app.get("/api/test", (req, res) => {
+  res.send("Hello World");
+});
 
-// Socket.io handling
+app.get("/api/messages/:room", authenticateToken, async (req, res) => {
+  try {
+    const messages = await Message.find({ room: req.params.room })
+      .populate("sender", "username")
+      .sort("-createdAt")
+      .limit(50);
+    res.json(messages);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Socket.IO
 io.use((socket, next) => {
   const token = socket.handshake.auth.token;
-  if (!token) {
-    return next(new Error("Authentication error"));
-  }
+  if (!token) return next(new Error("Authentication error"));
 
   jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) return next(new Error("Authentication error"));
@@ -202,10 +178,8 @@ io.on("connection", (socket) => {
     console.log(`User disconnected: ${socket.user.username}`);
   });
 });
-app.use(express.json());
 
-
-
+// Start Server
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
