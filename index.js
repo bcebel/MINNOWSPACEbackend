@@ -1,34 +1,34 @@
-const express = require("express");
-const mongoose = require("mongoose");
-const jwt = require("jsonwebtoken");
-const bcrypt = require("bcrypt");
-const http = require("http");
-const cors = require("cors");
-require("dotenv").config();
+import express from "express";
+import mongoose from "mongoose";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
+import http from "http";
+import cors from "cors";
+import dotenv from "dotenv";
+import { Server } from "socket.io";
+import { fileURLToPath } from "url";
+import path from "path";
+
+dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
+app.use(
+  cors({
+    origin: ["https://minnowspace.vercel.app","http://localhost:3001",
+      "http://localhost:8081,"],
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE", //  Allowed methods
+    allowedHeaders: "Content-Type,Authorization", // Allowed headers
+  })
+);
 
 app.use(express.json());
 
-const corsOptions = {
-  origin: (origin, callback) => {
-    const allowedOrigins = [
-      "https://minnowspacexpo.vercel.app",
-      "http://localhost:3001",
-      "http://localhost:8081",
-    ];
-    if (allowedOrigins.includes(origin) || !origin) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  methods: ["GET", "POST"],
-  credentials: true,
-};
-app.use(cors(corsOptions));
 
 const server = http.createServer(app);
-const io = require("socket.io")(server, {
+const io = new Server(server, {
   cors: {
     origin: corsOptions.origin,
     methods: corsOptions.methods,
