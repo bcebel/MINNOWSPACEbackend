@@ -1,20 +1,12 @@
-import express from "express";
-import mongoose from "mongoose";
-import jwt from "jsonwebtoken";
-import bcrypt from "bcrypt";
-import http from "http";
-import cors from "cors";
-import dotenv from "dotenv";
-import { Server } from "socket.io";
-import { fileURLToPath } from "url";
-import path from "path";
-
-dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
+const express = require("express");
+const mongoose = require("mongoose");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
+const http = require("http");
+const cors = require("cors");
+require("dotenv").config();
 const app = express();
+
 app.use(express.json());
 
 const corsOptions = {
@@ -36,7 +28,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 const server = http.createServer(app);
-const io = new Server(server, {
+const io = require("socket.io")(server, {
   cors: {
     origin: corsOptions.origin,
     methods: corsOptions.methods,
