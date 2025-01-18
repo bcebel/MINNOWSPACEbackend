@@ -9,24 +9,17 @@ import { Server } from "socket.io";
 import { fileURLToPath } from "url";
 import path from "path";
 import { ApolloServer, gql } from "apollo-server-express";
-import { authMiddleware, signToken } from "./utils/auth.js";
+import authMiddleware from "./utils/auth.js";
+import typeDefs  from "./schemas/typeDefs.js";
+import  resolvers  from "./schemas/resolvers.js";
+import db from "./config/connection.js";
+
+
 import { graphql } from "graphql";
 
 dotenv.config();
 
 // Step 1: Define Apollo GraphQL Schema
-const typeDefs = gql`
-  type Query {
-    hello: String
-  }
-`;
-
-const resolvers = {
-  Query: {
-    hello: () => "Hello, world from GraphQL!",
-  },
-};
-
 // Step 2: Create Express app and set up Apollo Server
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
