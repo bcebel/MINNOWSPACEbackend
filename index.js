@@ -8,20 +8,40 @@ import dotenv from "dotenv";
 import { Server } from "socket.io";
 import { fileURLToPath } from "url";
 import path from "path";
+import { ApolloServer, gql } from "apollo-server-express";
+import { authMiddleware, signToken } from "./utils/auth.js";
+import { graphql } from "graphql";
 
 dotenv.config();
 
+// Step 1: Define Apollo GraphQL Schema
+const typeDefs = gql`
+  type Query {
+    hello: String
+  }
+`;
+
+const resolvers = {
+  Query: {
+    hello: () => "Hello, world from GraphQL!",
+  },
+};
+
+// Step 2: Create Express app and set up Apollo Server
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
 app.use(express.json());
 
 const corsOptions = {
   origin: (origin, callback) => {
     const allowedOrigins = [
+      "https://studio.apollographql.com",
       "https://minnowspace.vercel.app",
       "http://localhost:3001",
+      "http://localhost:3001/graphql",
       "http://localhost:8081",
     ];
     if (allowedOrigins.includes(origin) || !origin) {
@@ -35,6 +55,12 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
+// Step 3: Set up Apollo Server
+const apolloServer = new ApolloServer({ typeDefs, resolvers, cors: corsOptions,  });
+await apolloServer.start();
+apolloServer.applyMiddleware({ app });
+
+// Step 4: Set up Socket.IO Server
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -45,7 +71,7 @@ const io = new Server(server, {
 });
 
 const URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017";
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3001
 const JWT_SECRET = process.env.JWT_SECRET;
 
 mongoose
@@ -53,7 +79,7 @@ mongoose
   .then(() => console.log("Connected to MongoDB"))
   .catch((error) => console.error("MongoDB connection error:", error));
 
-// User Schema and Model
+// Step 5: Set up User Schema
 const UserSchema = new mongoose.Schema({
   username: { type: String, unique: true, required: true },
   password: { type: String, required: true },
@@ -71,7 +97,7 @@ const MessageSchema = new mongoose.Schema({
 });
 const Message = mongoose.model("Message", MessageSchema);
 
-// Middleware
+// Middleware for Authentication
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
@@ -84,7 +110,7 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-// Routes
+// Step 6: API Routes
 app.post("/api/register", async (req, res) => {
   try {
     const hashedPassword = await bcrypt.hash(req.body.password, 10);
@@ -125,6 +151,7 @@ app.get("/api/test", (req, res) => {
   res.send("Hello World");
 });
 
+// Get messages for a specific room
 app.get("/api/messages/:room", authenticateToken, async (req, res) => {
   try {
     const messages = await Message.find({ room: req.params.room })
@@ -137,7 +164,7 @@ app.get("/api/messages/:room", authenticateToken, async (req, res) => {
   }
 });
 
-// Socket.IO
+// Step 7: Socket.IO Event Handling
 io.use((socket, next) => {
   const token = socket.handshake.auth.token;
   if (!token) return next(new Error("Authentication error"));
@@ -187,7 +214,10 @@ io.on("connection", (socket) => {
   });
 });
 
-// Start Server
+// Step 8: Start the Server
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  console.log(
+    `GraphQL Server running at http://localhost:${PORT}${apolloServer.graphqlPath}`
+  );
 });
