@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 
 
+ 
 // MongoDB connection
 const URI = process.env.MONGODB_URI;
 mongoose.connect(URI);
@@ -18,10 +19,21 @@ const UserSchema = new mongoose.Schema({
 
 const User = mongoose.model("User", UserSchema);
 
+// Message Schema and Model
+const MessageSchema = new mongoose.Schema({
+  sender: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  content: String,
+  imageUrl: String,
+  room: String,
+  createdAt: { type: Date, default: Date.now },
+});
+const Message = mongoose.model("Message", MessageSchema);
+
 async function seedDatabase() {
   try {
     await User.deleteMany({});
-     await Messages.deleteMany({});
+    await Message.deleteMany({});
+    
     console.log("All existing records have been removed.");
     
     const hashedPassword1 = await bcrypt.hash("password123", 10);
