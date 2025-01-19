@@ -1,6 +1,9 @@
-require("dotenv").config();
-const mongoose = require("mongoose");
-const bcrypt = require("bcrypt");
+
+import dotenv from "dotenv";
+dotenv.config();
+import mongoose from "mongoose";
+import bcrypt from "bcrypt";
+
 
 // MongoDB connection
 const URI = process.env.MONGODB_URI;
@@ -9,6 +12,7 @@ mongoose.connect(URI);
 const UserSchema = new mongoose.Schema({
   username: { type: String, unique: true, required: true },
   password: { type: String, required: true },
+  email: { type: String, unique: true, required: true },
   createdAt: { type: Date, default: Date.now },
 });
 
@@ -23,9 +27,12 @@ async function seedDatabase() {
     const hashedPassword2 = await bcrypt.hash("testpass456", 10);
 
     const users = [
-      { username: "testuser1", password: hashedPassword1 },
-      { username: "testuser2", password: hashedPassword2 },
+      { username: "testuser1", password: hashedPassword1, email: "email@liame.com" },
+      { username: "testuser2", password: hashedPassword2, email: "liame@email.com"},
     ];
+
+
+        
 
     await User.insertMany(users);
 
