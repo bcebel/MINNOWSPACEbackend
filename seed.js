@@ -21,6 +21,7 @@ const User = mongoose.model("User", UserSchema);
 async function seedDatabase() {
   try {
     await User.deleteMany({});
+     await Messages.deleteMany({});
     console.log("All existing records have been removed.");
     
     const hashedPassword1 = await bcrypt.hash("password123", 10);
