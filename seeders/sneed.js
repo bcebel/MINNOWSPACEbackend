@@ -1,10 +1,18 @@
+import dotenv from "dotenv";
 
-import db from "../config/connection";
-import Profile from "../models/Profile";
-import profileSeeds from "./profileSeeds.json";
+dotenv.config({ path: "/Users/Brian/Desktop/bcode/minnowbe/minnowbe/.env" });
+console.log(dotenv)
 
+import mongoose from "mongoose";
+import Profile from "../models/Profile.js";
+import profileSeeds from "./profileSeeds.json" assert { type: "json" };
 
-db.once("open", async () => {
+// MongoDB connection
+const URI = process.env.MONGODB_URI;
+mongoose.connect(URI);
+
+const connection = mongoose.connection;
+connection.once("open", async () => {
   try {
     await Profile.deleteMany({});
     await Profile.create(profileSeeds);

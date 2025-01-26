@@ -10,12 +10,9 @@ import { fileURLToPath } from "url";
 import path from "path";
 import { ApolloServer, gql } from "apollo-server-express";
 import authMiddleware from "./utils/auth.js";
-import typeDefs  from "./schemas/typeDefs.js";
-import  resolvers  from "./schemas/resolvers.js";
+import typeDefs from "./schemas/typeDefs.js";
+import resolvers from "./schemas/resolvers.js";
 import db from "./config/connection.js";
-
-
-import { graphql } from "graphql";
 
 dotenv.config();
 
@@ -49,7 +46,11 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // Step 3: Set up Apollo Server
-const apolloServer = new ApolloServer({ typeDefs, resolvers, cors: corsOptions,  });
+const apolloServer = new ApolloServer({
+  typeDefs,
+  resolvers,
+  cors: corsOptions,
+});
 await apolloServer.start();
 apolloServer.applyMiddleware({ app });
 
@@ -63,8 +64,8 @@ const io = new Server(server, {
   },
 });
 
-const URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017";
-const PORT = process.env.PORT || 3001
+const URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/minnowspace";
+const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET;
 
 mongoose
@@ -86,6 +87,7 @@ const MessageSchema = new mongoose.Schema({
   sender: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   content: String,
   imageUrl: String,
+  videoId: String, // Add videoId for video messages
   room: String,
   createdAt: { type: Date, default: Date.now },
 });
@@ -153,10 +155,6 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
-app.get("/api/test", (req, res) => {
-  res.send("Hello World");
-});
-
 // Get messages for a specific room
 app.get("/api/messages/:room", authenticateToken, async (req, res) => {
   try {
@@ -193,6 +191,12 @@ io.on("connection", (socket) => {
   socket.on("leave-room", (room) => {
     socket.leave(room);
     console.log(`${socket.user.username} left room: ${room}`);
+  });
+
+  // Video message handling
+  socket.on("sendVideo", (videoId, room) => {
+    console.log(`Video sent: ${videoId} to room: ${room}`);
+    io.to(room).emit("receiveVideo", { videoId });
   });
 
   socket.on("message", async (data) => {
