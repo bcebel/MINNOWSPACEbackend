@@ -6,7 +6,6 @@ type User {
   youtubeChannel: String
   videos: [Video!]
   streams: [Stream!]
-  balance: Float
   chats: [Chat!] # Chats the user is involved in
   posts: [Post!] # Posts the user has created
   groups: [Group!] # Groups the user is part of
