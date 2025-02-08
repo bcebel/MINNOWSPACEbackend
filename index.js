@@ -12,8 +12,7 @@ import { ApolloServer, gql } from "apollo-server-express";
 import authMiddleware from "./utils/auth.js";
 import typeDefs from "./schemas/typeDefs.js";
 import resolvers from "./schemas/resolvers.js";
-import db from "./config/connection.js";
-
+import connectDB from"./config/connection.js";
 dotenv.config();
 
 // Step 1: Define Apollo GraphQL Schema
@@ -64,15 +63,11 @@ const io = new Server(server, {
   },
 });
 
-const URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/minnowspace";
+
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET;
 
-mongoose
-  .connect(URI)
-  .then(() => console.log("Connected to MongoDB"))
-  .catch((error) => console.error("MongoDB connection error:", error));
-
+connectDB();
 // Step 5: Set up User Schema
 const UserSchema = new mongoose.Schema({
   username: { type: String, unique: true, required: true },
