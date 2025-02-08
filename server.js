@@ -23,10 +23,7 @@ const URI = process.env.MONGODB_URI;
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET;
 
-mongoose
-  .connect(URI)
-  .then(() => console.log("Connected to MongoDB"))
-  .catch((err) => console.error("MongoDB connection error:", err));
+connectDB();
 
 // Schema definitions
 const UserSchema = new mongoose.Schema({
