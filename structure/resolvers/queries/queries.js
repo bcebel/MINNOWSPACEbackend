@@ -20,3 +20,5 @@ const resolvers = {
     group: async (_, { id }) => await Group.findById(id),
   },
 };
+
+export default resolvers;

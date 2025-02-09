@@ -10,8 +10,9 @@ import { fileURLToPath } from "url";
 import path from "path";
 import { ApolloServer, gql } from "apollo-server-express";
 import authMiddleware from "./utils/auth.js";
-import typeDefs from "./schemas/typeDefs.js";
-import resolvers from "./schemas/resolvers.js";
+import typeDefs from "./structure/typedefs/typedefs.js";
+import ModelSchema from "./structure/models/index.js";
+import resolvers from "./structure/resolvers/queries/queries.js";
 import connectDB from"./config/connection.js";
 dotenv.config();
 
@@ -69,24 +70,10 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 connectDB();
 // Step 5: Set up User Schema
-const UserSchema = new mongoose.Schema({
-  username: { type: String, unique: true, required: true },
-  password: { type: String, required: true },
-  email: { type: String, unique: true, required: true },
-  createdAt: { type: Date, default: Date.now },
-});
-const User = mongoose.model("User", UserSchema);
+const User = ModelSchema.User;
 
 // Message Schema and Model
-const MessageSchema = new mongoose.Schema({
-  sender: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  content: String,
-  imageUrl: String,
-  videoId: String, // Add videoId for video messages
-  room: String,
-  createdAt: { type: Date, default: Date.now },
-});
-const Message = mongoose.model("Message", MessageSchema);
+const Message = ModelSchema.Message;
 
 // Middleware for Authentication
 const authenticateToken = (req, res, next) => {
