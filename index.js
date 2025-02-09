@@ -141,7 +141,7 @@ app.post("/api/login", async (req, res) => {
 app.get("/api/messages/:room", authenticateToken, async (req, res) => {
   try {
     const messages = await Message.find({ room: req.params.room })
-      .populate("sender", "username")
+      .populate("sender", "username profilePhoto")
       .sort("-createdAt")
       .limit(50);
     res.json(messages);
@@ -193,7 +193,7 @@ io.on("connection", (socket) => {
 
       const populatedMessage = await Message.findById(message._id).populate(
         "sender",
-        "username"
+        "username",
       );
       io.to(data.room).emit("message", populatedMessage);
     } catch (error) {

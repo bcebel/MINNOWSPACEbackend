@@ -18,9 +18,7 @@ mongoose.connect(URI);
 // User Schema
 
 const User = Models.User;
-
 // Message Schema
-
 const Message = Models.Message;
 
 async function seedDatabase() {
@@ -39,11 +37,14 @@ async function seedDatabase() {
         username: "testuser1",
         password: hashedPassword1,
         email: "email@liame.com",
+        profilePhoto: "https://images.pexels.com/photos/30472381/pexels-photo-30472381/free-photo-of-elegant-male-fashion-portrait-with-moody-lighting.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2",
       },
       {
         username: "testuser2",
         password: hashedPassword2,
         email: "liame@email.com",
+        profilePhoto: "https://images.pexels.com/photos/29326451/pexels-photo-29326451/free-photo-of-rustic-shipwreck-on-a-pristine-beach.jpeg?auto=compress&cs=tinysrgb&w=1200&lazy=load",
+
       },
     ];
 
