@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple WebTorrent</title>
+</head>
+
+<body>
+    <h1>Simple WebTorrent Site</h1>
+
+    <!-- Add a file input to upload a torrent file -->
+    <input type="file" id="torrentFile" />
+    <button id="downloadButton">Download</button>
+
+    <input type="text" id="magnetLink" placeholder="Enter Magnet Link" />
+    <button id="playMagnetButton">Play Magnet</button>
+
+    <!-- Video player for media torrents -->
+    <video id="videoPlayer" controls style="display: none; width: 100%;"></video>
+<script src="https://cdn.jsdelivr.net/npm/webtorrent/webtorrent.min.js"></script>
+
+    <script src="multistream.js"></script>
+</body>
+
+</html>

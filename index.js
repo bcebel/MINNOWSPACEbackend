@@ -206,6 +206,14 @@ io.on("connection", (socket) => {
   });
 });
 
+// Serve static files from the "public" directory
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Fallback to index if a route isn't found
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'multistream.html'));
+});
+
 // Step 8: Start the Server
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
