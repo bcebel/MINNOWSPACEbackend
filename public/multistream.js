@@ -4,9 +4,8 @@ const client = new WebTorrent();
 // Select HTML elements
 const magnetLinkInput = document.getElementById("magnetLink");
 const playMagnetButton = document.getElementById("playMagnetButton");
-
-// Keep track of the video container
-let videoContainer = null;
+const statusElement = document.createElement("div");
+document.body.appendChild(statusElement);
 
 // Handle playing from a magnet link
 playMagnetButton.addEventListener("click", () => {
@@ -17,49 +16,70 @@ playMagnetButton.addEventListener("click", () => {
     return;
   }
 
-  // Check if the torrent already exists
-  if (client.get(magnetLink)) {
-    alert("Torrent already added. Please wait or refresh.");
-    return;
-  }
+  statusElement.textContent = "Starting download...";
 
-  // Clear any existing video container
-  if (videoContainer) {
-    document.body.removeChild(videoContainer);
-    videoContainer = null;
-  }
+  client.add(magnetLink, (torrent) => {
+    // Log initial connection
+    console.log("Client is downloading:", torrent.infoHash);
 
-  // Add the torrent
-  client.add(
-    magnetLink,
-    {
-      announce: [
-        "wss://tracker.openwebtorrent.com",
-        "wss://tracker.btorrent.xyz",
-        "wss://tracker.fastcast.nz", // You can remove this if it's always down
-      ],
-    },
-    (torrent) => {
-      console.log("Torrent info hash:", torrent.infoHash);
-      alert("Magnet download started!");
+    // Find the video file
+    const file = torrent.files.find(
+      (file) =>
+        file.name.endsWith(".mp4") ||
+        file.name.endsWith(".mkv") ||
+        file.name.endsWith(".webm")
+    );
 
-      // Stream the first MP4 file
-      torrent.files.forEach((file) => {
-        if (file.name.endsWith(".mp4")) {
-          // Create a new video container
-          videoContainer = document.createElement("div");
-          document.body.appendChild(videoContainer);
+    if (!file) {
+      statusElement.textContent = "No video file found in torrent";
+      return;
+    }
 
-          // Append the video to the container
-          file.appendTo(videoContainer, (err) => {
-            if (err) {
-              console.error("Error appending file:", err);
-            } else {
-              console.log("Video is now playing.");
-            }
-          });
+    // Create video element
+    const video = document.createElement("video");
+    video.controls = true;
+    video.style.width = "100%";
+    document.body.appendChild(video);
+
+    // Create file stream
+    const fileStream = file.createReadStream();
+    console.log("Created file stream");
+
+    // Get the file type
+    const fileType = file.name.split(".").pop();
+    const mimeType = `video/${fileType}`;
+
+    // Create media source
+    const mediaSource = new MediaSource();
+    video.src = URL.createObjectURL(mediaSource);
+
+    mediaSource.addEventListener("sourceopen", () => {
+      console.log("MediaSource opened");
+      const sourceBuffer = mediaSource.addSourceBuffer(mimeType);
+
+      // Handle data chunks
+      fileStream.on("data", (chunk) => {
+        // Log the chunk size
+        console.log("Received chunk:", chunk.length, "bytes");
+
+        try {
+          if (!sourceBuffer.updating) {
+            sourceBuffer.appendBuffer(chunk);
+          }
+        } catch (e) {
+          console.error("Error appending buffer:", e);
         }
       });
-    }
-  );
+
+      // Update status with progress
+      torrent.on("download", () => {
+        const progress = (torrent.progress * 100).toFixed(1);
+        statusElement.textContent = `Download Progress: ${progress}%`;
+      });
+    });
+
+    mediaSource.addEventListener("error", (e) => {
+      console.error("MediaSource error:", e);
+    });
+  });
 });
