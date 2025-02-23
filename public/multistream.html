@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>WebTorrent video player</title>
+    <title>WebTorrent Video Player</title>
     <style>
         #output video {
             width: 100%;
@@ -61,6 +61,13 @@
 
 <body>
     <div id="hero">
+        <!-- Form to input torrent link -->
+        <form id="torrentForm">
+            <input type="text" id="torrentLinkInput" placeholder="Enter magnet link or .torrent file URL"
+                style="width: 80%; padding: 10px; margin: 10px;">
+            <button type="submit" id="playButton">Play</button>
+        </form>
+
         <div id="output">
             <div id="progressBar"></div>
             <!-- The video player will be added here -->
@@ -71,9 +78,8 @@
                 <span class="show-leech">Downloading </span>
                 <span class="show-seed">Seeding </span>
                 <code>
-            <!-- Informative link to the torrent file -->
-            <a id="torrentLink" href="https://webtorrent.io/torrents/sintel.torrent">sintel.torrent</a>
-          </code>
+                    <a id="torrentLink" href="#">Loading...</a>.torrent
+                </code>
                 <span class="show-leech"> from </span>
                 <span class="show-seed"> to </span>
                 <code id="numPeers">0 peers</code>.
@@ -87,16 +93,14 @@
             </div>
         </div>
     </div>
+
     <!-- Include the latest version of WebTorrent -->
     <script src="https://cdn.jsdelivr.net/npm/webtorrent@1.8.0/webtorrent.min.js"></script>
-
     <!-- Moment is used to show a human-readable remaining time -->
     <script src="http://momentjs.com/downloads/moment.min.js"></script>
-
     <script>
-        const torrentId = 'https://webtorrent.io/torrents/sintel.torrent'
-
         const client = new WebTorrent()
+        let currentTorrent = null;
 
         // HTML elements
         const $body = document.body
@@ -107,64 +111,98 @@
         const $remaining = document.querySelector('#remaining')
         const $uploadSpeed = document.querySelector('#uploadSpeed')
         const $downloadSpeed = document.querySelector('#downloadSpeed')
+        const $torrentLink = document.querySelector('#torrentLink')
 
-        // Download the torrent
-        client.add(torrentId, function (torrent) {
+        // Handle form submission
+        document.getElementById('torrentForm').addEventListener('submit', function (e) {
+            e.preventDefault(); // Prevent form from refreshing the page
 
-            // Torrents can contain many files. Let's use the .mp4 file
-            const file = torrent.files.find(function (file) {
-                return file.name.endsWith('.mp4')
-            })
+            const torrentId = document.getElementById('torrentLinkInput').value.trim();
+            if (!torrentId) {
+                alert("Please enter a valid torrent link.");
+                return;
+            }
 
-            // Stream the file in the browser
-            file.appendTo('#output')
+            // Clear any existing torrent
+            if (currentTorrent) {
+                client.remove(currentTorrent);
+            }
 
-            // Trigger statistics refresh
-            torrent.on('done', onDone)
-            setInterval(onProgress, 500)
-            onProgress()
+            // Clear the output container
+            document.getElementById('output').innerHTML = '<div id="progressBar"></div>';
 
-            // Statistics
-            function onProgress() {
-                // Peers
-                $numPeers.innerHTML = torrent.numPeers + (torrent.numPeers === 1 ? ' peer' : ' peers')
+            // Add the new torrent
+            client.add(torrentId, function (torrent) {
+                currentTorrent = torrent;
 
-                // Progress
-                const percent = Math.round(torrent.progress * 100 * 100) / 100
-                $progressBar.style.width = percent + '%'
-                $downloaded.innerHTML = prettyBytes(torrent.downloaded)
-                $total.innerHTML = prettyBytes(torrent.length)
+                // Update the torrent link in the UI
+                $torrentLink.href = torrent.magnetURI;
+                $torrentLink.textContent = torrent.name;
 
-                // Remaining time
-                let remaining
-                if (torrent.done) {
-                    remaining = 'Done.'
+                // Find the first .mp4 file in the torrent
+                const file = torrent.files.find(function (file) {
+                    return file.name.endsWith('.mp4');
+                });
+
+                if (file) {
+                    // Stream the file in the browser
+                    file.appendTo('#output', function (err, elem) {
+                        if (err) {
+                            console.error("Error appending file:", err);
+                            alert("Failed to play the video.");
+                        } else {
+                            console.log("Video is now playing.");
+                        }
+                    });
                 } else {
-                    remaining = moment.duration(torrent.timeRemaining / 1000, 'seconds').humanize()
-                    remaining = remaining[0].toUpperCase() + remaining.substring(1) + ' remaining.'
+                    alert("No MP4 file found in the torrent.");
                 }
-                $remaining.innerHTML = remaining
 
-                // Speed rates
-                $downloadSpeed.innerHTML = prettyBytes(torrent.downloadSpeed) + '/s'
-                $uploadSpeed.innerHTML = prettyBytes(torrent.uploadSpeed) + '/s'
-            }
-            function onDone() {
-                $body.className += ' is-seed'
-                onProgress()
-            }
-        })
+                // Trigger statistics refresh
+                torrent.on('done', onDone);
+                setInterval(onProgress, 500);
+                onProgress();
+
+                // Statistics
+                function onProgress() {
+                    // Peers
+                    $numPeers.innerHTML = torrent.numPeers + (torrent.numPeers === 1 ? ' peer' : ' peers');
+                    // Progress
+                    const percent = Math.round(torrent.progress * 100 * 100) / 100;
+                    $progressBar.style.width = percent + '%';
+                    $downloaded.innerHTML = prettyBytes(torrent.downloaded);
+                    $total.innerHTML = prettyBytes(torrent.length);
+                    // Remaining time
+                    let remaining;
+                    if (torrent.done) {
+                        remaining = 'Done.';
+                    } else {
+                        remaining = moment.duration(torrent.timeRemaining / 1000, 'seconds').humanize();
+                        remaining = remaining[0].toUpperCase() + remaining.substring(1) + ' remaining.';
+                    }
+                    $remaining.innerHTML = remaining;
+                    // Speed rates
+                    $downloadSpeed.innerHTML = prettyBytes(torrent.downloadSpeed) + '/s';
+                    $uploadSpeed.innerHTML = prettyBytes(torrent.uploadSpeed) + '/s';
+                }
+
+                function onDone() {
+                    $body.className += ' is-seed';
+                    onProgress();
+                }
+            });
+        });
 
         // Human readable bytes util
         function prettyBytes(num) {
-            const units = ['B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
-            const neg = num < 0
-            if (neg) num = -num
-            if (num < 1) return (neg ? '-' : '') + num + ' B'
-            const exponent = Math.min(Math.floor(Math.log(num) / Math.log(1000)), units.length - 1)
-            const unit = units[exponent]
-            num = Number((num / Math.pow(1000, exponent)).toFixed(2))
-            return (neg ? '-' : '') + num + ' ' + unit
+            const units = ['B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+            const neg = num < 0;
+            if (neg) num = -num;
+            if (num < 1) return (neg ? '-' : '') + num + ' B';
+            const exponent = Math.min(Math.floor(Math.log(num) / Math.log(1000)), units.length - 1);
+            const unit = units[exponent];
+            num = Number((num / Math.pow(1000, exponent)).toFixed(2));
+            return (neg ? '-' : '') + num + ' ' + unit;
         }
     </script>
 </body>
