@@ -18,21 +18,30 @@ const s3 = new S3Client({
     secretAccessKey: FILEBASE_SECRET_KEY,
   },
 });
+  const upload = multer({ dest: "uploads/" }); // Temporary storage for uploaded files
 
 // Calculate CID locally
 async function calculateCID(filePath) {
-  const ipfs = create();
+  const ipfs = create({ url: "https://ipfs.infura.io:5001/api/v0" }); // Or another public IPFS API
   const fileContent = fs.readFileSync(filePath);
   const result = await ipfs.add(fileContent, { onlyHash: true });
   return result.cid.toString();
 }
 
+
+
 // Export a function to set up the upload route
 export default function setupVideoUploadRoute(app) {
-  const upload = multer({ dest: "uploads/" }); // Temporary storage for uploaded files
 
   app.post("/upload", upload.single("video"), async (req, res) => {
     try {
+      // Check if req.file exists
+      if (!req.file) {
+        return res
+          .status(400)
+          .json({ success: false, error: "No file uploaded." });
+      }
+
       const filePath = req.file.path; // Path to the uploaded file
       const cid = await calculateCID(filePath);
 
