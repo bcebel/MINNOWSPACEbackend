@@ -27,7 +27,7 @@ const upload = multer({
 });
 // Calculate CID locally
 async function calculateCID(filePath) {
-  const ipfs = create({ url: "https://ipfs.infura.io:5001/api/v0" }); // Or another public IPFS API
+  const ipfs = create({ url: "https://ipfs.filebase.io/api/v0" }); // Or another public IPFS API
   const fileContent = fs.readFileSync(filePath);
   const result = await ipfs.add(fileContent, { onlyHash: true });
   return result.cid.toString();
