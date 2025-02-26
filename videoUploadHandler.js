@@ -31,6 +31,11 @@ async function calculateCID(filePath) {
   return result.cid.toString();
 }
 
+// Ensure the 'uploads' directory exists
+const uploadsDir = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir);
+}
 // Export a function to set up the upload route
 export default function setupVideoUploadRoute(app) {
   app.post("/upload", upload.any(), async (req, res) => {
