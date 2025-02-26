@@ -1,0 +1,58 @@
+import multer from "multer";
+import fs from "fs";
+import path from "path";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { create } from "ipfs-http-client";
+
+// Configuration
+const FILEBASE_ACCESS_KEY = process.env.FILEBASE_ACCESS_KEY;
+const FILEBASE_SECRET_KEY = process.env.FILEBASE_SECRET_KEY;
+const FILEBASE_BUCKET_NAME = process.env.FILEBASE_BUCKET_NAME;
+
+// Initialize AWS S3 client for Filebase
+const s3 = new S3Client({
+  endpoint: "https://s3.filebase.com",
+  region: "us-east-1",
+  credentials: {
+    accessKeyId: FILEBASE_ACCESS_KEY,
+    secretAccessKey: FILEBASE_SECRET_KEY,
+  },
+});
+
+// Calculate CID locally
+async function calculateCID(filePath) {
+  const ipfs = create();
+  const fileContent = fs.readFileSync(filePath);
+  const result = await ipfs.add(fileContent, { onlyHash: true });
+  return result.cid.toString();
+}
+
+// Export a function to set up the upload route
+export default function setupVideoUploadRoute(app) {
+  const upload = multer({ dest: "uploads/" }); // Temporary storage for uploaded files
+
+  app.post("/upload", upload.single("video"), async (req, res) => {
+    try {
+      const filePath = req.file.path; // Path to the uploaded file
+      const cid = await calculateCID(filePath);
+
+      // Upload file to Filebase
+      const fileContent = fs.readFileSync(filePath);
+      const params = {
+        Bucket: FILEBASE_BUCKET_NAME,
+        Key: cid,
+        Body: fileContent,
+      };
+      const command = new PutObjectCommand(params);
+      await s3.send(command);
+
+      // Clean up temporary file
+      fs.unlinkSync(filePath);
+
+      res.json({ success: true, cid });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+}

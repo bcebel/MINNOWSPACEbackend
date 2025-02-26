@@ -14,15 +14,15 @@ import typeDefs from "./structure/typedefs/typedefs.js";
 import ModelSchema from "./structure/models/index.js";
 import resolvers from "./structure/resolvers/queries/queries.js";
 import connectDB from"./config/connection.js";
+import videoUploadHandler from "./videoUploadHandler.js"; // Import the video upload handler
 dotenv.config();
-
 // Step 1: Define Apollo GraphQL Schema
 // Step 2: Create Express app and set up Apollo Server
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-
+videoUploadHandler(app);
 app.use(express.json());
 
 const corsOptions = {
