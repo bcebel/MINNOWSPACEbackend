@@ -18,7 +18,7 @@ const s3 = new S3Client({
     secretAccessKey: FILEBASE_SECRET_KEY,
   },
 });
-  const upload = multer({ dest: "uploads/" }); // Temporary storage for uploaded files
+  const upload = multer(); // Temporary storage for uploaded files
 
 // Calculate CID locally
 async function calculateCID(filePath) {
@@ -32,33 +32,41 @@ async function calculateCID(filePath) {
 
 // Export a function to set up the upload route
 export default function setupVideoUploadRoute(app) {
-
-  app.post("/upload", upload.single("video"), async (req, res) => {
+  app.post("/upload", upload.any(), async (req, res) => {
     try {
-      // Check if req.file exists
-      if (!req.file) {
+      if (req.files && req.files.length > 0) {
+        // Handle file upload (native)
+        const filePath = req.files[0].path;
+        // ... (your existing file upload logic) ...
+      } else if (req.body.video) {
+        // Handle base64 upload (web)
+        const base64Data = req.body.video;
+        const fileName = req.body.name;
+        const fileType = req.body.type;
+        const buffer = Buffer.from(base64Data.split(",")[1], "base64");
+        const tempFilePath = path.join("uploads", fileName);
+        fs.writeFileSync(tempFilePath, buffer);
+
+        const cid = await calculateCID(tempFilePath);
+
+        // Upload file to Filebase
+        const params = {
+          Bucket: FILEBASE_BUCKET_NAME,
+          Key: cid,
+          Body: buffer,
+        };
+        const command = new PutObjectCommand(params);
+        await s3.send(command);
+
+        // Clean up temporary file
+        fs.unlinkSync(tempFilePath);
+
+        res.json({ success: true, cid });
+      } else {
         return res
           .status(400)
           .json({ success: false, error: "No file uploaded." });
       }
-
-      const filePath = req.file.path; // Path to the uploaded file
-      const cid = await calculateCID(filePath);
-
-      // Upload file to Filebase
-      const fileContent = fs.readFileSync(filePath);
-      const params = {
-        Bucket: FILEBASE_BUCKET_NAME,
-        Key: cid,
-        Body: fileContent,
-      };
-      const command = new PutObjectCommand(params);
-      await s3.send(command);
-
-      // Clean up temporary file
-      fs.unlinkSync(filePath);
-
-      res.json({ success: true, cid });
     } catch (error) {
       console.error(error);
       res.status(500).json({ success: false, error: error.message });
