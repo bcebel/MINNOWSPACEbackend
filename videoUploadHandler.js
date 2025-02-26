@@ -18,8 +18,11 @@ const s3 = new S3Client({
     secretAccessKey: FILEBASE_SECRET_KEY,
   },
 });
-  const upload = multer(); // Temporary storage for uploaded files
-
+const upload = multer({
+  limits: {
+    fieldSize: 50 * 1024 * 1024, // 50MB (adjust as needed)
+  },
+});
 // Calculate CID locally
 async function calculateCID(filePath) {
   const ipfs = create({ url: "https://ipfs.infura.io:5001/api/v0" }); // Or another public IPFS API
