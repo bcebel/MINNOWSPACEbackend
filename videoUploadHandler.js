@@ -21,6 +21,7 @@ const s3 = new S3Client({
 const upload = multer({
   limits: {
     fileSize: 100 * 1024 * 1024, // 100 MB (adjust as needed)
+    fieldSize: 10 * 1024 * 1024,
   },
 });
 
