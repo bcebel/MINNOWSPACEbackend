@@ -31,8 +31,6 @@ async function calculateCID(filePath) {
   return result.cid.toString();
 }
 
-
-
 // Export a function to set up the upload route
 export default function setupVideoUploadRoute(app) {
   app.post("/upload", upload.any(), async (req, res) => {
@@ -46,7 +44,7 @@ export default function setupVideoUploadRoute(app) {
         const base64Data = req.body.video;
         const fileName = req.body.name;
         const fileType = req.body.type;
-        const buffer = Buffer.from(base64Data.split(",")[1], "base64");
+        const buffer = Buffer.from(base64Data, "base64");
         const tempFilePath = path.join("uploads", fileName);
         fs.writeFileSync(tempFilePath, buffer);
 
