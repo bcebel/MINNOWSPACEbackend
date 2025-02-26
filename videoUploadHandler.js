@@ -3,10 +3,8 @@ import multer from "multer";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import dotenv from "dotenv";
 
-dotenv.config(); // Load environment variables
-
-const app = express();
-const PORT = process.env.PORT || 5000;
+// Load environment variables
+dotenv.config();
 
 // Configure Filebase S3
 const s3 = new S3Client({
@@ -26,31 +24,38 @@ const upload = multer({
   },
 });
 
-// Upload Route
-app.post("/upload", upload.single("video"), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res
-        .status(400)
-        .json({ success: false, error: "No file uploaded." });
+// Function to set up the upload route
+export default function setupUploadRoute(app) {
+  app.post("/upload", upload.single("video"), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res
+          .status(400)
+          .json({ success: false, error: "No file uploaded." });
+      }
+
+      console.log("Uploaded File:", req.file); // Log the uploaded file details
+
+      const fileKey = `${Date.now()}-${req.file.originalname}`;
+      const params = {
+        Bucket: process.env.FILEBASE_BUCKET_NAME,
+        Key: fileKey,
+        Body: req.file.buffer,
+        ContentType: req.file.mimetype,
+      };
+
+      console.log("Uploading to Filebase with params:", params); // Log the upload parameters
+
+      await s3.send(new PutObjectCommand(params));
+      res.json({ success: true, fileKey });
+    } catch (error) {
+      console.error("Upload error:", error);
+      res
+        .status(500)
+        .json({
+          success: false,
+          error: error.message || "Internal Server Error",
+        });
     }
-
-    const fileKey = `${Date.now()}-${req.file.originalname}`;
-
-    const params = {
-      Bucket: process.env.FILEBASE_BUCKET_NAME,
-      Key: fileKey,
-      Body: req.file.buffer,
-      ContentType: req.file.mimetype,
-    };
-
-    await s3.send(new PutObjectCommand(params));
-
-    res.json({ success: true, fileKey });
-  } catch (error) {
-    console.error("Upload error:", error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  });
+}
