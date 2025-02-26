@@ -1,68 +1,56 @@
+import express from "express";
 import multer from "multer";
-import fs from "fs";
-import path from "path";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import dotenv from "dotenv";
 
-// Configuration
-const FILEBASE_ACCESS_KEY = process.env.FILEBASE_ACCESS_KEY;
-const FILEBASE_SECRET_KEY = process.env.FILEBASE_SECRET_KEY;
-const FILEBASE_BUCKET_NAME = process.env.FILEBASE_BUCKET_NAME;
+dotenv.config(); // Load environment variables
 
-// Initialize AWS S3 client for Filebase
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// Configure Filebase S3
 const s3 = new S3Client({
   endpoint: "https://s3.filebase.com",
   region: "us-east-1",
   credentials: {
-    accessKeyId: FILEBASE_ACCESS_KEY,
-    secretAccessKey: FILEBASE_SECRET_KEY,
+    accessKeyId: process.env.FILEBASE_ACCESS_KEY,
+    secretAccessKey: process.env.FILEBASE_SECRET_KEY,
   },
 });
 
+// Multer storage in memory (no temp file creation)
 const upload = multer({
+  storage: multer.memoryStorage(),
   limits: {
-    fileSize: 100 * 1024 * 1024, // 100 MB (adjust as needed)
-    fieldSize: 10 * 1024 * 1024,
+    fileSize: 100 * 1024 * 1024, // 100MB max size
   },
 });
 
-// Ensure the 'uploads' directory exists
-const uploadsDir = path.join(process.cwd(), "uploads");
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir);
-}
-
-// Export a function to set up the upload route
-export default function setupVideoUploadRoute(app) {
-  app.post("/upload", upload.single("video"), async (req, res) => {
-    try {
-      if (!req.file) {
-        return res
-          .status(400)
-          .json({ success: false, error: "No file uploaded." });
-      }
-
-      const filePath = req.file.path; // Path to the uploaded file
-
-      // Generate a unique key for the file
-      const fileKey = `${Date.now()}-${req.file.originalname}`;
-
-      // Upload file to Filebase
-      const fileContent = fs.readFileSync(filePath);
-      const params = {
-        Bucket: FILEBASE_BUCKET_NAME,
-        Key: fileKey,
-        Body: fileContent,
-      };
-      const command = new PutObjectCommand(params);
-      await s3.send(command);
-
-      // Clean up temporary file
-      fs.unlinkSync(filePath);
-
-      res.json({ success: true, fileKey });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ success: false, error: error.message });
+// Upload Route
+app.post("/upload", upload.single("video"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res
+        .status(400)
+        .json({ success: false, error: "No file uploaded." });
     }
-  });
-}
+
+    const fileKey = `${Date.now()}-${req.file.originalname}`;
+
+    const params = {
+      Bucket: process.env.FILEBASE_BUCKET_NAME,
+      Key: fileKey,
+      Body: req.file.buffer,
+      ContentType: req.file.mimetype,
+    };
+
+    await s3.send(new PutObjectCommand(params));
+
+    res.json({ success: true, fileKey });
+  } catch (error) {
+    console.error("Upload error:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
