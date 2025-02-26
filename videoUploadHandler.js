@@ -3,6 +3,8 @@ import fs from "fs";
 import path from "path";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { create } from "ipfs-http-client";
+import { v4 as uuidv4 } from 'uuid'; // Import UUID generator
+
 
 // Configuration
 const FILEBASE_ACCESS_KEY = process.env.FILEBASE_ACCESS_KEY;
@@ -47,7 +49,7 @@ export default function setupVideoUploadRoute(app) {
       } else if (req.body.video) {
         // Handle base64 upload (web)
         const base64Data = req.body.video;
-        const fileName = req.body.name;
+        const fileName = uuidv4(); // Generate a UUID for the file name
         const fileType = req.body.type;
         const buffer = Buffer.from(base64Data, "base64");
         const tempFilePath = path.join("uploads", fileName);
