@@ -2,9 +2,6 @@ import multer from "multer";
 import fs from "fs";
 import path from "path";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { create } from "ipfs-http-client";
-import { v4 as uuidv4 } from 'uuid'; // Import UUID generator
-
 
 // Configuration
 const FILEBASE_ACCESS_KEY = process.env.FILEBASE_ACCESS_KEY;
@@ -20,61 +17,48 @@ const s3 = new S3Client({
     secretAccessKey: FILEBASE_SECRET_KEY,
   },
 });
+
 const upload = multer({
   limits: {
-    fieldSize: 50 * 1024 * 1024, // 50MB (adjust as needed)
+    fileSize: 100 * 1024 * 1024, // 100 MB (adjust as needed)
   },
 });
-// Calculate CID locally
-async function calculateCID(filePath) {
-  const ipfs = create({ url: "https://ipfs.filebase.io/api/v0" }); // Or another public IPFS API
-  const fileContent = fs.readFileSync(filePath);
-  const result = await ipfs.add(fileContent, { onlyHash: true });
-  return result.cid.toString();
-}
 
 // Ensure the 'uploads' directory exists
 const uploadsDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir);
 }
+
 // Export a function to set up the upload route
 export default function setupVideoUploadRoute(app) {
-  app.post("/upload", upload.any(), async (req, res) => {
+  app.post("/upload", upload.single("video"), async (req, res) => {
     try {
-      if (req.files && req.files.length > 0) {
-        // Handle file upload (native)
-        const filePath = req.files[0].path;
-        // ... (your existing file upload logic) ...
-      } else if (req.body.video) {
-        // Handle base64 upload (web)
-        const base64Data = req.body.video;
-        const fileName = uuidv4(); // Generate a UUID for the file name
-        const fileType = req.body.type;
-        const buffer = Buffer.from(base64Data, "base64");
-        const tempFilePath = path.join("uploads", fileName);
-        fs.writeFileSync(tempFilePath, buffer);
-
-        const cid = await calculateCID(tempFilePath);
-
-        // Upload file to Filebase
-        const params = {
-          Bucket: FILEBASE_BUCKET_NAME,
-          Key: cid,
-          Body: buffer,
-        };
-        const command = new PutObjectCommand(params);
-        await s3.send(command);
-
-        // Clean up temporary file
-        fs.unlinkSync(tempFilePath);
-
-        res.json({ success: true, cid });
-      } else {
+      if (!req.file) {
         return res
           .status(400)
           .json({ success: false, error: "No file uploaded." });
       }
+
+      const filePath = req.file.path; // Path to the uploaded file
+
+      // Generate a unique key for the file
+      const fileKey = `${Date.now()}-${req.file.originalname}`;
+
+      // Upload file to Filebase
+      const fileContent = fs.readFileSync(filePath);
+      const params = {
+        Bucket: FILEBASE_BUCKET_NAME,
+        Key: fileKey,
+        Body: fileContent,
+      };
+      const command = new PutObjectCommand(params);
+      await s3.send(command);
+
+      // Clean up temporary file
+      fs.unlinkSync(filePath);
+
+      res.json({ success: true, fileKey });
     } catch (error) {
       console.error(error);
       res.status(500).json({ success: false, error: error.message });
