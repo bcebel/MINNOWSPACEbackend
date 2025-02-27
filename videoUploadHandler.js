@@ -1,12 +1,14 @@
-import express from "express";
 import multer from "multer";
+import fs from "fs";
+import path from "path";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { create } from "ipfs-http-client"
 import dotenv from "dotenv";
-
-// Load environment variables
 dotenv.config();
 
-// Configure Filebase S3
+const upload = multer({ dest: "uploads/" });
+
+// Filebase Configuration
 const s3 = new S3Client({
   endpoint: "https://s3.filebase.com",
   region: "us-east-1",
@@ -15,47 +17,40 @@ const s3 = new S3Client({
     secretAccessKey: process.env.FILEBASE_SECRET_KEY,
   },
 });
+const FILEBASE_BUCKET_NAME = process.env.FILEBASE_BUCKET_NAME;
 
-// Multer storage in memory (no temp file creation)
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB max size
-  },
-});
+async function calculateCID(filePath) {
+  const ipfs = create({ url: "https://ipfs.infura.io:5001/api/v0" });
+  const fileContent = fs.readFileSync(filePath);
+  const result = await ipfs.add(fileContent, { onlyHash: true });
+  return result.cid.toString();
+}
 
-// Function to set up the upload route
 export default function setupUploadRoute(app) {
-  app.post("/upload", upload.single("video"), async (req, res) => {
+  app.post("/upload", upload.single("file"), async (req, res) => {
     try {
       if (!req.file) {
-        return res
-          .status(400)
-          .json({ success: false, error: "No file uploaded." });
+        return res.status(400).json({ error: "No file uploaded." });
       }
 
-      console.log("Uploaded File:", req.file); // Log the uploaded file details
+      const filePath = req.file.path;
+      const cid = await calculateCID(filePath);
 
-      const fileKey = `${Date.now()}-${req.file.originalname}`;
+      const fileContent = fs.readFileSync(filePath);
       const params = {
-        Bucket: process.env.FILEBASE_BUCKET_NAME,
-        Key: fileKey,
-        Body: req.file.buffer,
-        ContentType: req.file.mimetype,
+        Bucket: FILEBASE_BUCKET_NAME,
+        Key: cid,
+        Body: fileContent,
       };
+      const command = new PutObjectCommand(params);
+      await s3.send(command);
 
-      console.log("Uploading to Filebase with params:", params); // Log the upload parameters
+      fs.unlinkSync(filePath);
 
-      await s3.send(new PutObjectCommand(params));
-      res.json({ success: true, fileKey });
+      res.json({ cid });
     } catch (error) {
-      console.error("Upload error:", error);
-      res
-        .status(500)
-        .json({
-          success: false,
-          error: error.message || "Internal Server Error",
-        });
+      console.error(error);
+      res.status(500).json({ error: error.message });
     }
   });
-}
+};
