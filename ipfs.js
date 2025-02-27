@@ -13,7 +13,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Configuration
-const FILE_PATH = "./MOVIE4.mp4"; // Path to your video file
+const FILE_PATH = "./MOVIE5.mp4"; // Path to your video file
 const FILEBASE_ACCESS_KEY = process.env.FILEBASE_ACCESS_KEY; // Replace with your Filebase Access Key
 const FILEBASE_SECRET_KEY = process.env.FILEBASE_SECRET_KEY; // Replace with your Filebase Secret Key
 const FILEBASE_BUCKET_NAME = process.env.FILEBASE_BUCKET_NAME; // Replace with your Filebase bucket name
@@ -60,7 +60,7 @@ async function main() {
     // Download the file from IPFS (optional, if you want to work locally)
     console.log("Downloading file from IPFS...");
     const arrayBuffer = await fetch(ipfsUrl).then((res) => res.arrayBuffer());
-    const downloadedFilePath = path.join(__dirname, "downloaded-MOVIE3.mp4");
+    const downloadedFilePath = path.join(__dirname, "downloaded-MOVIE5.mp4");
     fs.writeFileSync(downloadedFilePath, Buffer.from(arrayBuffer));
     console.log(`File downloaded to: ${downloadedFilePath}`);
 
@@ -75,7 +75,7 @@ async function main() {
           return;
         }
 
-        const torrentFilePath = path.join(__dirname, "MOVIE3.torrent");
+        const torrentFilePath = path.join(__dirname, "MOVIE5.torrent");
         fs.writeFileSync(torrentFilePath, torrent);
         console.log(`.torrent file created: ${torrentFilePath}`);
 
