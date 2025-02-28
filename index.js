@@ -33,6 +33,7 @@ const corsOptions = {
       "http://localhost:3001",
       "http://localhost:3001/graphql",
       "http://localhost:8081",
+      "http://127.0.0.1:5501",
     ];
     if (allowedOrigins.includes(origin) || !origin) {
       callback(null, true);

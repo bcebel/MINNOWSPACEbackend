@@ -20,7 +20,6 @@ async function calculateCID(fileBuffer) {
 }
 
 export default (app) => {
-  // Export a function that accepts app
   const uploadHandler = multer({ storage: multer.memoryStorage() }).single(
     "video"
   );
@@ -56,7 +55,15 @@ export default (app) => {
 
       createTorrent(
         tempFilePath,
-        { announce: ["wss://tracker.openwebtorrent.com"] },
+        {
+          announce: [
+            "wss://tracker.openwebtorrent.com",
+            "udp://tracker.opentrackr.org:1337/announce",
+            "udp://tracker.internetwarriors.net:1337/announce",
+            "udp://tracker.torrent.eu.org:451/announce",
+            "udp://tracker.coppersurfer.tk:6969/announce",
+          ],
+        },
         (err, torrent) => {
           if (err) {
             console.error(err);
@@ -65,7 +72,15 @@ export default (app) => {
           const client = new WebTorrent();
           client.seed(
             tempFilePath,
-            { announce: ["wss://tracker.openwebtorrent.com"] },
+            {
+              announce: [
+                "wss://tracker.openwebtorrent.com",
+                "udp://tracker.opentrackr.org:1337/announce",
+                "udp://tracker.internetwarriors.net:1337/announce",
+                "udp://tracker.torrent.eu.org:451/announce",
+                "udp://tracker.coppersurfer.tk:6969/announce",
+              ],
+            },
             (torrentData) => {
               fs.unlinkSync(tempFilePath);
               res.json({ ipfsUrl, magnetLink: torrentData.magnetURI });
