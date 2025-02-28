@@ -12,11 +12,30 @@ dotenv.config();
 const FILEBASE_ACCESS_KEY = process.env.FILEBASE_ACCESS_KEY;
 const FILEBASE_SECRET_KEY = process.env.FILEBASE_SECRET_KEY;
 const FILEBASE_BUCKET_NAME = process.env.FILEBASE_BUCKET_NAME;
+const INFURA_ENDPOINT = process.env.INFURA_ENDPOINT; // e.g., "https://ipfs.infura.io:5001/api/v0"
+const INFURA_API_KEY = process.env.INFURA_API_KEY;
+const INFURA_SECRET_KEY = process.env.INFURA_SECRET_KEY;
 
+// Function to calculate CID using Infura's IPFS API
 async function calculateCID(fileBuffer) {
-  const ipfs = create();
-  const result = await ipfs.add(fileBuffer, { onlyHash: true });
-  return result.cid.toString();
+  const auth =
+    "Basic " +
+    Buffer.from(`${INFURA_API_KEY}:${INFURA_SECRET_KEY}`).toString("base64");
+
+  const ipfs = create({
+    url: INFURA_ENDPOINT,
+    headers: {
+      authorization: auth,
+    },
+  });
+
+  try {
+    const result = await ipfs.add(fileBuffer, { onlyHash: true });
+    return result.cid.toString();
+  } catch (error) {
+    console.error("Error calculating CID:", error);
+    throw new Error("Failed to calculate CID");
+  }
 }
 
 export default (app) => {
@@ -30,8 +49,10 @@ export default (app) => {
     }
 
     try {
+      // Calculate CID using Infura
       const cid = await calculateCID(req.file.buffer);
 
+      // Upload file to Filebase S3
       const s3 = new S3Client({
         endpoint: "https://s3.filebase.com",
         region: "us-east-1",
@@ -50,9 +71,11 @@ export default (app) => {
       await s3.send(new PutObjectCommand(params));
       const ipfsUrl = `https://ipfs.filebase.io/ipfs/${cid}`;
 
+      // Create a temporary file for torrent creation
       const tempFilePath = path.join(process.cwd(), `${cid}.mp4`);
       fs.writeFileSync(tempFilePath, req.file.buffer);
 
+      // Create a torrent file
       createTorrent(
         tempFilePath,
         {
@@ -69,6 +92,8 @@ export default (app) => {
             console.error(err);
             return res.status(500).send("Torrent creation failed.");
           }
+
+          // Seed the torrent
           const client = new WebTorrent();
           client.seed(
             tempFilePath,
@@ -82,7 +107,10 @@ export default (app) => {
               ],
             },
             (torrentData) => {
+              // Clean up the temporary file
               fs.unlinkSync(tempFilePath);
+
+              // Respond with IPFS URL and magnet link
               res.json({ ipfsUrl, magnetLink: torrentData.magnetURI });
             }
           );
