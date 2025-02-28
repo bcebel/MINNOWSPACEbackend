@@ -4,7 +4,6 @@ import path from "path";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import createTorrent from "create-torrent";
 import WebTorrent from "webtorrent";
-import { create } from "ipfs-http-client";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -12,28 +11,36 @@ dotenv.config();
 const FILEBASE_ACCESS_KEY = process.env.FILEBASE_ACCESS_KEY;
 const FILEBASE_SECRET_KEY = process.env.FILEBASE_SECRET_KEY;
 const FILEBASE_BUCKET_NAME = process.env.FILEBASE_BUCKET_NAME;
-const INFURA_ENDPOINT = process.env.INFURA_ENDPOINT; // e.g., "https://ipfs.infura.io:5001/api/v0"
-const INFURA_API_KEY = process.env.INFURA_API_KEY;
-const INFURA_SECRET_KEY = process.env.INFURA_SECRET_KEY;
+const PINATA_API_KEY = process.env.PINATA_API_KEY;
+const PINATA_SECRET_API_KEY = process.env.PINATA_SECRET_API_KEY;
 
-// Function to calculate CID using Infura's IPFS API
-async function calculateCID(fileBuffer) {
-  const auth =
-    "Basic " +
-    Buffer.from(`${INFURA_API_KEY}:${INFURA_SECRET_KEY}`).toString("base64");
-
-  const ipfs = create({
-    url: INFURA_ENDPOINT,
-    headers: {
-      authorization: auth,
-    },
-  });
+// Function to calculate CID using Pinata's API
+async function calculateCID(fileBuffer, fileName) {
+  const formData = new FormData();
+  formData.append("file", fileBuffer, fileName);
 
   try {
-    const result = await ipfs.add(fileBuffer, { onlyHash: true });
-    return result.cid.toString();
+    const response = await fetch(
+      "https://api.pinata.cloud/pinning/pinFileToIPFS",
+      {
+        method: "POST",
+        headers: {
+          pinata_api_key: PINATA_API_KEY,
+          pinata_secret_api_key: PINATA_SECRET_API_KEY,
+        },
+        body: formData,
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Pinata API error: ${errorData.error.message}`);
+    }
+
+    const result = await response.json();
+    return result.IpfsHash; // CID of the uploaded file
   } catch (error) {
-    console.error("Error calculating CID:", error);
+    console.error("Error calculating CID:", error.message);
     throw new Error("Failed to calculate CID");
   }
 }
@@ -49,8 +56,8 @@ export default (app) => {
     }
 
     try {
-      // Calculate CID using Infura
-      const cid = await calculateCID(req.file.buffer);
+      // Calculate CID using Pinata
+      const cid = await calculateCID(req.file.buffer, req.file.originalname);
 
       // Upload file to Filebase S3
       const s3 = new S3Client({
