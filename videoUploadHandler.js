@@ -6,6 +6,7 @@ import createTorrent from "create-torrent";
 import WebTorrent from "webtorrent";
 import dotenv from "dotenv";
 import FormData from "form-data";
+import { PinataSDK } from "pinata-web3";
 
 dotenv.config();
 
@@ -14,41 +15,39 @@ const FILEBASE_SECRET_KEY = process.env.FILEBASE_SECRET_KEY;
 const FILEBASE_BUCKET_NAME = process.env.FILEBASE_BUCKET_NAME;
 const PINATA_API_KEY = process.env.PINATA_API_KEY;
 const PINATA_SECRET_API_KEY = process.env.PINATA_SECRET_API_KEY;
+const PINATA_JWT = process.env.PINATA_JWT;
 
 
 
 // Function to calculate CID using Pinata's API
+// Initialize the Pinata SDK
+const pinata = new PinataSDK({
+  pinataJwt: process.env.PINATA_JWT, // Use your JWT from the environment variable
+  pinataGateway: "gateway.pinata.cloud", // Default gateway domain
+});
 
 async function calculateCID(fileBuffer, fileName) {
-  const form = new FormData();
-  form.append("file", fileBuffer, { filename: fileName });
-
   try {
-    const response = await fetch(
-      "https://api.pinata.cloud/pinning/pinFileToIPFS",
-      {
-        method: "POST",
-        headers: {
-          ...form.getHeaders(), // Automatically sets the correct Content-Type header
-          pinata_api_key: PINATA_API_KEY,
-          pinata_secret_api_key: PINATA_SECRET_API_KEY,
-        },
-        body: form,
-      }
-    );
+    console.log("Uploading file to Pinata:", fileName);
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Pinata API error: ${errorData.error.message}`);
-    }
+    // Create a File object from the buffer
+    const file = new File([fileBuffer], fileName, {
+      type: "application/octet-stream",
+    });
 
-    const result = await response.json();
-    return result.IpfsHash; // CID of the uploaded file
+    // Upload the file using the Pinata SDK
+    const uploadResponse = await pinata.upload.file(file);
+    console.log("Upload response:", uploadResponse);
+
+    return uploadResponse.IpfsHash; // CID of the uploaded file
   } catch (error) {
     console.error("Error calculating CID:", error.message);
     throw new Error("Failed to calculate CID");
   }
 }
+
+
+
 
 export default (app) => {
   const uploadHandler = multer({ storage: multer.memoryStorage() }).single(
