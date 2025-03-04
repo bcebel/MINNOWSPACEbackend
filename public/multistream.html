@@ -11,50 +11,17 @@
             margin: 20px;
         }
 
-        #videoGallery {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-        }
-
         video {
-            max-width: 100%;
+            width: 100%;
             margin-top: 10px;
         }
 
         button {
-            margin-top: 10px;
             padding: 10px 20px;
             background-color: #007bff;
             color: white;
             border: none;
             cursor: pointer;
-        }
-
-        #status {
-            margin-top: 20px;
-            font-weight: bold;
-        }
-
-        .loading-spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            animation: spin 1s linear infinite;
-            display: inline-block;
-            margin-left: 10px;
-        }
-
-        @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
-                transform: rotate(360deg);
-            }
         }
     </style>
 </head>
@@ -62,43 +29,29 @@
 <body>
     <h1>Video Gallery</h1>
     <div id="videoGallery"></div>
-    <div id="status"></div>
 
     <!-- Include WebTorrent Library -->
     <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
-
     <script>
         // Load the WebTorrent library
         const client = new WebTorrent();
-
-        // Select HTML elements
-        const galleryContainer = document.getElementById("videoGallery");
-        const statusElement = document.getElementById("status");
 
         // Fetch videos from the backend
         async function fetchVideos() {
             try {
                 const response = await fetch("https://minnowspacebackend-e6635e46c3d0.herokuapp.com/api/videos");
-                if (!response.ok) {
-                    throw new Error("Failed to fetch videos.");
-                }
-                const videos = await response.json();
-                return videos;
+                if (!response.ok) throw new Error("Failed to fetch videos.");
+                return await response.json();
             } catch (error) {
                 console.error("Error fetching videos:", error);
-                statusElement.textContent = "Failed to load videos. Please try again later.";
                 return [];
             }
         }
 
         // Populate the video gallery
         function populateVideoGallery(videos) {
+            const galleryContainer = document.getElementById("videoGallery");
             galleryContainer.innerHTML = ""; // Clear existing content
-
-            if (videos.length === 0) {
-                statusElement.textContent = "No videos available.";
-                return;
-            }
 
             videos.forEach((video) => {
                 const videoCard = document.createElement("div");
@@ -110,115 +63,44 @@
           <h3>${video.title}</h3>
           <p>Uploaded by: ${video.user.username}</p>
           <p>${video.description || "No description"}</p>
-          <button onclick="playMagnet('${video.magnetLink}', '${video.cid}')">Play</button>
+          <button onclick="playMagnet('${video.magnetLink}')">Play</button>
         `;
 
                 galleryContainer.appendChild(videoCard);
             });
         }
 
-        // Play video via WebTorrent or fallback to IPFS
-    function playMagnet(magnetLink, cid) {
-        setTimeout(() => {
-            const torrent = client.get(magnetLink);
-            if (!torrent || torrent.numPeers === 0) {
-                statusElement.textContent =
-                    "No peers available. Falling back to IPFS.";
-                fallbackToIpfs(ipfsUrl);
-            }
-        }, 10000); // Wait 10 seconds for peers
+        // Play video via WebTorrent
+        function playMagnet(magnetLink) {
+            // Clear previous video
+            const existingVideo = document.querySelector("video");
+            if (existingVideo) existingVideo.remove();
 
-        const ipfsUrl = `https://example-gateway.mypinata.cloud/ipfs/${cid}`;
-        statusElement.innerHTML = "Starting download... <span class='loading-spinner'></span>";
+            client.add(magnetLink, (torrent) => {
+                console.log("Client is downloading:", torrent.infoHash);
 
-        // Clear previous video
-        const existingVideo = document.querySelector("video");
-        if (existingVideo) {
-            existingVideo.remove();
-        }
+                // Find the first playable video file in the torrent
+                const file = torrent.files.find(
+                    (file) =>
+                        file.name.endsWith(".mp4") ||
+                        file.name.endsWith(".mkv") ||
+                        file.name.endsWith(".webm")
+                );
 
-        client.add(magnetLink, (torrent) => {
-            console.log("Client is downloading:", torrent.infoHash);
-
-            // Update the torrent link in the UI
-            $torrentLink.href = torrent.magnetURI;
-            $torrentLink.textContent = torrent.name;
-
-            // Find the first playable video file in the torrent
-            const file = torrent.files.find(
-                (file) =>
-                    file.name.endsWith(".mp4") ||
-                    file.name.endsWith(".mkv") ||
-                    file.name.endsWith(".webm")
-            );
-
-            if (!file) {
-                statusElement.textContent =
-                    "No playable video file found in torrent. Falling back to IPFS.";
-                fallbackToIpfs(ipfsUrl);
-                return;
-            }
-
-            // Stream the file in the browser
-            file.appendTo("#output", function (err, elem) {
-                if (err) {
-                    console.error("Error appending file:", err);
-                    statusElement.textContent =
-                        "Failed to play the video. Falling back to IPFS.";
-                    fallbackToIpfs(ipfsUrl);
-                } else {
-                    console.log("Video is now playing.");
-                    statusElement.textContent = "Playing video...";
+                if (!file) {
+                    alert("No playable video file found in the torrent.");
+                    return;
                 }
-            });
 
-            // Statistics
-            torrent.on("done", onDone);
-            setInterval(onProgress, 500);
-            onProgress();
-
-            function onProgress() {
-                // Peers
-                $numPeers.innerHTML = torrent.numPeers + (torrent.numPeers === 1 ? " peer" : " peers");
-                // Progress
-                const percent = Math.round(torrent.progress * 100 * 100) / 100;
-                $progressBar.style.width = percent + "%";
-                $downloaded.innerHTML = prettyBytes(torrent.downloaded);
-                $total.innerHTML = prettyBytes(torrent.length);
-                // Remaining time
-                let remaining;
-                if (torrent.done) {
-                    remaining = "Done.";
-                } else {
-                    remaining = moment
-                        .duration(torrent.timeRemaining / 1000, "seconds")
-                        .humanize();
-                    remaining = remaining[0].toUpperCase() + remaining.substring(1) + " remaining.";
-                }
-                $remaining.innerHTML = remaining;
-                // Speed rates
-                $downloadSpeed.innerHTML = prettyBytes(torrent.downloadSpeed) + "/s";
-                $uploadSpeed.innerHTML = prettyBytes(torrent.uploadSpeed) + "/s";
-            }
-
-            function onDone() {
-                $body.className += " is-seed";
-                onProgress();
-            }
-        });
-    }
-
-    
-        // Fallback to IPFS gateway
-        function fallbackToIpfs(ipfsUrl) {
-            const video = document.createElement("video");
-            video.controls = true;
-            video.style.width = "100%";
-            video.src = ipfsUrl;
-            document.body.appendChild(video);
-            video.play().catch((err) => {
-                console.error("Failed to play video from IPFS gateway:", err);
-                statusElement.textContent = "Failed to play video. Please try again later.";
+                // Stream the file in the browser
+                file.appendTo("body", (err, elem) => {
+                    if (err) {
+                        console.error("Error appending file:", err);
+                        alert("Failed to play the video.");
+                    } else {
+                        console.log("Video is now playing.");
+                    }
+                });
             });
         }
 
