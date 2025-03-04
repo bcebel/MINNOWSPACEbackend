@@ -118,80 +118,97 @@
         }
 
         // Play video via WebTorrent or fallback to IPFS
-        function playMagnet(magnetLink, cid) {
-            const ipfsUrl = `https://example-gateway.mypinata.cloud/ipfs/${cid}`;
-            statusElement.innerHTML = "Starting download... <span class='loading-spinner'></span>";
-
-            // Clear previous video
-            const existingVideo = document.querySelector("video");
-            if (existingVideo) {
-                existingVideo.remove();
+    function playMagnet(magnetLink, cid) {
+        setTimeout(() => {
+            const torrent = client.get(magnetLink);
+            if (!torrent || torrent.numPeers === 0) {
+                statusElement.textContent =
+                    "No peers available. Falling back to IPFS.";
+                fallbackToIpfs(ipfsUrl);
             }
+        }, 10000); // Wait 10 seconds for peers
 
-            client.add(magnetLink, (torrent) => {
-                console.log("Client is downloading:", torrent.infoHash);
+        const ipfsUrl = `https://example-gateway.mypinata.cloud/ipfs/${cid}`;
+        statusElement.innerHTML = "Starting download... <span class='loading-spinner'></span>";
 
-                const file = torrent.files.find(
-                    (file) =>
-                        file.name.endsWith(".mp4") ||
-                        file.name.endsWith(".mkv") ||
-                        file.name.endsWith(".webm")
-                );
-
-                if (!file) {
-                    statusElement.textContent =
-                        "No video file found in torrent. Falling back to IPFS.";
-                    fallbackToIpfs(ipfsUrl);
-                    return;
-                }
-
-                const video = document.createElement("video");
-                video.controls = true;
-                video.style.width = "100%";
-                document.body.appendChild(video);
-
-                const fileStream = file.createReadStream();
-                const fileType = file.name.split(".").pop();
-                const mimeType = `video/${fileType}`;
-
-                if (!window.MediaSource) {
-                    console.error("MediaSource API is not supported in this browser.");
-                    fallbackToIpfs(ipfsUrl);
-                    return;
-                }
-
-                const mediaSource = new MediaSource();
-                video.src = URL.createObjectURL(mediaSource);
-
-                mediaSource.addEventListener("sourceopen", () => {
-                    console.log("MediaSource opened");
-                    const sourceBuffer = mediaSource.addSourceBuffer(mimeType);
-
-                    fileStream.on("data", (chunk) => {
-                        console.log("Received chunk:", chunk.length, "bytes");
-
-                        try {
-                            if (!sourceBuffer.updating) {
-                                sourceBuffer.appendBuffer(chunk);
-                            }
-                        } catch (e) {
-                            console.error("Error appending buffer:", e);
-                        }
-                    });
-
-                    torrent.on("download", () => {
-                        const progress = (torrent.progress * 100).toFixed(1);
-                        statusElement.textContent = `Download Progress: ${progress}%`;
-                    });
-                });
-
-                mediaSource.addEventListener("error", (e) => {
-                    console.error("MediaSource error:", e);
-                    fallbackToIpfs(ipfsUrl);
-                });
-            });
+        // Clear previous video
+        const existingVideo = document.querySelector("video");
+        if (existingVideo) {
+            existingVideo.remove();
         }
 
+        client.add(magnetLink, (torrent) => {
+            console.log("Client is downloading:", torrent.infoHash);
+
+            // Update the torrent link in the UI
+            $torrentLink.href = torrent.magnetURI;
+            $torrentLink.textContent = torrent.name;
+
+            // Find the first playable video file in the torrent
+            const file = torrent.files.find(
+                (file) =>
+                    file.name.endsWith(".mp4") ||
+                    file.name.endsWith(".mkv") ||
+                    file.name.endsWith(".webm")
+            );
+
+            if (!file) {
+                statusElement.textContent =
+                    "No playable video file found in torrent. Falling back to IPFS.";
+                fallbackToIpfs(ipfsUrl);
+                return;
+            }
+
+            // Stream the file in the browser
+            file.appendTo("#output", function (err, elem) {
+                if (err) {
+                    console.error("Error appending file:", err);
+                    statusElement.textContent =
+                        "Failed to play the video. Falling back to IPFS.";
+                    fallbackToIpfs(ipfsUrl);
+                } else {
+                    console.log("Video is now playing.");
+                    statusElement.textContent = "Playing video...";
+                }
+            });
+
+            // Statistics
+            torrent.on("done", onDone);
+            setInterval(onProgress, 500);
+            onProgress();
+
+            function onProgress() {
+                // Peers
+                $numPeers.innerHTML = torrent.numPeers + (torrent.numPeers === 1 ? " peer" : " peers");
+                // Progress
+                const percent = Math.round(torrent.progress * 100 * 100) / 100;
+                $progressBar.style.width = percent + "%";
+                $downloaded.innerHTML = prettyBytes(torrent.downloaded);
+                $total.innerHTML = prettyBytes(torrent.length);
+                // Remaining time
+                let remaining;
+                if (torrent.done) {
+                    remaining = "Done.";
+                } else {
+                    remaining = moment
+                        .duration(torrent.timeRemaining / 1000, "seconds")
+                        .humanize();
+                    remaining = remaining[0].toUpperCase() + remaining.substring(1) + " remaining.";
+                }
+                $remaining.innerHTML = remaining;
+                // Speed rates
+                $downloadSpeed.innerHTML = prettyBytes(torrent.downloadSpeed) + "/s";
+                $uploadSpeed.innerHTML = prettyBytes(torrent.uploadSpeed) + "/s";
+            }
+
+            function onDone() {
+                $body.className += " is-seed";
+                onProgress();
+            }
+        });
+    }
+
+    
         // Fallback to IPFS gateway
         function fallbackToIpfs(ipfsUrl) {
             const video = document.createElement("video");
