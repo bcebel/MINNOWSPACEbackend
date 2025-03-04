@@ -1,28 +1,70 @@
+// Import Pinata SDK (if using Node.js or bundlers like Webpack)
+// For browser environments, include the Pinata SDK via <script> tag
+import { PinataSDK } from "pinata-web3";
+
+// Initialize Pinata SDK
+const pinata = new PinataSDK({
+  pinataJwt: "YOUR_PINATA_JWT", // Replace with your actual JWT
+  pinataGateway: "example-gateway.mypinata.cloud", // Replace with your dedicated gateway domain
+});
+
 // Load the WebTorrent library
 const client = new WebTorrent();
 
 // Select HTML elements
-const magnetLinkInput = document.getElementById("magnetLink");
-const playMagnetButton = document.getElementById("playMagnetButton");
+const galleryContainer = document.getElementById("videoGallery");
 const statusElement = document.createElement("div");
 document.body.appendChild(statusElement);
 
-// Handle playing from a magnet link
-playMagnetButton.addEventListener("click", () => {
-  const magnetLink = magnetLinkInput.value.trim();
-
-  if (!magnetLink) {
-    alert("Please enter a valid magnet link.");
-    return;
+// Fetch videos from the backend
+async function fetchVideos() {
+  try {
+    const response = await fetch(
+      "https://minnowspacebackend-e6635e46c3d0.herokuapp.com/api/videos"
+    );
+    const videos = await response.json();
+    return videos;
+  } catch (error) {
+    console.error("Error fetching videos:", error);
+    return [];
   }
+}
 
+// Populate the video gallery
+function populateVideoGallery(videos) {
+  galleryContainer.innerHTML = ""; // Clear existing content
+
+  videos.forEach((video) => {
+    const videoCard = document.createElement("div");
+    videoCard.style.border = "1px solid #ccc";
+    videoCard.style.padding = "10px";
+    videoCard.style.marginBottom = "20px";
+
+    videoCard.innerHTML = `
+      <h3>${video.title}</h3>
+      <p>Uploaded by: ${video.user.username}</p>
+      <p>${video.description || "No description"}</p>
+      <button onclick="playMagnet('${video.magnetLink}', '${
+      video.cid
+    }')">Play</button>
+    `;
+
+    galleryContainer.appendChild(videoCard);
+  });
+}
+
+// Play video via WebTorrent or fallback to IPFS
+function playMagnet(magnetLink, cid) {
+  const ipfsUrl = `https://${pinata.pinataGateway}/ipfs/${cid}`;
   statusElement.textContent = "Starting download...";
 
+  if (!client) {
+    client = new WebTorrent();
+  }
+
   client.add(magnetLink, (torrent) => {
-    // Log initial connection
     console.log("Client is downloading:", torrent.infoHash);
 
-    // Find the video file
     const file = torrent.files.find(
       (file) =>
         file.name.endsWith(".mp4") ||
@@ -31,25 +73,21 @@ playMagnetButton.addEventListener("click", () => {
     );
 
     if (!file) {
-      statusElement.textContent = "No video file found in torrent";
+      statusElement.textContent =
+        "No video file found in torrent. Falling back to IPFS.";
+      fallbackToIpfs(ipfsUrl);
       return;
     }
 
-    // Create video element
     const video = document.createElement("video");
     video.controls = true;
     video.style.width = "100%";
     document.body.appendChild(video);
 
-    // Create file stream
     const fileStream = file.createReadStream();
-    console.log("Created file stream");
-
-    // Get the file type
     const fileType = file.name.split(".").pop();
     const mimeType = `video/${fileType}`;
 
-    // Create media source
     const mediaSource = new MediaSource();
     video.src = URL.createObjectURL(mediaSource);
 
@@ -57,9 +95,7 @@ playMagnetButton.addEventListener("click", () => {
       console.log("MediaSource opened");
       const sourceBuffer = mediaSource.addSourceBuffer(mimeType);
 
-      // Handle data chunks
       fileStream.on("data", (chunk) => {
-        // Log the chunk size
         console.log("Received chunk:", chunk.length, "bytes");
 
         try {
@@ -71,7 +107,6 @@ playMagnetButton.addEventListener("click", () => {
         }
       });
 
-      // Update status with progress
       torrent.on("download", () => {
         const progress = (torrent.progress * 100).toFixed(1);
         statusElement.textContent = `Download Progress: ${progress}%`;
@@ -80,6 +115,25 @@ playMagnetButton.addEventListener("click", () => {
 
     mediaSource.addEventListener("error", (e) => {
       console.error("MediaSource error:", e);
+      fallbackToIpfs(ipfsUrl);
     });
   });
+}
+
+// Fallback to IPFS gateway
+function fallbackToIpfs(ipfsUrl) {
+  const video = document.createElement("video");
+  video.controls = true;
+  video.style.width = "100%";
+  video.src = ipfsUrl;
+  document.body.appendChild(video);
+  video.play().catch((err) => {
+    console.error("Failed to play video from IPFS gateway:", err);
+  });
+}
+
+// Populate the gallery on page load
+document.addEventListener("DOMContentLoaded", async () => {
+  const videos = await fetchVideos();
+  populateVideoGallery(videos);
 });
