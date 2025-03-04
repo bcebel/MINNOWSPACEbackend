@@ -9,11 +9,14 @@
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
+            max-width: 800px;
+            margin: 0 auto;
         }
 
         video {
             width: 100%;
             margin-top: 10px;
+            max-height: 500px;
         }
 
         button {
@@ -22,6 +25,19 @@
             color: white;
             border: none;
             cursor: pointer;
+            margin-right: 10px;
+        }
+
+        #videoGallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .video-card {
+            border: 1px solid #ccc;
+            padding: 15px;
+            border-radius: 8px;
         }
     </style>
 </head>
@@ -30,12 +46,24 @@
     <h1>Video Gallery</h1>
     <div id="videoGallery"></div>
 
-    <!-- Include WebTorrent Library -->
+    <!-- Include WebTorrent and IPFS Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ipfs-core/dist/index.min.js"></script>
+
     <script>
-        // Load the WebTorrent library
+        // Initialize WebTorrent and IPFS clients
         const client = new WebTorrent();
-        let currentTorrent = null; // Track the current torrent
+        let ipfsNode;
+
+        // Initialize IPFS node
+        async function initIPFS() {
+            try {
+                ipfsNode = await window.IpfsCore.create();
+                console.log('IPFS node is ready');
+            } catch (error) {
+                console.error('Failed to create IPFS node:', error);
+            }
+        }
 
         // Fetch videos from the backend
         async function fetchVideos() {
@@ -56,39 +84,34 @@
 
             videos.forEach((video) => {
                 const videoCard = document.createElement("div");
-                videoCard.style.border = "1px solid #ccc";
-                videoCard.style.padding = "10px";
-                videoCard.style.marginBottom = "20px";
+                videoCard.className = 'video-card';
+
+                // Determine play method based on available identifiers
+                let playMethod = '';
+                if (video.magnetLink) {
+                    playMethod = `onclick="playMagnet('${video.magnetLink}')"`;
+                } else if (video.cid) {
+                    playMethod = `onclick="playIPFS('${video.cid}')"`;
+                }
 
                 videoCard.innerHTML = `
           <h3>${video.title}</h3>
           <p>Uploaded by: ${video.user.username}</p>
           <p>${video.description || "No description"}</p>
-          <button onclick="playMagnet('${video.magnetLink}')">Play</button>
+          <button ${playMethod}>Play</button>
         `;
 
                 galleryContainer.appendChild(videoCard);
             });
         }
 
-        // Play video via WebTorrent
+        // Play video via WebTorrent (Magnet)
         function playMagnet(magnetLink) {
             // Clear previous video
-            const existingVideo = document.querySelector("video");
-            if (existingVideo) existingVideo.remove();
-
-            // Remove the current torrent to avoid conflicts
-            if (currentTorrent) {
-                client.remove(currentTorrent);
-                currentTorrent = null;
-            }
+            clearPreviousVideo();
 
             client.add(magnetLink, (torrent) => {
                 console.log("Client is downloading:", torrent.infoHash);
-
-                // Store the current torrent
-                currentTorrent = torrent;
-
                 // Find the first playable video file in the torrent
                 const file = torrent.files.find(
                     (file) =>
@@ -114,8 +137,46 @@
             });
         }
 
+        // Play video via IPFS
+        async function playIPFS(cid) {
+            if (!ipfsNode) {
+                alert('IPFS node is not initialized');
+                return;
+            }
+
+            // Clear previous video
+            clearPreviousVideo();
+
+            try {
+                // Attempt to stream the file
+                const stream = await ipfsNode.files.read(cid);
+                const blob = await new Response(stream).blob();
+                const videoUrl = URL.createObjectURL(blob);
+
+                const videoElement = document.createElement('video');
+                videoElement.src = videoUrl;
+                videoElement.controls = true;
+                videoElement.autoplay = true;
+
+                document.body.appendChild(videoElement);
+            } catch (error) {
+                console.error('Error playing IPFS video:', error);
+                alert('Failed to play the video from IPFS');
+            }
+        }
+
+        // Clear previous video
+        function clearPreviousVideo() {
+            const existingVideo = document.querySelector("video");
+            if (existingVideo) existingVideo.remove();
+        }
+
         // Populate the gallery on page load
         document.addEventListener("DOMContentLoaded", async () => {
+            // Initialize IPFS
+            await initIPFS();
+
+            // Fetch and populate videos
             const videos = await fetchVideos();
             populateVideoGallery(videos);
         });
