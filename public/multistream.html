@@ -35,6 +35,7 @@
     <script>
         // Load the WebTorrent library
         const client = new WebTorrent();
+        let currentTorrent = null; // Track the current torrent
 
         // Fetch videos from the backend
         async function fetchVideos() {
@@ -76,8 +77,17 @@
             const existingVideo = document.querySelector("video");
             if (existingVideo) existingVideo.remove();
 
+            // Remove the current torrent to avoid conflicts
+            if (currentTorrent) {
+                client.remove(currentTorrent);
+                currentTorrent = null;
+            }
+
             client.add(magnetLink, (torrent) => {
                 console.log("Client is downloading:", torrent.infoHash);
+
+                // Store the current torrent
+                currentTorrent = torrent;
 
                 // Find the first playable video file in the torrent
                 const file = torrent.files.find(
