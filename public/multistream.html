@@ -9,45 +9,11 @@
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
-            max-width: 800px;
-            margin: 0 auto;
         }
 
         video {
             width: 100%;
             margin-top: 10px;
-            max-height: 500px;
-            background-color: #f0f0f0;
-        }
-
-        button {
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            cursor: pointer;
-            margin-right: 10px;
-        }
-
-        #videoGallery {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 20px;
-        }
-
-        .video-card {
-            border: 1px solid #ccc;
-            padding: 15px;
-            border-radius: 8px;
-        }
-
-        #errorLog {
-            background-color: #f8d7da;
-            color: #721c24;
-            padding: 10px;
-            margin-top: 10px;
-            border-radius: 5px;
-            display: none;
         }
     </style>
 </head>
@@ -55,26 +21,12 @@
 <body>
     <h1>Video Gallery</h1>
     <div id="videoGallery"></div>
-    <div id="errorLog"></div>
 
     <!-- Include WebTorrent Library -->
     <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
-
     <script>
-        // Initialize WebTorrent client
+        // Load the WebTorrent library
         const client = new WebTorrent();
-
-        // Error logging function
-        function logError(message, details = null) {
-            const errorLog = document.getElementById('errorLog');
-            errorLog.style.display = 'block';
-            errorLog.innerHTML = `<strong>Error:</strong> ${message}`;
-
-            if (details) {
-                console.error('Detailed Error:', details);
-                errorLog.innerHTML += `<br><small>Check console for details</small>`;
-            }
-        }
 
         // Fetch videos from the backend
         async function fetchVideos() {
@@ -83,41 +35,38 @@
                 if (!response.ok) throw new Error("Failed to fetch videos.");
                 return await response.json();
             } catch (error) {
-                logError("Failed to fetch videos", error);
+                console.error("Error fetching videos:", error);
                 return [];
             }
         }
 
-        // Populate the video gallery
-        function populateVideoGallery(videos) {
+        // Populate the video gallery and start streaming
+        async function populateAndStreamVideos() {
+            const videos = await fetchVideos();
             const galleryContainer = document.getElementById("videoGallery");
-            galleryContainer.innerHTML = ""; // Clear existing content
 
             videos.forEach((video) => {
                 const videoCard = document.createElement("div");
-                videoCard.className = 'video-card';
+                videoCard.style.border = "1px solid #ccc";
+                videoCard.style.padding = "10px";
+                videoCard.style.marginBottom = "20px";
 
                 videoCard.innerHTML = `
           <h3>${video.title}</h3>
           <p>Uploaded by: ${video.user.username}</p>
           <p>${video.description || "No description"}</p>
-          <button onclick="playMagnet('${video.magnetLink}')">Play</button>
         `;
 
                 galleryContainer.appendChild(videoCard);
+
+                // Start streaming the video
+                streamVideo(video.magnetLink, videoCard);
             });
         }
 
-        // Play video via WebTorrent (Magnet)
-        function playMagnet(magnetLink) {
-            // Clear previous content and error log
-            clearPreviousContent();
-            document.getElementById('errorLog').style.display = 'none';
-
-            // Create a new WebTorrent client to avoid any state issues
-            const tempClient = new WebTorrent();
-
-            tempClient.add(magnetLink, (torrent) => {
+        // Stream a single video
+        function streamVideo(magnetLink, container) {
+            client.add(magnetLink, (torrent) => {
                 console.log("Client is downloading:", torrent.infoHash);
 
                 // Find the first playable video file in the torrent
@@ -129,67 +78,24 @@
                 );
 
                 if (!file) {
-                    logError("No playable video file found in the torrent.");
+                    console.error("No playable video file found in the torrent.");
                     return;
                 }
 
-                // Create video element manually
-                const videoElement = document.createElement('video');
-                videoElement.controls = true;
-                videoElement.autoplay = true;
-
-                // Detailed file information logging
-                console.log('File details:', {
-                    name: file.name,
-                    size: file.length,
-                    type: file.type
+                // Stream the file in the browser
+                file.appendTo(container, (err, elem) => {
+                    if (err) {
+                        console.error("Error appending file:", err);
+                    } else {
+                        console.log("Video is now playing.");
+                    }
                 });
-
-                // Try multiple methods of creating video source
-                try {
-                    // Method 1: Blob
-                    file.getBlob((err, blob) => {
-                        if (err) {
-                            logError('Failed to get blob', err);
-                            return;
-                        }
-
-                        const objectUrl = URL.createObjectURL(blob);
-                        videoElement.src = objectUrl;
-
-                        videoElement.onerror = (e) => {
-                            logError('Video playback error with blob method', e);
-                        };
-                    });
-                } catch (error) {
-                    logError('Error setting up video source', error);
-                }
-
-                // Append to body
-                document.body.appendChild(videoElement);
-
-                // Clean up
-                videoElement.onended = () => {
-                    tempClient.destroy();
-                };
             });
         }
 
-        // Clear previous content
-        function clearPreviousContent() {
-            // Destroy all existing WebTorrent clients
-            client.destroy();
-
-            // Remove any existing video elements
-            const existingVideos = document.querySelectorAll('video');
-            existingVideos.forEach(video => video.remove());
-        }
-
-        // Populate the gallery on page load
-        document.addEventListener("DOMContentLoaded", async () => {
-            // Fetch and populate videos
-            const videos = await fetchVideos();
-            populateVideoGallery(videos);
+        // Start loading videos on page load
+        document.addEventListener("DOMContentLoaded", () => {
+            populateAndStreamVideos();
         });
     </script>
 </body>
