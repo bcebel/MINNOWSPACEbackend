@@ -15,6 +15,7 @@ import ModelSchema from "./structure/models/index.js";
 import resolvers from "./structure/resolvers/queries/queries.js";
 import connectDB from"./config/connection.js";
 import videoUploadHandler from "./videoUploadHandler.js"; // Import the video upload handler
+import Video from "./structure/models/Video.js";
 dotenv.config();
 // Step 1: Define Apollo GraphQL Schema
 // Step 2: Create Express app and set up Apollo Server
@@ -33,6 +34,7 @@ const corsOptions = {
       "http://localhost:3001",
       "http://localhost:3001/graphql",
       "http://localhost:8081",
+      "http://localhost:8081/",
       "http://127.0.0.1:5501",
     ];
     if (allowedOrigins.includes(origin) || !origin) {
@@ -151,6 +153,7 @@ app.get("/api/messages/:room", authenticateToken, async (req, res) => {
   }
 });
 
+
 // Step 7: Socket.IO Event Handling
 io.use((socket, next) => {
   const token = socket.handshake.auth.token;
@@ -207,6 +210,17 @@ io.on("connection", (socket) => {
   });
 });
 
+app.get("/api/videos", async (req, res) => {
+  try {
+    const videos = await Video.find({})
+      .sort({ createdAt: -1 }) // Sort by newest first
+      .populate("user", "username"); // Include uploader's username
+    res.json(videos);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Failed to fetch videos.");
+  }
+});
 // Serve static files from the "public" directory
 app.use(express.static(path.join(__dirname, 'public')));
 
