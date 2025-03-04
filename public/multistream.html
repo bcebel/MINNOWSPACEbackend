@@ -74,22 +74,11 @@
                 const videoCard = document.createElement("div");
                 videoCard.className = 'video-card';
 
-                // Determine play method based on available identifiers
-                let playMethod = '';
-                let buttonText = '';
-                if (video.magnetLink) {
-                    playMethod = `onclick="playMagnet('${video.magnetLink}')"`;
-                    buttonText = 'Play Torrent';
-                } else if (video.cid) {
-                    playMethod = `onclick="playIPFS('${video.cid}')"`;
-                    buttonText = 'Play IPFS';
-                }
-
                 videoCard.innerHTML = `
           <h3>${video.title}</h3>
           <p>Uploaded by: ${video.user.username}</p>
           <p>${video.description || "No description"}</p>
-          <button ${playMethod}>${buttonText}</button>
+          <button onclick="playMagnet('${video.magnetLink}')">Play</button>
         `;
 
                 galleryContainer.appendChild(videoCard);
@@ -98,11 +87,15 @@
 
         // Play video via WebTorrent (Magnet)
         function playMagnet(magnetLink) {
-            // Clear previous video
-            clearPreviousVideo();
+            // Clear previous video and torrents
+            clearPreviousContent();
 
-            client.add(magnetLink, (torrent) => {
+            // Create a new WebTorrent client to avoid any state issues
+            const tempClient = new WebTorrent();
+
+            tempClient.add(magnetLink, (torrent) => {
                 console.log("Client is downloading:", torrent.infoHash);
+
                 // Find the first playable video file in the torrent
                 const file = torrent.files.find(
                     (file) =>
@@ -116,44 +109,40 @@
                     return;
                 }
 
-                // Stream the file in the browser
-                file.appendTo("body", (err, elem) => {
-                    if (err) {
-                        console.error("Error appending file:", err);
-                        alert("Failed to play the video.");
-                    } else {
-                        console.log("Video is now playing.");
-                    }
-                });
+                // Create video element manually
+                const videoElement = document.createElement('video');
+                videoElement.controls = true;
+                videoElement.autoplay = true;
+
+                // Create a file stream and set as video source
+                const fileStream = file.createReadStream();
+                const objectUrl = URL.createObjectURL(new Blob([fileStream], { type: 'video/mp4' }));
+                videoElement.src = objectUrl;
+
+                // Append to body
+                document.body.appendChild(videoElement);
+
+                // Clean up
+                videoElement.onended = () => {
+                    tempClient.destroy();
+                };
+
+                videoElement.onerror = (e) => {
+                    console.error('Video error:', e);
+                    alert('Failed to play the video.');
+                    tempClient.destroy();
+                };
             });
         }
 
-        // Play video via IPFS Gateway
-        function playIPFS(cid) {
-            // Clear previous video
-            clearPreviousVideo();
+        // Clear previous content
+        function clearPreviousContent() {
+            // Destroy all existing WebTorrent clients
+            client.destroy();
 
-            // Use a public IPFS gateway
-            const ipfsGatewayUrl = `https://ipfs.io/ipfs/${cid}`;
-
-            const videoElement = document.createElement('video');
-            videoElement.src = ipfsGatewayUrl;
-            videoElement.controls = true;
-            videoElement.autoplay = true;
-
-            document.body.appendChild(videoElement);
-
-            // Handle potential loading errors
-            videoElement.onerror = () => {
-                alert('Failed to load video from IPFS gateway');
-                videoElement.remove();
-            };
-        }
-
-        // Clear previous video
-        function clearPreviousVideo() {
-            const existingVideo = document.querySelector("video");
-            if (existingVideo) existingVideo.remove();
+            // Remove any existing video elements
+            const existingVideos = document.querySelectorAll('video');
+            existingVideos.forEach(video => video.remove());
         }
 
         // Populate the gallery on page load
