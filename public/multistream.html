@@ -59,6 +59,7 @@
 
     <!-- Include WebTorrent Library -->
     <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
+
     <script>
         // Initialize WebTorrent client
         const client = new WebTorrent();
@@ -97,11 +98,11 @@
                 videoCard.className = 'video-card';
 
                 videoCard.innerHTML = `
-                    <h3>${video.title}</h3>
-                    <p>Uploaded by: ${video.user.username}</p>
-                    <p>${video.description || "No description"}</p>
-                    <button onclick="playMagnet('${video.magnetLink}')">Play</button>
-                `;
+          <h3>${video.title}</h3>
+          <p>Uploaded by: ${video.user.username}</p>
+          <p>${video.description || "No description"}</p>
+          <button onclick="playMagnet('${video.magnetLink}')">Play</button>
+        `;
 
                 galleryContainer.appendChild(videoCard);
             });
@@ -109,13 +110,10 @@
 
         // Play video via WebTorrent (Magnet)
         function playMagnet(magnetLink) {
-            // Create a container for the video
-            const videoContainer = document.createElement("div");
-            videoContainer.style.marginTop = "20px";
-            document.body.appendChild(videoContainer);
+            // Create a new WebTorrent client to avoid state issues
+            const tempClient = new WebTorrent();
 
-            // Add the torrent to the WebTorrent client
-            client.add(magnetLink, (torrent) => {
+            tempClient.add(magnetLink, (torrent) => {
                 console.log("Client is downloading:", torrent.infoHash);
 
                 // Find the first playable video file in the torrent
@@ -128,7 +126,6 @@
 
                 if (!file) {
                     logError("No playable video file found in the torrent.");
-                    videoContainer.remove(); // Remove the empty container
                     return;
                 }
 
@@ -137,25 +134,50 @@
                 videoElement.controls = true;
                 videoElement.autoplay = true;
 
-                // Append the video element to the container
-                videoContainer.appendChild(videoElement);
-
-                // Stream the file into the video element
-                file.appendTo(videoElement, (err) => {
-                    if (err) {
-                        logError("Failed to append video file", err);
-                        videoContainer.remove(); // Remove the container on error
-                    } else {
-                        console.log("Video is now playing.");
-                    }
+                // Detailed file information logging
+                console.log('File details:', {
+                    name: file.name,
+                    size: file.length,
+                    type: file.type
                 });
+
+                // Try multiple methods of creating video source
+                try {
+                    // Method 1: Blob
+                    file.getBlob((err, blob) => {
+                        if (err) {
+                            logError('Failed to get blob', err);
+                            return;
+                        }
+
+                        const objectUrl = URL.createObjectURL(blob);
+                        videoElement.src = objectUrl;
+
+                        videoElement.onerror = (e) => {
+                            logError('Video playback error with blob method', e);
+                        };
+                    });
+                } catch (error) {
+                    logError('Error setting up video source', error);
+                }
+
+                // Append to body
+                document.body.appendChild(videoElement);
 
                 // Clean up when the video ends
                 videoElement.onended = () => {
                     console.log("Video playback ended. Cleaning up...");
-                    videoContainer.remove(); // Remove the video container
+                    tempClient.destroy(); // Destroy the temporary client
+                    videoElement.remove(); // Remove the video element
                 };
             });
+        }
+
+        // Clear previous content
+        function clearPreviousContent() {
+            // Remove any existing video elements
+            const existingVideos = document.querySelectorAll('video');
+            existingVideos.forEach(video => video.remove());
         }
 
         // Populate the gallery on page load
