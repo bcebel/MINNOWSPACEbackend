@@ -122,6 +122,9 @@
 
     <script>
 
+        // Initialize WebTorrent client
+
+        const client = new WebTorrent();
 
 
 
@@ -220,11 +223,6 @@
             // Clear previous content and error log
 
             clearPreviousContent();
-
-
-            // Initialize WebTorrent client
-
-            const client = new WebTorrent();
 
             document.getElementById('errorLog').style.display = 'none';
 
