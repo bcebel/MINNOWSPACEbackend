@@ -8,6 +8,7 @@ import WebTorrent from "webtorrent";
 import dotenv from "dotenv";
 import { PinataSDK } from "pinata-web3";
 import Video from "./structure/models/Video.js";
+import cors from "cors"; // Add this
 
 dotenv.config();
 
@@ -62,6 +63,13 @@ async function calculateCID(fileBuffer, fileName) {
 }
 
 export default (app) => {
+    app.use(
+      cors({
+        origin: "https://minnowspace.vercel.app", // Allow your Vercel frontend
+        methods: ["GET", "POST"], // Allow these methods
+        allowedHeaders: ["Authorization", "Content-Type"], // JWT and FormData headers
+      })
+    );
   const uploadHandler = multer({ storage: multer.memoryStorage() }).single(
     "video"
   );
