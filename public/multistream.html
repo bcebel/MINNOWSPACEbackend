@@ -9,7 +9,7 @@
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
-            max-width: 1200px;
+            max-width: 800px;
             margin: 0 auto;
         }
 
@@ -49,34 +49,34 @@
             border-radius: 5px;
             display: none;
         }
-
-        #playerContainer {
-            margin-top: 20px;
-        }
     </style>
 </head>
 
 <body>
     <h1>Video Gallery</h1>
     <div id="videoGallery"></div>
-    <div id="playerContainer"></div>
     <div id="errorLog"></div>
 
+    <!-- Include WebTorrent Library -->
     <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
-    <script>
-        const client = new WebTorrent();
-        const preloadedVideos = new Map(); // Store magnetLink -> { blob, videoElement }
 
+    <script>
+        // Initialize WebTorrent client
+        const client = new WebTorrent();
+
+        // Error logging function
         function logError(message, details = null) {
             const errorLog = document.getElementById('errorLog');
             errorLog.style.display = 'block';
             errorLog.innerHTML = `<strong>Error:</strong> ${message}`;
+
             if (details) {
                 console.error('Detailed Error:', details);
                 errorLog.innerHTML += `<br><small>Check console for details</small>`;
             }
         }
 
+        // Fetch videos from the backend
         async function fetchVideos() {
             try {
                 const response = await fetch("https://minnowspacebackend-e6635e46c3d0.herokuapp.com/api/videos");
@@ -88,104 +88,103 @@
             }
         }
 
-        function preloadVideos(videos) {
-            const toPreload = videos.slice(0, 5); // First 5 vids
-            toPreload.forEach(video => {
-                client.add(video.magnetLink, torrent => {
-                    console.log("Preloading:", torrent.infoHash);
-                    const file = torrent.files.find(f =>
-                        f.name.endsWith(".mp4") || f.name.endsWith(".mkv") || f.name.endsWith(".webm")
-                    );
-                    if (!file) {
-                        logError(`No playable file in ${video.title}`);
-                        return;
-                    }
-                    file.getBlob((err, blob) => {
-                        if (err) {
-                            logError(`Failed to preload ${video.title}`, err);
-                            return;
-                        }
-                        const videoElement = document.createElement('video');
-                        videoElement.controls = true;
-                        videoElement.src = URL.createObjectURL(blob);
-                        videoElement.style.display = 'none'; // Hide until played
-                        preloadedVideos.set(video.magnetLink, { blob, videoElement, torrent });
-                        console.log(`Preloaded ${video.title}: ${file.name}, ${blob.size} bytes`);
-                    });
-                });
-            });
-        }
-
+        // Populate the video gallery
         function populateVideoGallery(videos) {
             const galleryContainer = document.getElementById("videoGallery");
-            galleryContainer.innerHTML = "";
+            galleryContainer.innerHTML = ""; // Clear existing content
 
-            videos.forEach((video, index) => {
+            videos.forEach((video) => {
                 const videoCard = document.createElement("div");
                 videoCard.className = 'video-card';
+
                 videoCard.innerHTML = `
-                    <h3>${video.title}</h3>
-                    <p>Uploaded by: ${video.user.username}</p>
-                    <p>${video.description || "No description"}</p>
-                    <button onclick="playVideo('${video.magnetLink}', ${index})">Play</button>
-                `;
+          <h3>${video.title}</h3>
+          <p>Uploaded by: ${video.user.username}</p>
+          <p>${video.description || "No description"}</p>
+          <button onclick="playMagnet('${video.magnetLink}')">Play</button>
+        `;
+
                 galleryContainer.appendChild(videoCard);
             });
         }
 
-        function playVideo(magnetLink, index) {
-            const playerContainer = document.getElementById("playerContainer");
-            playerContainer.innerHTML = ""; // Clear old player
+        // Play video via WebTorrent (Magnet)
+        function playMagnet(magnetLink) {
+            // Create a new WebTorrent client to avoid state issues
+            const tempClient = new WebTorrent();
 
-            const preloaded = preloadedVideos.get(magnetLink);
-            if (preloaded) {
-                console.log(`Playing preloaded video: ${magnetLink}`);
-                preloaded.videoElement.style.display = 'block';
-                preloaded.videoElement.autoplay = true;
-                playerContainer.appendChild(preloaded.videoElement);
-            } else {
-                console.log(`Not preloaded, streaming: ${magnetLink}`);
-                const tempClient = new WebTorrent();
-                tempClient.add(magnetLink, torrent => {
-                    const file = torrent.files.find(f =>
-                        f.name.endsWith(".mp4") || f.name.endsWith(".mkv") || f.name.endsWith(".webm")
-                    );
-                    if (!file) {
-                        logError("No playable file found.");
-                        return;
-                    }
-                    const videoElement = document.createElement('video');
-                    videoElement.controls = true;
-                    videoElement.autoplay = true;
+            tempClient.add(magnetLink, (torrent) => {
+                console.log("Client is downloading:", torrent.infoHash);
+
+                // Find the first playable video file in the torrent
+                const file = torrent.files.find(
+                    (file) =>
+                        file.name.endsWith(".mp4") ||
+                        file.name.endsWith(".mkv") ||
+                        file.name.endsWith(".webm")
+                );
+
+                if (!file) {
+                    logError("No playable video file found in the torrent.");
+                    return;
+                }
+
+                // Create video element manually
+                const videoElement = document.createElement('video');
+                videoElement.controls = true;
+                videoElement.autoplay = true;
+
+                // Detailed file information logging
+                console.log('File details:', {
+                    name: file.name,
+                    size: file.length,
+                    type: file.type
+                });
+
+                // Try multiple methods of creating video source
+                try {
+                    // Method 1: Blob
                     file.getBlob((err, blob) => {
                         if (err) {
                             logError('Failed to get blob', err);
                             return;
                         }
-                        videoElement.src = URL.createObjectURL(blob);
-                        playerContainer.appendChild(videoElement);
+
+                        const objectUrl = URL.createObjectURL(blob);
+                        videoElement.src = objectUrl;
+
+                        videoElement.onerror = (e) => {
+                            logError('Video playback error with blob method', e);
+                        };
                     });
-                });
-            }
+                } catch (error) {
+                    logError('Error setting up video source', error);
+                }
 
-            // Preload next batch if near end
-            if (index >= preloadedVideos.size - 2) {
-                preloadNextBatch();
-            }
+                // Append to body
+                document.body.appendChild(videoElement);
+
+                // Clean up when the video ends
+                videoElement.onended = () => {
+                    console.log("Video playback ended. Cleaning up...");
+                    tempClient.destroy(); // Destroy the temporary client
+                    videoElement.remove(); // Remove the video element
+                };
+            });
         }
 
-        let currentVideoIndex = 5;
-        async function preloadNextBatch() {
-            const videos = await fetchVideos();
-            const nextBatch = videos.slice(currentVideoIndex, currentVideoIndex + 5);
-            preloadVideos(nextBatch);
-            currentVideoIndex += 5;
+        // Clear previous content
+        function clearPreviousContent() {
+            // Remove any existing video elements
+            const existingVideos = document.querySelectorAll('video');
+            existingVideos.forEach(video => video.remove());
         }
 
+        // Populate the gallery on page load
         document.addEventListener("DOMContentLoaded", async () => {
+            // Fetch and populate videos
             const videos = await fetchVideos();
             populateVideoGallery(videos);
-            preloadVideos(videos); // Start with first 5
         });
     </script>
 </body>
