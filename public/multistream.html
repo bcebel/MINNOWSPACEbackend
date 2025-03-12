@@ -71,23 +71,20 @@
             const errorLog = document.getElementById('errorLog');
             errorLog.style.display = 'block';
             errorLog.innerHTML = `<strong>Error:</strong> ${message}`;
-            if (details) {
-                console.error('Details:', details);
-                errorLog.innerHTML += `<br><small>Check console</small>`;
-            }
+            if (details) console.error('Details:', details);
         }
 
         async function fetchVideos() {
             try {
-                console.log("Fetching from /api/videos...");
+                console.log("Fetching /api/videos...");
                 const response = await fetch("https://minnowspacebackend-e6635e46c3d0.herokuapp.com/api/videos");
-                console.log("API response:", response.status);
+                console.log("API status:", response.status);
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const videos = await response.json();
-                console.log("Videos fetched:", videos.length);
+                console.log("Fetched:", videos);
                 return videos;
             } catch (error) {
-                logError("Failed to fetch videos", error);
+                logError("Fetch failed", error);
                 return [];
             }
         }
@@ -96,17 +93,19 @@
             const toPreload = videos.slice(0, 5);
             console.log("Preloading", toPreload.length, "videos...");
             toPreload.forEach(video => {
-                console.log("Adding torrent:", video.magnetLink);
-                client.add(video.magnetLink, torrent => {
-                    console.log("Torrent added:", torrent.infoHash, "Peers:", torrent.numPeers);
+                console.log("Seeding:", video.magnetLink);
+                const torrent = client.add(video.magnetLink);
+                torrent.on('error', err => logError(`Torrent error for ${video.title}`, err));
+                torrent.on('metadata', () => console.log("Metadata:", torrent.infoHash, "Peers:", torrent.numPeers));
+                torrent.on('ready', () => {
                     const file = torrent.files.find(f =>
                         f.name.endsWith(".mp4") || f.name.endsWith(".mkv") || f.name.endsWith(".webm")
                     );
                     if (!file) {
-                        logError(`No video file in ${video.title}`);
+                        logError(`No file in ${video.title}`);
                         return;
                     }
-                    console.log("File found:", file.name, file.length);
+                    console.log("File:", file.name, file.length);
                     file.getBlob((err, blob) => {
                         if (err) {
                             logError(`Blob fail for ${video.title}`, err);
@@ -126,44 +125,53 @@
         function populateVideoGallery(videos) {
             const galleryContainer = document.getElementById("videoGallery");
             galleryContainer.innerHTML = "";
-            console.log("Populating gallery with", videos.length, "videos");
+            console.log("Gallery populating:", videos.length);
             videos.forEach((video, index) => {
                 const videoCard = document.createElement("div");
                 videoCard.className = 'video-card';
                 videoCard.innerHTML = `
                     <h3>${video.title}</h3>
-                    <p>Uploaded by: ${video.user?.username || 'Unknown'}</p>
-                    <p>${video.description || "No description"}</p>
-                    <button onclick="playVideo('${video.magnetLink}', ${index})">Play</button>
+                    <p>By: ${video.user?.username || 'Unknown'}</p>
+                    <p>${video.description || "No desc"}</p>
+                    <button onclick="playVideo('${video.magnetLink}', ${index}, '${video.ipfsUrl || ''}')">Play</button>
                 `;
                 galleryContainer.appendChild(videoCard);
             });
         }
 
-        function playVideo(magnetLink, index) {
+        function playVideo(magnetLink, index, ipfsUrl) {
             const playerContainer = document.getElementById("playerContainer");
             playerContainer.innerHTML = "";
             console.log("Playing:", magnetLink);
 
             const preloaded = preloadedVideos.get(magnetLink);
             if (preloaded) {
-                console.log("Using preloaded video");
+                console.log("Preloaded play");
                 preloaded.videoElement.style.display = 'block';
                 preloaded.videoElement.autoplay = true;
                 playerContainer.appendChild(preloaded.videoElement);
+            } else if (ipfsUrl) {
+                console.log("Falling back to IPFS:", ipfsUrl);
+                const videoElement = document.createElement('video');
+                videoElement.controls = true;
+                videoElement.autoplay = true;
+                videoElement.src = ipfsUrl;
+                playerContainer.appendChild(videoElement);
             } else {
-                console.log("Streaming non-preloaded...");
+                console.log("Streaming...");
                 const tempClient = new WebTorrent();
-                tempClient.add(magnetLink, torrent => {
-                    console.log("Torrent streaming:", torrent.infoHash, "Peers:", torrent.numPeers);
+                const torrent = tempClient.add(magnetLink);
+                torrent.on('error', err => logError("Stream error", err));
+                torrent.on('metadata', () => console.log("Stream metadata:", torrent.infoHash, "Peers:", torrent.numPeers));
+                torrent.on('ready', () => {
                     const file = torrent.files.find(f =>
                         f.name.endsWith(".mp4") || f.name.endsWith(".mkv") || f.name.endsWith(".webm")
                     );
                     if (!file) {
-                        logError("No video file found");
+                        logError("No file");
                         return;
                     }
-                    console.log("Streaming file:", file.name, file.length);
+                    console.log("Stream file:", file.name, file.length);
                     file.getBlob((err, blob) => {
                         if (err) {
                             logError("Blob fail", err);
@@ -174,14 +182,12 @@
                         videoElement.autoplay = true;
                         videoElement.src = URL.createObjectURL(blob);
                         playerContainer.appendChild(videoElement);
-                        console.log("Streaming started:", blob.size);
+                        console.log("Streamed:", blob.size);
                     });
                 });
             }
 
-            if (index >= preloadedVideos.size - 2) {
-                preloadNextBatch();
-            }
+            if (index >= preloadedVideos.size - 2) preloadNextBatch();
         }
 
         let currentVideoIndex = 5;
@@ -199,7 +205,8 @@
                 title: "Test Stream",
                 user: { username: "punk48" },
                 description: "Live strike vid",
-                magnetLink: "magnet:?xt=urn:btih:d711b6ed8f9f0a272af93fd769afa27252c7f2bb&dn=bafybeidk5yfiuc6tq3wouwjicdqmciucrfchlayes6qmiwfnjdpt4gqa5m.mp4&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce&tr=udp%3A%2F%2Ftracker.internetwarriors.net%3A1337%2Fannounce&tr=udp%3A%2F%2Ftracker.torrent.eu.org%3A451%2Fannounce&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969%2Fannounce"
+                magnetLink: "magnet:?xt=urn:btih:d711b6ed8f9f0a272af93fd769afa27252c7f2bb&dn=bafybeidk5yfiuc6tq3wouwjicdqmciucrfchlayes6qmiwfnjdpt4gqa5m.mp4&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce&tr=udp%3A%2F%2Ftracker.internetwarriors.net%3A1337%2Fannounce&tr=udp%3A%2F%2Ftracker.torrent.eu.org%3A451%2Fannounce&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969%2Fannounce",
+                ipfsUrl: "https://ipfs.io/ipfs/bafybeidk5yfiuc6tq3wouwjicdqmciucrfchlayes6qmiwfnjdpt4gqa5m" // If you’ve got it
             };
             videos.push(testVideo);
             populateVideoGallery(videos);
