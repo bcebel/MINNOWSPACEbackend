@@ -50,13 +50,13 @@
             display: none;
         }
     </style>
-
 </head>
 
 <body>
     <h1>Video Gallery</h1>
     <div id="videoGallery"></div>
     <div id="errorLog"></div>
+
     <!-- Include WebTorrent Library -->
     <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
 
@@ -98,11 +98,11 @@
                 videoCard.className = 'video-card';
 
                 videoCard.innerHTML = `
-      <h3>${video.title}</h3>
-      <p>Uploaded by: ${video.user.username}</p>
-      <p>${video.description || "No description"}</p>
-      <button onclick="playMagnet('${video.magnetLink}')">Play</button>
-    `;
+          <h3>${video.title}</h3>
+          <p>Uploaded by: ${video.user.username}</p>
+          <p>${video.description || "No description"}</p>
+          <button onclick="playMagnet('${video.magnetLink}')">Play</button>
+        `;
 
                 galleryContainer.appendChild(videoCard);
             });
@@ -187,7 +187,6 @@
             populateVideoGallery(videos);
         });
     </script>
-
 </body>
 
 </html>
