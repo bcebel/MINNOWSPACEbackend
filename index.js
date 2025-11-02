@@ -176,6 +176,22 @@ app.get("/api/videos", async (req, res) => {
   }
 });
 
+// Simple click tracking - add this with your other routes
+app.post('/api/track-click', async (req, res) => {
+  try {
+    const { affiliateLinkId } = req.body;
+    const user = await User.findOneAndUpdate(
+      { 'affiliateLinks._id': affiliateLinkId },
+      { $inc: { 'affiliateLinks.$.clicks': 1 } },
+      { new: true }
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Click tracking error:', error);
+    res.status(500).json({ error: 'Tracking failed' });
+  }
+});
+
 
 videoUploadHandler(app);
 
