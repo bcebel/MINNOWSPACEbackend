@@ -1,3 +1,13 @@
+import User from "../../models/Minnow.js";
+import Chat from "../../models/Chat.js";
+import Post from "../../models/Post.js";
+import Group from "../../models/Group.js";
+import Video from "../../models/Video.js";
+import Stream from "../../models/Stream.js";
+import Ad from "../../models/Ad.js";
+
+
+
 const resolvers = {
   Mutation: {
     sendMessage: async (_, { chatId, senderId, content }) => {
@@ -68,16 +78,6 @@ const resolvers = {
       const token = jwt.sign({ userId: user._id }, "SECRET_KEY");
       return { token, user };
     },
-    updateAffiliateLink: async (_, { userId, affiliateLink }) => {
-      const isValidLink = validateAffiliateLink(affiliateLink); // Use regex to validate
-      if (!isValidLink) throw new Error("Invalid affiliate link");
-      const user = await User.findByIdAndUpdate(
-        userId,
-        { affiliateLink },
-        { new: true }
-      );
-      return user;
-    },
     addVideo: async (
       _,
       { userId, title, description, youtubeVideoId, thumbnail }
@@ -125,3 +125,5 @@ const resolvers = {
     },
   },
 };
+
+export default resolvers; // Make sure this is here!

@@ -47,7 +47,13 @@
     <div id="videoGallery"></div>
     <div id="errorLog"></div>
 
+    <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
     <script>
+        // WebTorrent always
+        const client = new WebTorrent();
+        const activeTorrents = new Map(); // magnetLink -> { torrent, blobUrl }
+        const pinataCache = new Map(); // cid -> url
+
         function logError(message, details = null) {
             const errorLog = document.getElementById('errorLog');
             errorLog.style.display = 'block';
@@ -62,15 +68,80 @@
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const videos = await response.json();
                 console.log("Fetched:", videos);
-                return videos.map(v => ({
-                    ...v,
-                    ipfsUrl: v.cid
-                        ? `https://gateway.pinata.cloud/ipfs/${v.cid}`
-                        : v.ipfsUrl?.replace('ipfs.filebase.io', 'gateway.pinata.cloud') // Fix old URLs
-                }));
+                return videos;
             } catch (error) {
                 logError("Fetch failed", error);
                 return [];
+            }
+        }
+
+        function setupTorrent(video, videoElement, sourceSpan) {
+            if (!video.magnetLink) {
+                console.log(`No magnetLink for ${video.title}`);
+                if (video.cid) usePinata(video, videoElement, sourceSpan);
+                return;
+            }
+
+            if (activeTorrents.has(video.magnetLink)) {
+                const { torrent, blobUrl } = activeTorrents.get(video.magnetLink);
+                console.log(`Torrent cached: ${video.title} - ${torrent.numPeers} peers`);
+                if (blobUrl && torrent.numPeers > 0) {
+                    videoElement.src = blobUrl;
+                    sourceSpan.textContent = `Torrent (${torrent.numPeers} peers)`;
+                } else if (video.cid) {
+                    usePinata(video, videoElement, sourceSpan);
+                }
+                return;
+            }
+
+            const torrent = client.add(video.magnetLink, { announce: ['wss://tracker.btorrent.xyz'] });
+            activeTorrents.set(video.magnetLink, { torrent, blobUrl: null });
+            console.log(`Torrent added: ${video.title} - ${video.magnetLink}`);
+
+            torrent.on('error', err => {
+                logError(`Torrent error: ${video.title}`, err);
+                if (video.cid) usePinata(video, videoElement, sourceSpan);
+            });
+            torrent.on('metadata', () => updateTorrent(torrent, video, videoElement, sourceSpan));
+            torrent.on('peer', () => updateTorrent(torrent, video, videoElement, sourceSpan));
+        }
+
+        function updateTorrent(torrent, video, videoElement, sourceSpan) {
+            console.log(`Torrent check: ${video.title} - ${torrent.numPeers} peers`);
+            if (torrent.numPeers > 0) {
+                const file = torrent.files.find(f => f.name.endsWith(".mp4"));
+                if (file) {
+                    file.getBlob((err, blob) => {
+                        if (!err) {
+                            const blobUrl = URL.createObjectURL(blob);
+                            activeTorrents.set(video.magnetLink, { torrent, blobUrl });
+                            videoElement.src = blobUrl;
+                            sourceSpan.textContent = `Torrent (${torrent.numPeers} peers)`;
+                            console.log(`Torrent loaded: ${video.title} - ${blob.size} bytes`);
+                        } else {
+                            logError(`Blob fail: ${video.title}`, err);
+                            if (video.cid) usePinata(video, videoElement, sourceSpan);
+                        }
+                    });
+                } else if (video.cid) {
+                    usePinata(video, videoElement, sourceSpan);
+                }
+            } else if (video.cid) {
+                usePinata(video, videoElement, sourceSpan);
+            }
+        }
+
+        function usePinata(video, videoElement, sourceSpan) {
+            if (pinataCache.has(video.cid)) {
+                videoElement.src = pinataCache.get(video.cid);
+                sourceSpan.textContent = "Pinata";
+                console.log(`Pinata cached: ${video.title} - ${video.cid}`);
+            } else {
+                const pinataUrl = `https://gateway.pinata.cloud/ipfs/${video.cid}`;
+                videoElement.src = pinataUrl;
+                pinataCache.set(video.cid, pinataUrl);
+                sourceSpan.textContent = "Pinata";
+                console.log(`Pinata loaded: ${video.title} - ${video.cid}`);
             }
         }
 
@@ -78,6 +149,10 @@
             const videos = await fetchVideos();
             const gallery = document.getElementById("videoGallery");
             gallery.innerHTML = "";
+            if (!videos || !videos.length) {
+                logError("No videos found");
+                return;
+            }
             console.log("Rendering:", videos.length);
 
             videos.forEach((video, index) => {
@@ -86,26 +161,28 @@
                 const videoElement = document.createElement("video");
                 videoElement.controls = true;
 
+                const sourceId = `source-${index}`;
                 card.innerHTML = `
-                    <h3>${video.title}</h3>
+                    <h3>${video.title || "Untitled"}</h3>
                     <p>${video.description || "No desc"}</p>
+                    <p>Source: <span id="${sourceId}">Loading...</span></p>
                 `;
+                gallery.appendChild(card);
 
-                if (video.ipfsUrl) {
-                    videoElement.src = video.ipfsUrl;
-                    console.log(`IPFS: ${video.title} - ${video.ipfsUrl}`);
-                } else {
-                    console.log(`No IPFS for ${video.title}`);
-                }
+                const sourceSpan = document.getElementById(sourceId);
+                console.log(`Card added: ${video.title}, ID: ${sourceId}`);
 
                 card.appendChild(videoElement);
-                gallery.appendChild(card);
+
+                // WebTorrent always, Pinata via CID
+                setupTorrent(video, videoElement, sourceSpan);
             });
         }
 
         document.addEventListener("DOMContentLoaded", () => {
+            console.log("Page loaded, rendering with WebTorrent always...");
             renderVideos();
-            setInterval(renderVideos, 30000);
+            setInterval(renderVideos, 60000); // 60s refresh
         });
     </script>
 </body>

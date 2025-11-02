@@ -73,7 +73,8 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 connectDB();
 // Step 5: Set up User Schema
-const User = ModelSchema.User;
+import Minnow from "./structure/models/Minnow.js";
+const User = Minnow;
 
 // Message Schema and Model
 const Message = ModelSchema.Message;
@@ -91,55 +92,8 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-app.post("/register", async (req, res) => {
-  try {
-    const { username, email, password } = req.body;
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({ username, email, password: hashedPassword });
-    await newUser.save();
-    res.json({ message: "User registered successfully" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Error registering user" });
-  }
-});
-// Step 6: API Routes
-app.post("/api/register", async (req, res) => {
-  try {
-    const hashedPassword = await bcrypt.hash(req.body.password, 10);
-    const user = new User({
-      username: req.body.username,
-      password: hashedPassword,
-    });
-    await user.save();
-    res.status(201).json({ message: "User created successfully" });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.post("/api/login", async (req, res) => {
-  try {
-    const user = await User.findOne({ username: req.body.username });
-    if (!user) return res.status(400).json({ error: "User not found" });
-
-    const validPassword = await bcrypt.compare(
-      req.body.password,
-      user.password
-    );
-    if (!validPassword)
-      return res.status(400).json({ error: "Invalid password" });
-
-    const token = jwt.sign(
-      { id: user._id, username: user.username },
-      JWT_SECRET
-    );
-    res.json({ token });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
+import authRoutes from "./routes/auth.js";
+app.use("/api", authRoutes);
 // Get messages for a specific room
 app.get("/api/messages/:room", authenticateToken, async (req, res) => {
   try {
@@ -221,13 +175,7 @@ app.get("/api/videos", async (req, res) => {
     res.status(500).send("Failed to fetch videos.");
   }
 });
-// Serve static files from the "public" directory
-app.use(express.static(path.join(__dirname, 'public')));
 
-// Fallback to index if a route isn't found
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'multistream.html'));
-});
 
 videoUploadHandler(app);
 

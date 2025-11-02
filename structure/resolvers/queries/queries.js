@@ -1,3 +1,17 @@
+import mutationResolvers from "../mutations/mutations.js";
+import User from "../../models/Minnow.js";
+import Video from "../../models/Video.js";
+import Stream from "../../models/Stream.js";
+import Ad from "../../models/Ad.js"; // ← ADD
+import Chat from "../../models/Chat.js"; // ← ADD
+import Post from "../../models/Post.js"; // ← ADD
+import Group from "../../models/Group.js"; // ← ADD
+
+const validateAffiliateLink = (link) => {
+  const regex = /^(https?:\/\/)(www\.)?(impact\.com|cj\.com|rakuten\.com)\/.*$/;
+  return regex.test(link);
+};
+
 const resolvers = {
   Query: {
     users: async () => await User.find(),
@@ -18,6 +32,38 @@ const resolvers = {
     post: async (_, { id }) => await Post.findById(id),
     groups: async () => await Group.find(),
     group: async (_, { id }) => await Group.findById(id),
+  },
+  Mutation: {
+    // Spread in all your existing mutations
+    ...mutationResolvers.Mutation,
+
+    // Add your NEW affiliate link mutation (for array of links)
+    addAffiliateLink: async (_, { userId, url, title }) => {
+      try {
+        if (!validateAffiliateLink(url)) {
+          throw new Error(
+            "Invalid affiliate link. Must be from approved networks"
+          );
+        }
+
+        const user = await User.findById(userId);
+        if (!user) throw new Error("User not found");
+
+        const newLink = {
+          url,
+          title: title || "",
+          description: "",
+          clicks: 0,
+        };
+
+        user.affiliateLinks.push(newLink);
+        await user.save();
+
+        return user;
+      } catch (error) {
+        throw new Error(`Error adding affiliate link: ${error.message}`);
+      }
+    },
   },
 };
 

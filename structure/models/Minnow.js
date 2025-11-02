@@ -20,11 +20,27 @@ const minnowSchema = new Schema(
       required: true,
       minlength: 5,
     },
-    affiliateLink: {
-      type: String,
-      trim: true,
-
-    },
+    affiliateLinks: [
+      {
+        url: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+        title: {
+          type: String,
+          trim: true,
+        },
+        description: {
+          type: String,
+          trim: true,
+        },
+        clicks: {
+          type: Number,
+          default: 0,
+        },
+      },
+    ],
     youtubeChannel: {
       type: String,
       trim: true,
