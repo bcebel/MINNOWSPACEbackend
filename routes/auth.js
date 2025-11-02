@@ -9,10 +9,9 @@ const router = express.Router();
 // Register a new user
 router.post("/register", async (req, res) => {
   try {
-    const hashedPassword = await bcrypt.hash(req.body.password, 10);
     const user = new User({
       username: req.body.username,
-      password: hashedPassword,
+      password: req.body.password, // Let the model handle hashing
       email: req.body.email,
     });
     await user.save();
