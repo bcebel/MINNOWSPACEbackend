@@ -192,6 +192,41 @@ app.post('/api/track-click', async (req, res) => {
   }
 });
 
+// Add this function to fetch affiliate data separately
+const fetchUserAffiliateData = async (userId) => {
+  try {
+    const response = await fetch(`${BACKEND_URL}/graphql`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          query GetUserAffiliateLinks($userId: ID!) {
+            user(id: $userId) {
+              id
+              username
+              affiliateLinks {
+                id
+                url
+                title
+                clicks
+              }
+            }
+          }
+        `,
+        variables: { userId }
+      })
+    });
+    
+    const result = await response.json();
+    return result.data?.user;
+  } catch (error) {
+    console.log('Failed to fetch affiliate data:', error);
+    return null;
+  }
+};
+
+// Then in your VideoCard component, you can fetch affiliate data when needed
+
 
 videoUploadHandler(app);
 
