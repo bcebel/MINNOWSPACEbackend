@@ -119,7 +119,7 @@ const typeDefs = gql`
   type Mutation {
     addAffiliateLink(userId: ID!, url: String!, title: String): User
     registerUser(username: String!, email: String!, password: String!): User
-    loginUser(email: String!, password: String!): AuthPayload
+    loginUser(username: String!, password: String!): AuthPayload
     updateAffiliateLink(userId: ID!, affiliateLink: String!): User
     addVideo(
       userId: ID!
