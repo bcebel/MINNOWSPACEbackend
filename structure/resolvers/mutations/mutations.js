@@ -62,6 +62,32 @@ const resolvers = {
   },
 
   Mutation: {
+    sendMessage: async (_, { content, room, imageUrl }, context) => {
+      if (!context.user) throw new Error("Authentication required");
+
+      const message = new Message({
+        sender: context.user.userId,
+        content,
+        imageUrl,
+        room: room || "general",
+        createdAt: new Date(),
+      });
+
+      await message.save();
+
+      // Populate sender info
+      const populatedMessage = await Message.findById(message._id).populate(
+        "sender",
+        "username profilePhoto"
+      );
+
+      // Emit socket event
+      if (context.io) {
+        context.io.to(room || "general").emit("message", populatedMessage);
+      }
+
+      return populatedMessage;
+    },
     // Auth mutations
     registerUser: async (_, { username, email, password }) => {
       // Check if user already exists

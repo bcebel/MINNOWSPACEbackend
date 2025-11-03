@@ -32,6 +32,17 @@ const resolvers = {
     post: async (_, { id }) => await Post.findById(id),
     groups: async () => await Group.find(),
     group: async (_, { id }) => await Group.findById(id),
+    messages: async (_, { room }, context) => {
+      if (!context.user) throw new Error("Authentication required");
+
+      // Use your Message model to fetch messages
+      const messages = await Message.find({ room: room || "general" })
+        .populate("sender", "username profilePhoto")
+        .sort("-createdAt")
+        .limit(50);
+
+      return messages;
+    },
   },
   Mutation: {
     // Spread in all your existing mutations
