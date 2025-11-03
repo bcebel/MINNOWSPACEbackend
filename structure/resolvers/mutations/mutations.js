@@ -65,7 +65,6 @@ const resolvers = {
       return group;
     },
     registerUser: async (_, { username, email, password }) => {
-      const hashedPassword = await bcrypt.hash(password, 10);
       const user = new User({ username, email, password: hashedPassword });
       await user.save();
       return user;
