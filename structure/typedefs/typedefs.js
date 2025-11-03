@@ -7,6 +7,7 @@ const typeDefs = gql`
     email: String!
     affiliateLinks: [AffiliateLink!]!
     youtubeChannel: String
+    profilePhoto: String
     videos: [Video!]
     streams: [Stream!]
     chats: [Chat!] # Chats the user is involved in
@@ -26,6 +27,7 @@ const typeDefs = gql`
 
   type Chat {
     id: ID!
+    name: String!
     participants: [User!]!
     messages: [Message!]!
     createdAt: String!
@@ -33,9 +35,12 @@ const typeDefs = gql`
   }
 
   type Message {
-    sender: User!
+    id: ID!
     content: String!
-    timestamp: String!
+    imageUrl: String
+    room: String!
+    createdAt: String!
+    sender: User!
   }
 
   type Post {
@@ -51,6 +56,7 @@ const typeDefs = gql`
   }
 
   type Comment {
+    id: ID!
     author: User!
     content: String!
     timestamp: String!
@@ -95,59 +101,103 @@ const typeDefs = gql`
   }
 
   type Query {
+    # User queries
     users: [User!]
     user(id: ID!): User
+    me: User
+
+    # Video queries
     videos: [Video!]
     video(id: ID!): Video
+
+    # Stream queries
     streams: [Stream!]
     stream(id: ID!): Stream
+
+    # Ad queries
     ads: [Ad!]
     ad(id: ID!): Ad
+
+    # Chat queries
     chats: [Chat!]
     chat(id: ID!): Chat
-    posts(feedType: String, groupId: ID): [Post!] # Filter posts by feedType or group
+
+    # Message queries
+    messages(room: String): [Message!]
+    message(id: ID!): Message
+
+    # Post queries
+    posts(feedType: String, groupId: ID): [Post!]
     post(id: ID!): Post
+
+    # Group queries
     groups: [Group!]
     group(id: ID!): Group
   }
 
   type Subscription {
-    messageAdded(chatId: ID!): Message
+    messageAdded(room: String!): Message
     postAdded(feedType: String, groupId: ID): Post
   }
 
   type Mutation {
-    addAffiliateLink(userId: ID!, url: String!, title: String): User
-    registerUser(username: String!, email: String!, password: String!): User
-    loginUser(username: String!, password: String!): AuthPayload
-    updateAffiliateLink(userId: ID!, affiliateLink: String!): User
+    # Auth mutations
+    registerUser(
+      username: String!
+      email: String!
+      password: String!
+    ): AuthPayload!
+    loginUser(username: String!, password: String!): AuthPayload!
+
+    # Affiliate mutations
+    addAffiliateLink(url: String!, title: String, description: String): User!
+    updateAffiliateLink(
+      linkId: ID!
+      url: String
+      title: String
+      description: String
+    ): User!
+    removeAffiliateLink(linkId: ID!): User!
+
+    # Video mutations
     addVideo(
-      userId: ID!
       title: String!
       description: String!
       youtubeVideoId: String!
       thumbnail: String!
-    ): Video
+    ): Video!
+
+    # Stream mutations
     addStream(
-      userId: ID!
       title: String!
       description: String!
       youtubeStreamId: String!
       isLive: Boolean!
-    ): Stream
-    addAd(userId: ID!, affiliateLink: String!): Ad
-    incrementAdClicks(adId: ID!): Ad
-    sendMessage(chatId: ID!, senderId: ID!, content: String!): Chat
-    createPost(
-      authorId: ID!
-      content: String!
-      feedType: String!
-      groupId: ID
-    ): Post
-    likePost(postId: ID!, userId: ID!): Post
-    addComment(postId: ID!, authorId: ID!, content: String!): Post
-    createGroup(name: String!, description: String!, creatorId: ID!): Group
-    joinGroup(groupId: ID!, userId: ID!): Group
+    ): Stream!
+
+    # Ad mutations
+    addAd(affiliateLink: String!): Ad!
+    incrementAdClicks(adId: ID!): Ad!
+
+    # Chat mutations
+    createChat(name: String!, participantIds: [ID!]!): Chat!
+    joinChat(chatId: ID!): Chat!
+    leaveChat(chatId: ID!): Boolean!
+
+    # Message mutations
+    sendMessage(content: String!, room: String!, imageUrl: String): Message!
+    deleteMessage(messageId: ID!): Boolean!
+
+    # Post mutations
+    createPost(content: String!, feedType: String!, groupId: ID): Post!
+    likePost(postId: ID!): Post!
+    unlikePost(postId: ID!): Post!
+    addComment(postId: ID!, content: String!): Post!
+
+    # Group mutations
+    createGroup(name: String!, description: String!): Group!
+    joinGroup(groupId: ID!): Group!
+    leaveGroup(groupId: ID!): Group!
   }
 
   type AuthPayload {
@@ -157,30 +207,3 @@ const typeDefs = gql`
 `;
 
 export default typeDefs;
- 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
