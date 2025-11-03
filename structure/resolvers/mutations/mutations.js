@@ -69,8 +69,8 @@ const resolvers = {
       await user.save();
       return user;
     },
-    loginUser: async (_, { email, password }) => {
-      const user = await User.findOne({ email });
+    loginUser: async (_, { username, password }) => {
+      const user = await User.findOne({ username });
       if (!user) throw new Error("User not found");
       const valid = await bcrypt.compare(password, user.password);
       if (!valid) throw new Error("Invalid password");
