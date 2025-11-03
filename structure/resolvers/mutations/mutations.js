@@ -65,7 +65,7 @@ const resolvers = {
       return group;
     },
     registerUser: async (_, { username, email, password }) => {
-      const user = new User({ username, email, password: hashedPassword });
+      const user = new User({ username, email, password });
       await user.save();
       return user;
     },
