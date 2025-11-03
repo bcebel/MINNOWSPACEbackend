@@ -6,6 +6,7 @@ import Video from "../../models/Video.js";
 import Stream from "../../models/Stream.js";
 import Ad from "../../models/Ad.js";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 // or if using CommonJS:
 // const bcrypt = require("bcrypt");
 
