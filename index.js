@@ -52,7 +52,34 @@ app.use("/graphql", cors(corsOptions));
 const apolloServer = new ApolloServer({
   typeDefs,
   resolvers,
-});
+    context: ({ req }) => {
+      console.log("🔐 GraphQL Context - Headers:", req.headers);
+
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        const token = authHeader.substring(7);
+        console.log(
+          "🔐 GraphQL Context - Token received:",
+          token.substring(0, 20) + "..."
+        );
+
+        try {
+          const decoded = jwt.verify(token, "mysecretssshhhhhhh");
+          console.log("🔐 GraphQL Context - Decoded user:", decoded);
+          return { user: { userId: decoded._id } }; // Make sure this matches your resolvers
+        } catch (error) {
+          console.log("🔐 GraphQL Context - Token invalid:", error.message);
+        }
+      }
+
+      console.log("🔐 GraphQL Context - No valid auth, returning empty");
+      return {};
+    }
+
+  });
+
+
+
 await apolloServer.start();
 apolloServer.applyMiddleware({ app, path: "/graphql", cors: false });
 app.get("/api/health", (req, res) => {
