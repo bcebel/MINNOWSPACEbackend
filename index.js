@@ -50,13 +50,7 @@ app.use(cors(corsOptions));
 app.get("/api/health", (req, res) => {
   res.json({ status: "OK", timestamp: new Date().toISOString() });
 });
-// Step 3: Set up Apollo Server
-const apolloServer = new ApolloServer({
-  typeDefs,
-  resolvers,
-});
-await apolloServer.start();
-apolloServer.applyMiddleware({ app, path: "/graphql", cors: false });
+
 
 // Step 4: Set up Socket.IO Server
 const server = http.createServer(app);
@@ -227,7 +221,13 @@ const fetchUserAffiliateData = async (userId) => {
 // Then in your VideoCard component, you can fetch affiliate data when needed
 
 videoUploadHandler(app);
-
+// Step 3: Set up Apollo Server
+const apolloServer = new ApolloServer({
+  typeDefs,
+  resolvers,
+});
+await apolloServer.start();
+apolloServer.applyMiddleware({ app, path: "/graphql", cors: false });
 // Step 8: Start the Server
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
