@@ -54,7 +54,7 @@ const apolloServer = new ApolloServer({
   resolvers,
 });
 await apolloServer.start();
-apolloServer.applyMiddleware({ app });
+apolloServer.applyMiddleware({ app, cors: false });
 
 // Step 4: Set up Socket.IO Server
 const server = http.createServer(app);
