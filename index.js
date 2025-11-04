@@ -47,7 +47,9 @@ const corsOptions = {
   credentials: true,
 };
 app.use(cors(corsOptions));
-
+app.get("/api/health", (req, res) => {
+  res.json({ status: "OK", timestamp: new Date().toISOString() });
+});
 // Step 3: Set up Apollo Server
 const apolloServer = new ApolloServer({
   typeDefs,
