@@ -1,7 +1,7 @@
 import express from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import User from "../structure/models/Minnow.js"
+import User from "../structure/models/User.js";
 // Adjust the path to your User model
 
 const router = express.Router();

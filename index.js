@@ -13,7 +13,7 @@ import authMiddleware from "./utils/auth.js";
 import typeDefs from "./structure/typedefs/typedefs.js";
 import ModelSchema from "./structure/models/index.js";
 import resolvers from "./structure/resolvers/queries/queries.js";
-import connectDB from"./config/connection.js";
+import connectDB from "./config/connection.js";
 import videoUploadHandler from "./videoUploadHandler.js"; // Import the video upload handler
 import Video from "./structure/models/Video.js";
 dotenv.config();
@@ -67,13 +67,12 @@ const io = new Server(server, {
   },
 });
 
-
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET;
 
 connectDB();
 // Step 5: Set up User Schema
-import Minnow from "./structure/models/Minnow.js";
+import Minnow from "./structure/models/User.js";
 const User = Minnow;
 
 // Message Schema and Model
@@ -106,7 +105,6 @@ app.get("/api/messages/:room", authenticateToken, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
 
 // Step 7: Socket.IO Event Handling
 io.use((socket, next) => {
@@ -151,7 +149,7 @@ io.on("connection", (socket) => {
 
       const populatedMessage = await Message.findById(message._id).populate(
         "sender",
-        "username",
+        "username"
       );
       io.to(data.room).emit("message", populatedMessage);
     } catch (error) {
@@ -177,18 +175,18 @@ app.get("/api/videos", async (req, res) => {
 });
 
 // Simple click tracking - add this with your other routes
-app.post('/api/track-click', async (req, res) => {
+app.post("/api/track-click", async (req, res) => {
   try {
     const { affiliateLinkId } = req.body;
     const user = await User.findOneAndUpdate(
-      { 'affiliateLinks._id': affiliateLinkId },
-      { $inc: { 'affiliateLinks.$.clicks': 1 } },
+      { "affiliateLinks._id": affiliateLinkId },
+      { $inc: { "affiliateLinks.$.clicks": 1 } },
       { new: true }
     );
     res.json({ success: true });
   } catch (error) {
-    console.error('Click tracking error:', error);
-    res.status(500).json({ error: 'Tracking failed' });
+    console.error("Click tracking error:", error);
+    res.status(500).json({ error: "Tracking failed" });
   }
 });
 
@@ -196,8 +194,8 @@ app.post('/api/track-click', async (req, res) => {
 const fetchUserAffiliateData = async (userId) => {
   try {
     const response = await fetch(`${BACKEND_URL}/graphql`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         query: `
           query GetUserAffiliateLinks($userId: ID!) {
@@ -213,23 +211,21 @@ const fetchUserAffiliateData = async (userId) => {
             }
           }
         `,
-        variables: { userId }
-      })
+        variables: { userId },
+      }),
     });
-    
+
     const result = await response.json();
     return result.data?.user;
   } catch (error) {
-    console.log('Failed to fetch affiliate data:', error);
+    console.log("Failed to fetch affiliate data:", error);
     return null;
   }
 };
 
 // Then in your VideoCard component, you can fetch affiliate data when needed
 
-
 videoUploadHandler(app);
-
 
 // Step 8: Start the Server
 server.listen(PORT, () => {

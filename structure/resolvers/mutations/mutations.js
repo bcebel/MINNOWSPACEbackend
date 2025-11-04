@@ -1,4 +1,4 @@
-import User from "../../models/Minnow.js";
+import User from "../../models/User.js";
 import Chat from "../../models/Chat.js";
 import Post from "../../models/Post.js";
 import Group from "../../models/Group.js";
@@ -119,7 +119,7 @@ const resolvers = {
       if (existingUser) throw new Error("User already exists");
 
       // Hash password
-      const hashedPassword = await bcrypt.hash(password, 12);
+      // const hashedPassword = await bcrypt.hash(password, 12);
 
       // Create user
       const user = new User({
