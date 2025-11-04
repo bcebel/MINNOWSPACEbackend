@@ -52,7 +52,6 @@ app.use(cors(corsOptions));
 const apolloServer = new ApolloServer({
   typeDefs,
   resolvers,
-  cors: corsOptions,
 });
 await apolloServer.start();
 apolloServer.applyMiddleware({ app });
