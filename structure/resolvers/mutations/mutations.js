@@ -125,7 +125,7 @@ const resolvers = {
       const user = new User({
         username,
         email,
-        password: hashedPassword,
+        password: password,
         profilePhoto: `https://ui-avatars.com/api/?name=${encodeURIComponent(
           username
         )}&background=00FF00&color=000`,
