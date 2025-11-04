@@ -141,11 +141,34 @@ io.use((socket, next) => {
   const token = socket.handshake.auth.token;
   if (!token) return next(new Error("Authentication error"));
 
-  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+  jwt.verify(token, "mysecretssshhhhhhh", (err, decoded) => {
     if (err) return next(new Error("Authentication error"));
-    socket.user = decoded;
+    socket.user = {
+      id: decoded._id, // ← Use _id to match your token
+      username: decoded.username, // You might need to populate this
+    };
     next();
   });
+});
+
+io.use(async (socket, next) => {
+  const token = socket.handshake.auth.token;
+  if (!token) return next(new Error("Authentication error"));
+
+  try {
+    const decoded = jwt.verify(token, "mysecretssshhhhhhh");
+    const user = await User.findById(decoded._id);
+
+    if (!user) return next(new Error("User not found"));
+
+    socket.user = {
+      id: user._id,
+      username: user.username, // Now we have the actual username
+    };
+    next();
+  } catch (error) {
+    next(new Error("Authentication error"));
+  }
 });
 
 io.on("connection", (socket) => {
