@@ -142,8 +142,8 @@ const resolvers = {
 
       // Generate JWT token
       const token = jwt.sign(
-        { userId: user._id },
-        process.env.JWT_SECRET || "SECRET_KEY",
+        { _id: user._id }, // ✅ Change from userId to _id
+        "mysecretssshhhhhhh",
         { expiresIn: "24h" }
       );
 
