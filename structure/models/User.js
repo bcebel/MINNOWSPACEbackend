@@ -1,4 +1,3 @@
-// models/User.js (renamed from Minnow.js)
 import { Schema, model } from "mongoose";
 import bcrypt from "bcrypt";
 
@@ -37,12 +36,12 @@ const userSchema = new Schema(
         clicks: { type: Number, default: 0 },
       },
     ],
-    // ... rest of your Minnow schema
+    // ... keep the rest of your schema
   },
   { timestamps: true }
 );
 
-// Keep the pre-save middleware
+// Pre-save middleware to hash password
 userSchema.pre("save", async function (next) {
   if (this.isNew || this.isModified("password")) {
     const saltRounds = 10;
@@ -51,7 +50,7 @@ userSchema.pre("save", async function (next) {
   next();
 });
 
-// Keep the password comparison method
+// Password comparison method
 userSchema.methods.isCorrectPassword = async function (password) {
   return bcrypt.compare(password, this.password);
 };

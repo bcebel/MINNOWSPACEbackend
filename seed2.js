@@ -28,20 +28,20 @@ async function seedDatabase() {
     await Message.deleteMany({});
     console.log("All existing records have been removed.");
 
-    // Create sample users with hashed passwords
-    const hashedPassword1 = await bcrypt.hash("password123", 10);
-    const hashedPassword2 = await bcrypt.hash("testpass456", 10);
+    // Create sample users with  passwords
+    const Password1 = "password123";
+    const Password2 = "testpass456";
 
     const users = [
       {
         username: "testuser1",
-        password: hashedPassword1,
+        password: Password1,
         email: "email@liame.com",
         profilePhoto: "https://images.pexels.com/photos/30472381/pexels-photo-30472381/free-photo-of-elegant-male-fashion-portrait-with-moody-lighting.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2",
       },
       {
         username: "testuser2",
-        password: hashedPassword2,
+        password: Password2,
         email: "liame@email.com",
         profilePhoto: "https://images.pexels.com/photos/29326451/pexels-photo-29326451/free-photo-of-rustic-shipwreck-on-a-pristine-beach.jpeg?auto=compress&cs=tinysrgb&w=1200&lazy=load",
 

@@ -36,12 +36,12 @@ async function seedDatabase() {
     
     console.log("All existing records have been removed.");
     
-    const hashedPassword1 = await bcrypt.hash("password123", 10);
-    const hashedPassword2 = await bcrypt.hash("testpass456", 10);
+    const Password1 ="password123"
+    const Password2 = "testpass456";
 
     const users = [
-      { username: "testuser1", password: hashedPassword1, email: "email@liame.com" },
-      { username: "testuser2", password: hashedPassword2, email: "liame@email.com"},
+      { username: "testuser1", password: Password1, email: "email@liame.com" },
+      { username: "testuser2", password: Password2, email: "liame@email.com"},
     ];
 
 
