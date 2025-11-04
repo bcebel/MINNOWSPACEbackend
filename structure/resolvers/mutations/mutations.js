@@ -5,8 +5,10 @@ import Group from "../../models/Group.js";
 import Video from "../../models/Video.js";
 import Stream from "../../models/Stream.js";
 import Ad from "../../models/Ad.js";
+import Message from "../../models/Message.js"; // ✅ ADD THIS IMPORT
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose"; // ✅ ADD THIS IMPORT
 
 const resolvers = {
   Query: {
@@ -34,16 +36,28 @@ const resolvers = {
     chats: async () => await Chat.find().populate("participants"),
     chat: async (_, { id }) => await Chat.findById(id).populate("participants"),
 
-    // Message queries
+    // ✅ FIXED: Message queries - REMOVE the placeholder implementation
     messages: async (_, { room }, context) => {
       if (!context.user) throw new Error("Authentication required");
-      // You'll need to implement this based on your message structure
-      return [];
+
+      console.log("🔍 Backend: Fetching messages for room:", room);
+
+      const query = room ? { room } : {};
+      const messages = await Message.find(query)
+        .populate("sender", "username profilePhoto")
+        .sort({ createdAt: -1 })
+        .limit(50);
+
+      console.log("✅ Backend: Found", messages.length, "messages");
+      return messages;
     },
+
     message: async (_, { id }, context) => {
       if (!context.user) throw new Error("Authentication required");
-      // You'll need to implement this based on your message structure
-      return null;
+      return await Message.findById(id).populate(
+        "sender",
+        "username profilePhoto"
+      );
     },
 
     // Post queries
@@ -62,18 +76,22 @@ const resolvers = {
   },
 
   Mutation: {
+    // ✅ FIXED: Only ONE sendMessage mutation (remove the duplicate)
     sendMessage: async (_, { content, room, imageUrl }, context) => {
       if (!context.user) throw new Error("Authentication required");
+
+      console.log("🔍 Backend: Sending message:", { content, room });
 
       const message = new Message({
         sender: context.user.userId,
         content,
-        imageUrl,
+        imageUrl: imageUrl || null,
         room: room || "general",
         createdAt: new Date(),
       });
 
       await message.save();
+      console.log("✅ Backend: Message saved with ID:", message._id);
 
       // Populate sender info
       const populatedMessage = await Message.findById(message._id).populate(
@@ -81,13 +99,17 @@ const resolvers = {
         "username profilePhoto"
       );
 
+      console.log("✅ Backend: Message populated");
+
       // Emit socket event
       if (context.io) {
         context.io.to(room || "general").emit("message", populatedMessage);
+        console.log("✅ Backend: Socket event emitted");
       }
 
       return populatedMessage;
     },
+
     // Auth mutations
     registerUser: async (_, { username, email, password }) => {
       // Check if user already exists
@@ -152,334 +174,37 @@ const resolvers = {
       };
     },
 
-    // Affiliate mutations
-    addAffiliateLink: async (_, { url, title, description }, context) => {
-      if (!context.user) throw new Error("Authentication required");
-
-      const newLink = {
-        id: new mongoose.Types.ObjectId(),
-        url,
-        title: title || "",
-        description: description || "",
-        clicks: 0,
-      };
-
-      const user = await User.findByIdAndUpdate(
-        context.user.userId,
-        { $push: { affiliateLinks: newLink } },
-        { new: true }
-      );
-
-      return user;
-    },
-
-    updateAffiliateLink: async (
-      _,
-      { linkId, url, title, description },
-      context
-    ) => {
-      if (!context.user) throw new Error("Authentication required");
-
-      const user = await User.findById(context.user.userId);
-      const link = user.affiliateLinks.id(linkId);
-      if (!link) throw new Error("Affiliate link not found");
-
-      if (url) link.url = url;
-      if (title) link.title = title;
-      if (description) link.description = description;
-
-      await user.save();
-      return user;
-    },
-
-    removeAffiliateLink: async (_, { linkId }, context) => {
-      if (!context.user) throw new Error("Authentication required");
-
-      const user = await User.findByIdAndUpdate(
-        context.user.userId,
-        { $pull: { affiliateLinks: { _id: linkId } } },
-        { new: true }
-      );
-
-      return user;
-    },
-
-    // Chat and Message mutations
-    sendMessage: async (_, { content, room, imageUrl }, context) => {
-      if (!context.user) throw new Error("Authentication required");
-
-      // You'll need to implement this based on your message model
-      // This is a placeholder - adjust based on your actual Message model
-      const message = {
-        id: new mongoose.Types.ObjectId(),
-        content,
-        room,
-        imageUrl,
-        sender: context.user.userId,
-        createdAt: new Date(),
-      };
-
-      // Emit socket event if needed
-      if (context.io) {
-        context.io.to(room).emit("message", message);
-      }
-
-      return message;
-    },
-
-    deleteMessage: async (_, { messageId }, context) => {
-      if (!context.user) throw new Error("Authentication required");
-      // Implement message deletion logic
-      return true;
-    },
-
-    createChat: async (_, { name, participantIds }, context) => {
-      if (!context.user) throw new Error("Authentication required");
-
-      const chat = new Chat({
-        name,
-        participants: [...participantIds, context.user.userId],
-        messages: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-
-      await chat.save();
-      return chat;
-    },
-
-    joinChat: async (_, { chatId }, context) => {
-      if (!context.user) throw new Error("Authentication required");
-
-      const chat = await Chat.findByIdAndUpdate(
-        chatId,
-        { $addToSet: { participants: context.user.userId } },
-        { new: true }
-      ).populate("participants");
-
-      return chat;
-    },
-
-    leaveChat: async (_, { chatId }, context) => {
-      if (!context.user) throw new Error("Authentication required");
-
-      await Chat.findByIdAndUpdate(chatId, {
-        $pull: { participants: context.user.userId },
-      });
-
-      return true;
-    },
-
-    // Post mutations
-    createPost: async (_, { content, feedType, groupId }, context) => {
-      if (!context.user) throw new Error("Authentication required");
-
-      const post = new Post({
-        author: context.user.userId,
-        content,
-        feedType,
-        group: groupId,
-        likes: [],
-        comments: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-
-      await post.save();
-      await User.findByIdAndUpdate(context.user.userId, {
-        $push: { posts: post._id },
-      });
-
-      if (groupId) {
-        await Group.findByIdAndUpdate(groupId, { $push: { posts: post._id } });
-      }
-
-      return post.populate("author").populate("group");
-    },
-
-    likePost: async (_, { postId }, context) => {
-      if (!context.user) throw new Error("Authentication required");
-
-      const post = await Post.findByIdAndUpdate(
-        postId,
-        { $addToSet: { likes: context.user.userId } },
-        { new: true }
-      )
-        .populate("author")
-        .populate("group");
-
-      return post;
-    },
-
-    unlikePost: async (_, { postId }, context) => {
-      if (!context.user) throw new Error("Authentication required");
-
-      const post = await Post.findByIdAndUpdate(
-        postId,
-        { $pull: { likes: context.user.userId } },
-        { new: true }
-      )
-        .populate("author")
-        .populate("group");
-
-      return post;
-    },
-
-    addComment: async (_, { postId, content }, context) => {
-      if (!context.user) throw new Error("Authentication required");
-
-      const comment = {
-        id: new mongoose.Types.ObjectId(),
-        author: context.user.userId,
-        content,
-        timestamp: new Date(),
-      };
-
-      const post = await Post.findByIdAndUpdate(
-        postId,
-        { $push: { comments: comment } },
-        { new: true }
-      )
-        .populate("author")
-        .populate("group");
-
-      return post;
-    },
-
-    // Group mutations
-    createGroup: async (_, { name, description }, context) => {
-      if (!context.user) throw new Error("Authentication required");
-
-      const group = new Group({
-        name,
-        description,
-        members: [context.user.userId],
-        posts: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-
-      await group.save();
-      await User.findByIdAndUpdate(context.user.userId, {
-        $push: { groups: group._id },
-      });
-
-      return group.populate("members");
-    },
-
-    joinGroup: async (_, { groupId }, context) => {
-      if (!context.user) throw new Error("Authentication required");
-
-      const group = await Group.findByIdAndUpdate(
-        groupId,
-        { $addToSet: { members: context.user.userId } },
-        { new: true }
-      ).populate("members");
-
-      await User.findByIdAndUpdate(context.user.userId, {
-        $push: { groups: groupId },
-      });
-
-      return group;
-    },
-
-    leaveGroup: async (_, { groupId }, context) => {
-      if (!context.user) throw new Error("Authentication required");
-
-      const group = await Group.findByIdAndUpdate(
-        groupId,
-        { $pull: { members: context.user.userId } },
-        { new: true }
-      ).populate("members");
-
-      await User.findByIdAndUpdate(context.user.userId, {
-        $pull: { groups: groupId },
-      });
-
-      return group;
-    },
-
-    // Video mutations
-    addVideo: async (
-      _,
-      { title, description, youtubeVideoId, thumbnail },
-      context
-    ) => {
-      if (!context.user) throw new Error("Authentication required");
-
-      const video = new Video({
-        title,
-        description,
-        youtubeVideoId,
-        thumbnail,
-        user: context.user.userId,
-        createdAt: new Date(),
-      });
-
-      await video.save();
-      await User.findByIdAndUpdate(context.user.userId, {
-        $push: { videos: video._id },
-      });
-
-      return video.populate("user");
-    },
-
-    // Stream mutations
-    addStream: async (
-      _,
-      { title, description, youtubeStreamId, isLive },
-      context
-    ) => {
-      if (!context.user) throw new Error("Authentication required");
-
-      const stream = new Stream({
-        title,
-        description,
-        youtubeStreamId,
-        isLive,
-        user: context.user.userId,
-        createdAt: new Date(),
-      });
-
-      await stream.save();
-      await User.findByIdAndUpdate(context.user.userId, {
-        $push: { streams: stream._id },
-      });
-
-      return stream.populate("user");
-    },
-
-    // Ad mutations
-    addAd: async (_, { affiliateLink }, context) => {
-      if (!context.user) throw new Error("Authentication required");
-
-      // Simple URL validation
-      const isValidLink = affiliateLink.startsWith("http");
-      if (!isValidLink) throw new Error("Invalid affiliate link");
-
-      const ad = new Ad({
-        affiliateLink,
-        user: context.user.userId,
-        clicks: 0,
-        createdAt: new Date(),
-      });
-
-      await ad.save();
-      return ad.populate("user");
-    },
-
-    incrementAdClicks: async (_, { adId }) => {
-      const ad = await Ad.findByIdAndUpdate(
-        adId,
-        { $inc: { clicks: 1 } },
-        { new: true }
-      ).populate("user");
-
-      return ad;
-    },
+    // ... keep all your other mutations but REMOVE the duplicate sendMessage
+    // Affiliate mutations, Chat mutations, Post mutations, etc.
+    // (all the ones below your auth mutations)
+
+    // REMOVE THIS DUPLICATE:
+    // sendMessage: async (_, { content, room, imageUrl }, context) => {
+    //   if (!context.user) throw new Error("Authentication required");
+    //
+    //   // You'll need to implement this based on your message model
+    //   // This is a placeholder - adjust based on your actual Message model
+    //   const message = {
+    //     id: new mongoose.Types.ObjectId(),
+    //     content,
+    //     room,
+    //     imageUrl,
+    //     sender: context.user.userId,
+    //     createdAt: new Date(),
+    //   };
+    //
+    //   // Emit socket event if needed
+    //   if (context.io) {
+    //     context.io.to(room).emit("message", message);
+    //   }
+    //
+    //   return message;
+    // },
+
+    // ... keep the rest of your mutations
   },
 
-  // Field resolvers for custom field names
+  // Field resolvers remain the same
   User: {
     id: (parent) => parent._id.toString(),
   },
@@ -487,7 +212,7 @@ const resolvers = {
     id: (parent) => parent._id.toString(),
   },
   Message: {
-    id: (parent) => parent._id?.toString() || parent.id,
+    id: (parent) => parent._id.toString(),
     sender: async (parent) => {
       if (parent.sender && typeof parent.sender === "object")
         return parent.sender;
