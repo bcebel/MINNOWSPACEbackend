@@ -30,7 +30,7 @@ const corsOptions = {
   origin: (origin, callback) => {
     const allowedOrigins = [
       "https://studio.apollographql.com",
-      "https://minnowspace.vercel.app",
+      "https://gigunit.vercel.app",
       "http://localhost:3001",
       "http://localhost:3001/graphql",
       "http://localhost:8081",

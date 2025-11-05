@@ -1,1 +1,1 @@
-Minnowspace is a community website where we all work together!
+GigUnit is a community website where we all work together!

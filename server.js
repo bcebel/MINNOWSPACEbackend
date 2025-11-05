@@ -16,7 +16,7 @@ app.use(cors());
 
 const server = http.createServer(app);
 const io = require("socket.io")(server, {
-  cors: { origin: "https://minnowspacexpo.vercel.app" },
+  cors: { origin: "https://gigunit.vercel.app" },
 });
 
 const URI = process.env.MONGODB_URI;
