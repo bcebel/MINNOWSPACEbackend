@@ -94,13 +94,19 @@ const resolvers = {
       const populatedMessage = await Message.findById(message._id).populate(
         "sender",
         "username profilePhoto"
-      );
+      )
+          .exec(); // Add .exec() to ensure it executes
+
+  console.log("✅ Backend: Message populated:", populatedMessage);
+  console.log("✅ Backend: Sender populated:", populatedMessage.sender);
 
       console.log("✅ Backend: Message populated");
 
       if (context.io) {
         context.io.to(room || "general").emit("message", populatedMessage);
         console.log("✅ Backend: Socket event emitted");
+      } else {
+        console.log("❌ No IO in context - cannot emit socket event");
       }
 
       return populatedMessage;

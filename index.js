@@ -52,31 +52,30 @@ app.use("/graphql", cors(corsOptions));
 const apolloServer = new ApolloServer({
   typeDefs,
   resolvers,
-    context: ({ req }) => {
-      console.log("🔐 GraphQL Context - Headers:", req.headers);
+  context: ({ req }) => {
+    console.log("🔐 GraphQL Context - Headers:", req.headers);
 
-      const authHeader = req.headers.authorization;
-      if (authHeader && authHeader.startsWith("Bearer ")) {
-        const token = authHeader.substring(7);
-        console.log(
-          "🔐 GraphQL Context - Token received:",
-          token.substring(0, 20) + "..."
-        );
+    const authHeader = req.headers.authorization;
+    let user = null;
 
-        try {
-          const decoded = jwt.verify(token, "mysecretssshhhhhhh");
-          console.log("🔐 GraphQL Context - Decoded user:", decoded);
-          return { user: { userId: decoded._id } }; // Make sure this matches your resolvers
-        } catch (error) {
-          console.log("🔐 GraphQL Context - Token invalid:", error.message);
-        }
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.substring(7);
+      try {
+        const decoded = jwt.verify(token, "mysecretssshhhhhhh");
+        user = { userId: decoded._id };
+        console.log("🔐 GraphQL Context - Decoded user:", decoded);
+      } catch (error) {
+        console.log("🔐 GraphQL Context - Token invalid:", error.message);
       }
-
-      console.log("🔐 GraphQL Context - No valid auth, returning empty");
-      return {};
     }
 
-  });
+    // ✅ PASS IO TO CONTEXT
+    return {
+      user,
+      io, // This makes io available in your mutations as context.io
+    };
+  },
+});
 
 
 
@@ -136,20 +135,7 @@ app.get("/api/messages/:room", authenticateToken, async (req, res) => {
   }
 });
 
-// Step 7: Socket.IO Event Handling
-io.use((socket, next) => {
-  const token = socket.handshake.auth.token;
-  if (!token) return next(new Error("Authentication error"));
 
-  jwt.verify(token, "mysecretssshhhhhhh", (err, decoded) => {
-    if (err) return next(new Error("Authentication error"));
-    socket.user = {
-      id: decoded._id, // ← Use _id to match your token
-      username: decoded.username, // You might need to populate this
-    };
-    next();
-  });
-});
 
 io.use(async (socket, next) => {
   const token = socket.handshake.auth.token;
