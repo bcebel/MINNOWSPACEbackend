@@ -44,7 +44,7 @@ const resolvers = {
       const query = room ? { room } : {};
       const messages = await Message.find(query)
         .populate("sender", "username profilePhoto")
-        .sort({ createdAt: -1 })
+        .sort({ createdAt: 1 })
         .limit(50);
 
       console.log("✅ Backend: Found", messages.length, "messages");
