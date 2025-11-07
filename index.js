@@ -46,8 +46,7 @@ const corsOptions = {
   methods: ["GET", "POST"],
   credentials: true,
 };
-app.use("/graphql", cors(corsOptions));
-
+app.use(cors(corsOptions)); // ✅ Apply to ALL routes
 // Step 3: Set up Apollo Server
 const apolloServer = new ApolloServer({
   typeDefs,

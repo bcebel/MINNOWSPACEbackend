@@ -62,7 +62,6 @@ async function calculateCID(fileBuffer, fileName) {
   }
 }
 
-export default (app) => {
   
   export default (app) => {
   // ✅ Apply CORS to upload routes
