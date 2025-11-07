@@ -80,7 +80,7 @@ async function calculateCID(fileBuffer, fileName) {
 
   async function handleUpload(req, res) {
     const { title, description } = req.body;
-    const uid = req.user.id; // Extract the user's ID from the authenticated request
+    const uid = req.user._id; // Extract the user's ID from the authenticated request
     if (!uid) {
       return res.status(400).send("UID is required.");
     }
