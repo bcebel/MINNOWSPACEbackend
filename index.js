@@ -27,22 +27,17 @@ const app = express();
 app.use(express.json());
 
 const corsOptions = {
-  origin: (origin, callback) => {
-    const allowedOrigins = [
-      "https://studio.apollographql.com",
-      "https://gigunit.vercel.app",
-      "http://localhost:3001",
-      "http://localhost:3001/graphql",
-      "http://localhost:8081",
-      "http://localhost:8081/",
-      "http://127.0.0.1:5501",
-    ];
-    if (allowedOrigins.includes(origin) || !origin) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
+  origin: process.env.NODE_ENV === 'production' 
+    ? 'https://gigunit.vercel.app'
+    : [
+        "https://studio.apollographql.com",
+        "https://gigunit.vercel.app",
+        "http://localhost:3001",
+        "http://localhost:3001/graphql",
+        "http://localhost:8081",
+        "http://localhost:8081/",
+        "http://127.0.0.1:5501",
+      ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   credentials: true,
   allowedHeaders: ["Content-Type", "Authorization", "Accept"],
@@ -85,7 +80,11 @@ const apolloServer = new ApolloServer({
 });
 
 await apolloServer.start();
-apolloServer.applyMiddleware({ app, path: "/graphql" });
+apolloServer.applyMiddleware({ 
+  app, 
+  path: "/graphql",
+  cors: false // Disable Apollo's CORS handling to use Express CORS middleware
+});
 app.get("/api/health", (req, res) => {
   res.json({ status: "OK", timestamp: new Date().toISOString() });
 });
@@ -93,11 +92,7 @@ app.get("/api/health", (req, res) => {
 // Step 4: Set up Socket.IO Server
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: {
-    origin: corsOptions.origin,
-    methods: corsOptions.methods,
-    credentials: corsOptions.credentials,
-  },
+  cors: corsOptions,
 });
 
 const PORT = process.env.PORT || 3001;
