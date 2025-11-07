@@ -38,13 +38,16 @@ const corsOptions = {
       "http://127.0.0.1:5501",
     ];
     if (allowedOrigins.includes(origin)) {
+      callback(null, origin); // Return the exact origin
+    } else if (!origin) {
+      // For requests with no origin (mobile apps, etc.)
       callback(null, true);
     } else {
       callback(new Error("Not allowed by CORS"));
     }
   },
-  methods: ["GET", "POST"],
   credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 };
 app.use(cors(corsOptions)); // ✅ Apply to ALL routes
 // Step 3: Set up Apollo Server
