@@ -37,7 +37,7 @@ const corsOptions = {
       "http://localhost:8081/",
       "http://127.0.0.1:5501",
     ];
-    if (allowedOrigins.includes(origin) || !origin) {
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error("Not allowed by CORS"));
