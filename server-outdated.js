@@ -9,14 +9,33 @@ const path = require("path");
 
 dotenv.config({ path: path.resolve(__dirname, "./.env") });
 
+const CORS_ORIGIN =
+  process.env.NODE_ENV === "production"
+    ? "https://gigunit.vercel.app"
+    : ["https://gigunit.vercel.app", "http://localhost:3000"];
+
 const app = express();
 app.use(express.json());
 
-app.use(cors());
+// Configure CORS with specific options
+app.use(
+  cors({
+    origin: CORS_ORIGIN,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "Accept"],
+    exposedHeaders: ["Content-Length", "X-Powered-By"],
+    credentials: true,
+    maxAge: 86400, // Cache preflight requests for 24 hours
+  })
+);
 
 const server = http.createServer(app);
 const io = require("socket.io")(server, {
-  cors: { origin: "https://gigunit.vercel.app" },
+  cors: {
+    origin: "https://gigunit.vercel.app",
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
 });
 
 const URI = process.env.MONGODB_URI;

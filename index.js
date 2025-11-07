@@ -37,20 +37,24 @@ const corsOptions = {
       "http://localhost:8081/",
       "http://127.0.0.1:5501",
     ];
-    if (allowedOrigins.includes(origin)) {
-      callback(null, origin); // Return the exact origin
-    } else if (!origin) {
-      // For requests with no origin (mobile apps, etc.)
+    if (allowedOrigins.includes(origin) || !origin) {
       callback(null, true);
     } else {
       callback(new Error("Not allowed by CORS"));
     }
   },
-  credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  credentials: true,
+  allowedHeaders: ["Content-Type", "Authorization", "Accept"],
+  exposedHeaders: ["Content-Length", "X-Powered-By"],
+  maxAge: 86400, // Cache preflight requests for 24 hours
 };
-app.use("/graphql", cors(corsOptions)); // ✅ Apply only to GraphQL
- app.use("/api", cors(corsOptions));
+
+// Apply CORS globally
+app.use(cors(corsOptions));
+
+// Additional CORS settings for GraphQL specific endpoint if needed
+app.use("/graphql", cors(corsOptions));
 // Step 3: Set up Apollo Server
 const apolloServer = new ApolloServer({
   typeDefs,
