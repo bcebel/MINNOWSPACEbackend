@@ -64,6 +64,17 @@ async function calculateCID(fileBuffer, fileName) {
 
 export default (app) => {
   
+  export default (app) => {
+  // ✅ Apply CORS to upload routes
+  app.use(cors({
+    origin: [
+      "https://gigunit.vercel.app", // ADD YOUR NEW DOMAIN
+      "http://localhost:8081",
+      "http://localhost:3001"
+    ],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+  }));
   const uploadHandler = multer({ storage: multer.memoryStorage() }).single(
     "video"
   );
