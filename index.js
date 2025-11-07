@@ -79,7 +79,7 @@ const apolloServer = new ApolloServer({
 
 
 await apolloServer.start();
-apolloServer.applyMiddleware({ app, path: "/graphql", cors: false });
+apolloServer.applyMiddleware({ app, path: "/graphql" });
 app.get("/api/health", (req, res) => {
   res.json({ status: "OK", timestamp: new Date().toISOString() });
 });
