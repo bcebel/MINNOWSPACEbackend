@@ -60,7 +60,7 @@ const apolloServer = new ApolloServer({
     if (authHeader && authHeader.startsWith("Bearer ")) {
       const token = authHeader.substring(7);
       try {
-        const decoded = jwt.verify(token, "mysecretssshhhhhhh");
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         user = { userId: decoded._id };
         console.log("🔐 GraphQL Context - Decoded user:", decoded);
       } catch (error) {
@@ -76,14 +76,11 @@ const apolloServer = new ApolloServer({
   },
 });
 
-
-
 await apolloServer.start();
 apolloServer.applyMiddleware({ app, path: "/graphql" });
 app.get("/api/health", (req, res) => {
   res.json({ status: "OK", timestamp: new Date().toISOString() });
 });
-
 
 // Step 4: Set up Socket.IO Server
 const server = http.createServer(app);
@@ -134,14 +131,12 @@ app.get("/api/messages/:room", authenticateToken, async (req, res) => {
   }
 });
 
-
-
 io.use(async (socket, next) => {
   const token = socket.handshake.auth.token;
   if (!token) return next(new Error("Authentication error"));
 
   try {
-    const decoded = jwt.verify(token, "mysecretssshhhhhhh");
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded._id);
 
     if (!user) return next(new Error("User not found"));

@@ -91,14 +91,12 @@ const resolvers = {
       await message.save();
       console.log("✅ Backend: Message saved with ID:", message._id);
 
-      const populatedMessage = await Message.findById(message._id).populate(
-        "sender",
-        "username profilePhoto"
-      )
-          .exec(); // Add .exec() to ensure it executes
+      const populatedMessage = await Message.findById(message._id)
+        .populate("sender", "username profilePhoto")
+        .exec(); // Add .exec() to ensure it executes
 
-  console.log("✅ Backend: Message populated:", populatedMessage);
-  console.log("✅ Backend: Sender populated:", populatedMessage.sender);
+      console.log("✅ Backend: Message populated:", populatedMessage);
+      console.log("✅ Backend: Sender populated:", populatedMessage.sender);
 
       console.log("✅ Backend: Message populated");
 
@@ -136,7 +134,7 @@ const resolvers = {
       });
       await user.save();
 
-      const token = jwt.sign({ _id: user._id }, "mysecretssshhhhhhh", {
+      const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET, {
         expiresIn: "24h",
       });
 
@@ -153,7 +151,7 @@ const resolvers = {
       const valid = await bcrypt.compare(password, user.password);
       if (!valid) throw new Error("Invalid password");
 
-      const token = jwt.sign({ _id: user._id }, "mysecretssshhhhhhh", {
+      const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET, {
         expiresIn: "24h",
       });
 
