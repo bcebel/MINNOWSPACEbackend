@@ -18,6 +18,8 @@ import connectDB from "./config/connection.js";
 import videoUploadHandler from "./videoUploadHandler.js";
 import Video from "./structure/models/Video.js";
 import fs from "fs";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { create } from "ipfs-http-client";
 
 dotenv.config();
 
@@ -77,6 +79,14 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+const s3 = new S3Client({
+  endpoint: "https://s3.filebase.com",
+  region: "us-east-1",
+  credentials: {
+    accessKeyId: process.env.FILEBASE_ACCESS_KEY,
+    secretAccessKey: process.env.FILEBASE_SECRET_KEY,
+  },
+});
 // Configure multer for image uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -108,29 +118,63 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Image upload endpoint
+
+
+// Updated upload endpoint with IPFS/Filebase
 app.post(
   "/api/upload-image",
   authenticateToken,
-  upload.single("image"),
+  upload.single("file"), // Changed from "image" to "file" to handle both
   async (req, res) => {
     try {
       if (!req.file) {
-        return res.status(400).json({ error: "No image file provided" });
+        return res.status(400).json({ error: "No file provided" });
       }
 
-      const imageUrl = `${req.protocol}://${req.get("host")}/uploads/${
-        req.file.filename
-      }`;
+      console.log("Uploading file to IPFS via Filebase...", {
+        originalName: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+      });
+
+      // Calculate CID (optional but good for verification)
+      const ipfs = create();
+      const cid = await ipfs.add(req.file.buffer, { onlyHash: true });
+      const calculatedCid = cid.cid.toString();
+
+      // Upload to Filebase IPFS
+      const params = {
+        Bucket: process.env.FILEBASE_BUCKET_NAME,
+        Key: `${Date.now()}-${req.file.originalname}`, // Or use calculatedCid as key
+        Body: req.file.buffer,
+        ContentType: req.file.mimetype,
+        Metadata: {
+          originalname: req.file.originalname,
+          cid: calculatedCid,
+        },
+      };
+
+      const command = new PutObjectCommand(params);
+      await s3.send(command);
+
+      // Generate public IPFS URL
+      const ipfsUrl = `https://ipfs.filebase.io/ipfs/${calculatedCid}`;
+
+      console.log("File uploaded to IPFS:", ipfsUrl);
 
       res.json({
         success: true,
-        imageUrl: imageUrl,
-        message: "Image uploaded successfully",
+        fileUrl: ipfsUrl,
+        cid: calculatedCid,
+        message: "File uploaded to IPFS successfully",
+        fileType: req.file.mimetype.startsWith("image/") ? "image" : "video",
       });
     } catch (error) {
-      console.error("Upload error:", error);
-      res.status(500).json({ error: "Failed to upload image" });
+      console.error("IPFS upload error:", error);
+      res.status(500).json({
+        error: "Failed to upload file to IPFS",
+        details: error.message,
+      });
     }
   }
 );
