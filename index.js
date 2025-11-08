@@ -18,8 +18,6 @@ import connectDB from "./config/connection.js";
 import videoUploadHandler from "./videoUploadHandler.js";
 import Video from "./structure/models/Video.js";
 import fs from "fs";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { create } from "ipfs-http-client";
 
 dotenv.config();
 
@@ -79,29 +77,11 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-const s3 = new S3Client({
-  endpoint: "https://s3.filebase.com",
-  region: "us-east-1",
-  credentials: {
-    accessKeyId: process.env.FILEBASE_ACCESS_KEY,
-    secretAccessKey: process.env.FILEBASE_SECRET_KEY,
-  },
-});
-// Configure multer for image uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/");
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = `${Date.now()}-${Math.round(
-      Math.random() * 1e9
-    )}${path.extname(file.originalname)}`;
-    cb(null, uniqueName);
-  },
-});
+// ⭐⭐⭐ USE MEMORY STORAGE - FIXED ⭐⭐⭐
+const storage = multer.memoryStorage(); // This creates req.file.buffer
 
 const upload = multer({
-  storage: storage,
+  storage: storage, // Now using memory storage
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith("image/")) {
@@ -112,75 +92,58 @@ const upload = multer({
   },
 });
 
-// Create uploads directory if it doesn't exist
-const uploadsDir = path.join(__dirname, "uploads");
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-
-
-// Updated upload endpoint with IPFS/Filebase
+// Simple upload endpoint for testing
 app.post(
   "/api/upload-image",
   authenticateToken,
-  upload.single("file"), // Changed from "image" to "file" to handle both
+  upload.single("file"),
   async (req, res) => {
     try {
+      console.log("Upload request received:", {
+        file: req.file
+          ? {
+              originalname: req.file.originalname,
+              mimetype: req.file.mimetype,
+              size: req.file.size,
+              hasBuffer: !!req.file.buffer, // This should be true now
+            }
+          : "NO FILE",
+      });
+
       if (!req.file) {
+        console.log("No file in request");
         return res.status(400).json({ error: "No file provided" });
       }
 
-      console.log("Uploading file to IPFS via Filebase...", {
-        originalName: req.file.originalname,
-        mimetype: req.file.mimetype,
+      // For testing - just return a success with test URL
+      console.log("File received successfully:", {
+        name: req.file.originalname,
         size: req.file.size,
+        type: req.file.mimetype,
       });
-
-      // Calculate CID (optional but good for verification)
-      const ipfs = create();
-      const cid = await ipfs.add(req.file.buffer, { onlyHash: true });
-      const calculatedCid = cid.cid.toString();
-
-      // Upload to Filebase IPFS
-      const params = {
-        Bucket: process.env.FILEBASE_BUCKET_NAME,
-        Key: `${Date.now()}-${req.file.originalname}`, // Or use calculatedCid as key
-        Body: req.file.buffer,
-        ContentType: req.file.mimetype,
-        Metadata: {
-          originalname: req.file.originalname,
-          cid: calculatedCid,
-        },
-      };
-
-      const command = new PutObjectCommand(params);
-      await s3.send(command);
-
-      // Generate public IPFS URL
-      const ipfsUrl = `https://ipfs.filebase.io/ipfs/${calculatedCid}`;
-
-      console.log("File uploaded to IPFS:", ipfsUrl);
 
       res.json({
         success: true,
-        fileUrl: ipfsUrl,
-        cid: calculatedCid,
-        message: "File uploaded to IPFS successfully",
-        fileType: req.file.mimetype.startsWith("image/") ? "image" : "video",
+        fileUrl: "https://picsum.photos/200/300", // Test URL
+        message: "File received successfully - ready for IPFS integration",
+        debug: {
+          fileName: req.file.originalname,
+          fileSize: req.file.size,
+          hasBuffer: !!req.file.buffer,
+        },
       });
     } catch (error) {
-      console.error("IPFS upload error:", error);
+      console.error("Upload error:", error);
       res.status(500).json({
-        error: "Failed to upload file to IPFS",
+        error: "Failed to upload file",
         details: error.message,
       });
     }
   }
 );
 
-// Serve uploaded files statically
-app.use("/uploads", express.static("uploads"));
+// Remove the static file serving since we're using memory storage
+// app.use("/uploads", express.static("uploads"));
 
 // Apollo Server setup
 const apolloServer = new ApolloServer({
