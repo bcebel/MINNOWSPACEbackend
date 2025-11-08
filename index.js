@@ -178,6 +178,8 @@ const apolloServer = new ApolloServer({
   typeDefs,
   resolvers,
   cache: "bounded",
+  introspection: true, // Allows schema introspection
+  playground: true, // Enables GraphQL Playground
   context: ({ req }) => {
     console.log("🔐 GraphQL Context - Headers:", req.headers);
 
