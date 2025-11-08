@@ -5,6 +5,13 @@ const messageSchema = new mongoose.Schema({
   content: String,
   imageUrl: String,
   videoUrl: String,
+  ipfsData: {
+    cid: String,
+    ipfsUrl: String,
+    magnetLink: String,
+    fileType: String,
+    fileName: String,
+  },
   room: String,
   createdAt: { type: Date, default: Date.now },
 });
