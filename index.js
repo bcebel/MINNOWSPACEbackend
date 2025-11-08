@@ -27,17 +27,22 @@ const app = express();
 app.use(express.json());
 
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? 'https://gigunit.vercel.app'
-    : [
-        "https://studio.apollographql.com",
-        "https://gigunit.vercel.app",
-        "http://localhost:3001",
-        "http://localhost:3001/graphql",
-        "http://localhost:8081",
-        "http://localhost:8081/",
-        "http://127.0.0.1:5501",
-      ],
+  origin:
+    process.env.NODE_ENV === "production"
+      ? [
+          "https://gigunit.vercel.app",
+          "https://studio.apollographql.com",
+          "http://localhost:8081"
+        ]
+      : [
+          "https://studio.apollographql.com",
+          "https://gigunit.vercel.app",
+          "http://localhost:3001",
+          "http://localhost:3001/graphql",
+          "http://localhost:8081",
+          "http://localhost:8081/",
+          "http://127.0.0.1:5501",
+        ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   credentials: true,
   allowedHeaders: ["Content-Type", "Authorization", "Accept"],
