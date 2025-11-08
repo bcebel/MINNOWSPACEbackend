@@ -25,6 +25,47 @@ const typeDefs = gql`
     clicks: Int
   }
 
+  type Neighborhood {
+    id: ID!
+    name: String!
+    description: String
+    type: String!
+    owner: User!
+    members: [NeighborhoodMember]
+    joinRequests: [JoinRequest]
+    rules: String
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type NeighborhoodMember {
+    user: User!
+    role: String!
+    joinedAt: String!
+  }
+
+  type JoinRequest {
+    user: User!
+    requestedAt: String!
+    status: String!
+  }
+
+  extend type Query {
+    neighborhoods: [Neighborhood]
+    neighborhood(id: ID!): Neighborhood
+    myNeighborhoods: [Neighborhood]
+  }
+
+  extend type Mutation {
+    createNeighborhood(
+      name: String!
+      description: String
+      type: String
+    ): Neighborhood
+    joinNeighborhood(neighborhoodId: ID!): Neighborhood
+    leaveNeighborhood(neighborhoodId: ID!): Neighborhood
+  }
+
   type Chat {
     id: ID!
     name: String!

@@ -8,6 +8,7 @@ import Group from "./Group.js";
 import Video from "./Video.js";
 import Stream from "./Stream.js";
 import Ad from "./Ad.js";
+import Neighborhood from "./Neighborhood.js";
 export default  {
   User,
   Chat,
@@ -18,4 +19,5 @@ export default  {
   Video,
   Stream,
   Ad,
+  Neighborhood,
 };

@@ -142,6 +142,34 @@ app.post(
   }
 );
 
+// Add this after your other routes, before socket.io
+app.get("/api/test-neighborhood", authenticateToken, async (req, res) => {
+  try {
+    // Just test if the model works
+    const Neighborhood = ModelSchema.Neighborhood;
+    const testNeighborhood = new Neighborhood({
+      name: "Test Neighborhood",
+      description: "Just testing the model",
+      type: "private", 
+      owner: req.user._id,
+      members: [{
+        user: req.user._id,
+        role: "owner"
+      }]
+    });
+    
+    await testNeighborhood.save();
+    
+    res.json({ 
+      success: true, 
+      message: "Neighborhood model works!",
+      neighborhoodId: testNeighborhood._id 
+    });
+  } catch (error) {
+    console.error("Neighborhood test error:", error);
+    res.status(500).json({ error: "Model test failed" });
+  }
+});
 // Remove the static file serving since we're using memory storage
 // app.use("/uploads", express.static("uploads"));
 
