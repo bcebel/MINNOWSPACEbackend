@@ -185,7 +185,12 @@ const typeDefs = gql`
     leaveChat(chatId: ID!): Boolean!
 
     # Message mutations
-    sendMessage(content: String!, room: String!, imageUrl: String): Message!
+    sendMessage(
+      content: String!
+      room: String!
+      imageUrl: String
+      videoUrl: String
+    ): Message!
     deleteMessage(messageId: ID!): Boolean!
 
     # Post mutations

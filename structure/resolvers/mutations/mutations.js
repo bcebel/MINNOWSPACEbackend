@@ -75,15 +75,21 @@ const resolvers = {
   },
 
   Mutation: {
-    sendMessage: async (_, { content, room, imageUrl }, context) => {
+    sendMessage: async (_, { content, room, imageUrl, videoUrl }, context) => {
       if (!context.user) throw new Error("Authentication required");
 
-      console.log("🔍 Backend: Sending message:", { content, room });
+      console.log("🔍 Backend: Sending message:", {
+        content,
+        room,
+        imageUrl,
+        videoUrl,
+      });
 
       const message = new Message({
         sender: context.user.userId,
         content,
         imageUrl: imageUrl || null,
+        videoUrl: videoUrl || null, // Add this too for future use
         room: room || "general",
         createdAt: new Date(),
       });
@@ -93,12 +99,9 @@ const resolvers = {
 
       const populatedMessage = await Message.findById(message._id)
         .populate("sender", "username profilePhoto")
-        .exec(); // Add .exec() to ensure it executes
+        .exec();
 
       console.log("✅ Backend: Message populated:", populatedMessage);
-      console.log("✅ Backend: Sender populated:", populatedMessage.sender);
-
-      console.log("✅ Backend: Message populated");
 
       if (context.io) {
         context.io.to(room || "general").emit("message", populatedMessage);
