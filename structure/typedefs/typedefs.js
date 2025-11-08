@@ -63,8 +63,6 @@ const typeDefs = gql`
       description: String
       type: String
     ): Neighborhood
-    joinNeighborhood(neighborhoodId: ID!): Neighborhood
-    leaveNeighborhood(neighborhoodId: ID!): Neighborhood
     updateNeighborhood(
       id: ID!
       name: String

@@ -389,7 +389,6 @@ const resolvers = {
         .populate('members.user', 'username profilePhoto')
         .populate('joinRequests.user', 'username profilePhoto');
     }
-  },
   }, // ← This closes the Mutation object
 
   // Field resolvers
