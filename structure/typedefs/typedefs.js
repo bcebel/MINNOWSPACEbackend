@@ -54,6 +54,7 @@ const typeDefs = gql`
     neighborhoods: [Neighborhood]
     neighborhood(id: ID!): Neighborhood
     myNeighborhoods: [Neighborhood]
+    discoverNeighborhoods: [Neighborhood] # Public neighborhoods to discover
   }
 
   extend type Mutation {
@@ -64,6 +65,24 @@ const typeDefs = gql`
     ): Neighborhood
     joinNeighborhood(neighborhoodId: ID!): Neighborhood
     leaveNeighborhood(neighborhoodId: ID!): Neighborhood
+    updateNeighborhood(
+      id: ID!
+      name: String
+      description: String
+      rules: String
+    ): Neighborhood
+    deleteNeighborhood(id: ID!): Boolean
+
+    joinNeighborhood(neighborhoodId: ID!): Neighborhood
+    leaveNeighborhood(neighborhoodId: ID!): Boolean
+
+    # For neighborhood owners/moderators
+    approveJoinRequest(neighborhoodId: ID!, userId: ID!): Neighborhood
+    rejectJoinRequest(neighborhoodId: ID!, userId: ID!): Neighborhood
+    removeMember(neighborhoodId: ID!, userId: ID!): Neighborhood
+
+    # Invite system (optional for later)
+    inviteToNeighborhood(neighborhoodId: ID!, username: String!): Boolean
   }
 
   type Chat {
