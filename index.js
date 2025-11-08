@@ -184,8 +184,19 @@ const apolloServer = new ApolloServer({
   typeDefs,
   resolvers,
   cache: "bounded",
-  introspection: true, // Allows schema introspection remove when ready for production
-  playground: true, // Enables GraphQL Playground remove when ready for production
+  introspection: true,
+  playground: {
+    version: "1.7.33", // Force classic version
+    settings: {
+      "request.credentials": "include",
+    },
+    tabs: [
+      {
+        endpoint: "http://localhost:3001/graphql",
+        query: `# Welcome to GraphQL Playground`,
+      },
+    ],
+  },
   context: ({ req }) => {
     console.log("🔐 GraphQL Context - Headers:", req.headers);
 
