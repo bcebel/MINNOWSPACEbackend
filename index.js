@@ -54,6 +54,7 @@ app.use("/graphql", cors(corsOptions));
 const apolloServer = new ApolloServer({
   typeDefs,
   resolvers,
+  cache: "bounded", // ← ADD THIS LINE to fix the security warning
   context: ({ req }) => {
     console.log("🔐 GraphQL Context - Headers:", req.headers);
 
