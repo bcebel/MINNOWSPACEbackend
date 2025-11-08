@@ -1,3 +1,6 @@
+import multer from "multer";
+import path from "path";
+import { fileURLToPath } from "url";
 import express from "express";
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
@@ -6,24 +9,22 @@ import http from "http";
 import cors from "cors";
 import dotenv from "dotenv";
 import { Server } from "socket.io";
-import { fileURLToPath } from "url";
-import path from "path";
 import { ApolloServer, gql } from "apollo-server-express";
 import authMiddleware from "./utils/auth.js";
 import typeDefs from "./structure/typedefs/typedefs.js";
 import ModelSchema from "./structure/models/index.js";
 import resolvers from "./structure/resolvers/queries/queries.js";
 import connectDB from "./config/connection.js";
-import videoUploadHandler from "./videoUploadHandler.js"; // Import the video upload handler
+import videoUploadHandler from "./videoUploadHandler.js";
 import Video from "./structure/models/Video.js";
+import fs from "fs";
+
 dotenv.config();
-// Step 1: Define Apollo GraphQL Schema
-// Step 2: Create Express app and set up Apollo Server
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-
 app.use(express.json());
 
 const corsOptions = {
@@ -32,7 +33,7 @@ const corsOptions = {
       ? [
           "https://gigunit.vercel.app",
           "https://studio.apollographql.com",
-          "http://localhost:8081"
+          "http://localhost:8081",
         ]
       : [
           "https://studio.apollographql.com",
@@ -47,19 +48,101 @@ const corsOptions = {
   credentials: true,
   allowedHeaders: ["Content-Type", "Authorization", "Accept"],
   exposedHeaders: ["Content-Length", "X-Powered-By"],
-  maxAge: 86400, // Cache preflight requests for 24 hours
+  maxAge: 86400,
 };
 
-// Apply CORS globally
 app.use(cors(corsOptions));
-
-// Additional CORS settings for GraphQL specific endpoint if needed
 app.use("/graphql", cors(corsOptions));
-// Step 3: Set up Apollo Server
+
+const PORT = process.env.PORT || 3001;
+const JWT_SECRET = process.env.JWT_SECRET;
+
+connectDB();
+
+// Import models
+import Minnow from "./structure/models/User.js";
+const User = Minnow;
+const Message = ModelSchema.Message;
+
+// Middleware for Authentication
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+  if (!token) return res.sendStatus(401);
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.sendStatus(403);
+    req.user = user;
+    next();
+  });
+};
+
+// Configure multer for image uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/");
+  },
+  filename: (req, file, cb) => {
+    const uniqueName = `${Date.now()}-${Math.round(
+      Math.random() * 1e9
+    )}${path.extname(file.originalname)}`;
+    cb(null, uniqueName);
+  },
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only image files are allowed!"), false);
+    }
+  },
+});
+
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Image upload endpoint
+app.post(
+  "/api/upload-image",
+  authenticateToken,
+  upload.single("image"),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No image file provided" });
+      }
+
+      const imageUrl = `${req.protocol}://${req.get("host")}/uploads/${
+        req.file.filename
+      }`;
+
+      res.json({
+        success: true,
+        imageUrl: imageUrl,
+        message: "Image uploaded successfully",
+      });
+    } catch (error) {
+      console.error("Upload error:", error);
+      res.status(500).json({ error: "Failed to upload image" });
+    }
+  }
+);
+
+// Serve uploaded files statically
+app.use("/uploads", express.static("uploads"));
+
+// Apollo Server setup
 const apolloServer = new ApolloServer({
   typeDefs,
   resolvers,
-  cache: "bounded", // ← ADD THIS LINE to fix the security warning
+  cache: "bounded",
   context: ({ req }) => {
     console.log("🔐 GraphQL Context - Headers:", req.headers);
 
@@ -77,56 +160,34 @@ const apolloServer = new ApolloServer({
       }
     }
 
-    // ✅ PASS IO TO CONTEXT
     return {
       user,
-      io, // This makes io available in your mutations as context.io
+      io,
     };
   },
 });
 
 await apolloServer.start();
-apolloServer.applyMiddleware({ 
-  app, 
+apolloServer.applyMiddleware({
+  app,
   path: "/graphql",
-  cors: false // Disable Apollo's CORS handling to use Express CORS middleware
+  cors: false,
 });
+
 app.get("/api/health", (req, res) => {
   res.json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
-// Step 4: Set up Socket.IO Server
+// Socket.IO Server
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: corsOptions,
 });
 
-const PORT = process.env.PORT || 3001;
-const JWT_SECRET = process.env.JWT_SECRET;
-
-connectDB();
-// Step 5: Set up User Schema
-import Minnow from "./structure/models/User.js";
-const User = Minnow;
-
-// Message Schema and Model
-const Message = ModelSchema.Message;
-
-// Middleware for Authentication
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
-  if (!token) return res.sendStatus(401);
-
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.sendStatus(403);
-    req.user = user;
-    next();
-  });
-};
-
+// Auth routes
 import authRoutes from "./routes/auth.js";
 app.use("/api", authRoutes);
+
 // Get messages for a specific room
 app.get("/api/messages/:room", authenticateToken, async (req, res) => {
   try {
@@ -152,7 +213,7 @@ io.use(async (socket, next) => {
 
     socket.user = {
       id: user._id,
-      username: user.username, // Now we have the actual username
+      username: user.username,
     };
     next();
   } catch (error) {
@@ -173,7 +234,6 @@ io.on("connection", (socket) => {
     console.log(`${socket.user.username} left room: ${room}`);
   });
 
-  // Video message handling
   socket.on("sendVideo", (videoId, room) => {
     console.log(`Video sent: ${videoId} to room: ${room}`);
     io.to(room).emit("receiveVideo", { videoId });
@@ -207,8 +267,8 @@ io.on("connection", (socket) => {
 app.get("/api/videos", async (req, res) => {
   try {
     const videos = await Video.find({})
-      .sort({ createdAt: -1 }) // Sort by newest first
-      .populate("user", "username"); // Include uploader's username
+      .sort({ createdAt: -1 })
+      .populate("user", "username");
     res.json(videos);
   } catch (error) {
     console.error(error);
@@ -216,7 +276,6 @@ app.get("/api/videos", async (req, res) => {
   }
 });
 
-// Simple click tracking - add this with your other routes
 app.post("/api/track-click", async (req, res) => {
   try {
     const { affiliateLinkId } = req.body;
@@ -232,44 +291,8 @@ app.post("/api/track-click", async (req, res) => {
   }
 });
 
-// Add this function to fetch affiliate data separately
-const fetchUserAffiliateData = async (userId) => {
-  try {
-    const response = await fetch(`${BACKEND_URL}/graphql`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        query: `
-          query GetUserAffiliateLinks($userId: ID!) {
-            user(id: $userId) {
-              id
-              username
-              affiliateLinks {
-                id
-                url
-                title
-                clicks
-              }
-            }
-          }
-        `,
-        variables: { userId },
-      }),
-    });
-
-    const result = await response.json();
-    return result.data?.user;
-  } catch (error) {
-    console.log("Failed to fetch affiliate data:", error);
-    return null;
-  }
-};
-
-// Then in your VideoCard component, you can fetch affiliate data when needed
-
 videoUploadHandler(app);
 
-// Step 8: Start the Server
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   console.log(
