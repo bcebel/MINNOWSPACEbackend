@@ -38,6 +38,7 @@ const typeDefs = gql`
     id: ID!
     content: String!
     imageUrl: String
+    videoUrl: String
     room: String!
     createdAt: String!
     sender: User!
