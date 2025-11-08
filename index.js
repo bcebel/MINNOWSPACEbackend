@@ -31,9 +31,15 @@ const corsOptions = {
   origin:
     process.env.NODE_ENV === "production"
       ? [
+
           "https://gigunit.vercel.app",
           "https://studio.apollographql.com",
+          "https://studio.apollographql.dev",
+          "http://localhost:3001",
           "http://localhost:8081",
+          "http://127.0.0.1:5501",
+          "http://localhost:19006",
+          "exp://localhost:19000",
         ]
       : [
           "https://studio.apollographql.com",
@@ -178,8 +184,8 @@ const apolloServer = new ApolloServer({
   typeDefs,
   resolvers,
   cache: "bounded",
-  introspection: true, // Allows schema introspection
-  playground: true, // Enables GraphQL Playground
+  introspection: true, // Allows schema introspection remove when ready for production
+  playground: true, // Enables GraphQL Playground remove when ready for production
   context: ({ req }) => {
     console.log("🔐 GraphQL Context - Headers:", req.headers);
 
@@ -335,4 +341,7 @@ server.listen(PORT, () => {
   console.log(
     `GraphQL Server running at http://localhost:${PORT}${apolloServer.graphqlPath}`
   );
+    console.log(`🚀 Apollo Studio Sandbox: https://studio.apollographql.com/sandbox/explorer/?endpoint=${encodeURIComponent(`http://localhost:${PORT}${apolloServer.graphqlPath}`)}`);
 });
+
+
