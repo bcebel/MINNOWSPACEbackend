@@ -5,6 +5,7 @@ const typeDefs = gql`
     id: ID!
     username: String!
     email: String!
+    bio: String!
     affiliateLinks: [AffiliateLink!]!
     youtubeChannel: String
     profilePhoto: String
