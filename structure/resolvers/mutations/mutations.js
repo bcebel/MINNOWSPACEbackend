@@ -155,17 +155,21 @@ const resolvers = {
     },
 
     // In your resolvers.js - add to Mutation
-updateProfile: async (_, { bio }, context) => {
-  if (!context.user) throw new Error("Authentication required");
-  
-  const user = await User.findByIdAndUpdate(
-    context.user.userId,
-    { bio },
-    { new: true }
-  );
-  
-  return user;
-},
+    updateProfile: async (_, { bio, profilePhoto }, context) => {
+      if (!context.user) throw new Error("Authentication required");
+
+        const updateData = {};
+        if (bio !== undefined) updateData.bio = bio;
+        if (profilePhoto !== undefined) updateData.profilePhoto = profilePhoto;
+
+      const user = await User.findByIdAndUpdate(
+        context.user.userId,
+        { bio },
+        { new: true }
+      );
+
+      return user;
+    },
     registerUser: async (_, { username, email, password }) => {
       const existingUser = await User.findOne({
         $or: [{ email }, { username }],
@@ -221,186 +225,199 @@ updateProfile: async (_, { bio }, context) => {
     // Create a new neighborhood
     createNeighborhood: async (_, { name, description, type }, context) => {
       if (!context.user) throw new Error("Authentication required");
-      
+
       // Validate neighborhood type
-      const validTypes = ['personal', 'private', 'public', 'global'];
+      const validTypes = ["personal", "private", "public", "global"];
       if (!validTypes.includes(type)) {
-        throw new Error(`Invalid neighborhood type. Must be one of: ${validTypes.join(', ')}`);
+        throw new Error(
+          `Invalid neighborhood type. Must be one of: ${validTypes.join(", ")}`
+        );
       }
-      
+
       const neighborhood = new Neighborhood({
         name,
-        description: description || '',
+        description: description || "",
         type,
         owner: context.user.userId,
-        members: [{
-          user: context.user.userId,
-          role: 'owner',
-          joinedAt: new Date()
-        }],
-        rules: ''
+        members: [
+          {
+            user: context.user.userId,
+            role: "owner",
+            joinedAt: new Date(),
+          },
+        ],
+        rules: "",
       });
-      
+
       await neighborhood.save();
-      
+
       // Return populated neighborhood
       return await Neighborhood.findById(neighborhood._id)
-        .populate('owner', 'username profilePhoto')
-        .populate('members.user', 'username profilePhoto');
+        .populate("owner", "username profilePhoto")
+        .populate("members.user", "username profilePhoto");
     },
-    
+
     // Update neighborhood (owner only)
-    updateNeighborhood: async (_, { id, name, description, rules }, context) => {
+    updateNeighborhood: async (
+      _,
+      { id, name, description, rules },
+      context
+    ) => {
       if (!context.user) throw new Error("Authentication required");
-      
+
       const neighborhood = await Neighborhood.findById(id);
       if (!neighborhood) throw new Error("Neighborhood not found");
-      
+
       // Check if user is the owner
       if (neighborhood.owner.toString() !== context.user.userId) {
         throw new Error("Only the neighborhood owner can update settings");
       }
-      
+
       // Update fields if provided
       if (name !== undefined) neighborhood.name = name;
       if (description !== undefined) neighborhood.description = description;
       if (rules !== undefined) neighborhood.rules = rules;
-      
+
       await neighborhood.save();
-      
+
       return await Neighborhood.findById(neighborhood._id)
-        .populate('owner', 'username profilePhoto')
-        .populate('members.user', 'username profilePhoto');
+        .populate("owner", "username profilePhoto")
+        .populate("members.user", "username profilePhoto");
     },
-    
+
     // Delete neighborhood (owner only)
     deleteNeighborhood: async (_, { id }, context) => {
       if (!context.user) throw new Error("Authentication required");
-      
+
       const neighborhood = await Neighborhood.findById(id);
       if (!neighborhood) throw new Error("Neighborhood not found");
-      
+
       if (neighborhood.owner.toString() !== context.user.userId) {
-        throw new Error("Only the neighborhood owner can delete the neighborhood");
+        throw new Error(
+          "Only the neighborhood owner can delete the neighborhood"
+        );
       }
-      
+
       // Soft delete by setting isActive to false
       neighborhood.isActive = false;
       await neighborhood.save();
-      
+
       return true;
     },
-    
+
     // Join a neighborhood
     joinNeighborhood: async (_, { neighborhoodId }, context) => {
       if (!context.user) throw new Error("Authentication required");
-      
+
       const neighborhood = await Neighborhood.findById(neighborhoodId);
       if (!neighborhood || !neighborhood.isActive) {
         throw new Error("Neighborhood not found");
       }
-      
+
       // Check if user is already a member
       const isAlreadyMember = neighborhood.members.some(
-        member => member.user.toString() === context.user.userId
+        (member) => member.user.toString() === context.user.userId
       );
-      
+
       if (isAlreadyMember) {
         throw new Error("You are already a member of this neighborhood");
       }
-      
+
       // Handle different neighborhood types
-      if (neighborhood.type === 'public') {
+      if (neighborhood.type === "public") {
         // Auto-join public neighborhoods
         neighborhood.members.push({
           user: context.user.userId,
-          role: 'member',
-          joinedAt: new Date()
+          role: "member",
+          joinedAt: new Date(),
         });
-      } else if (neighborhood.type === 'private') {
+      } else if (neighborhood.type === "private") {
         // Add to join requests for private neighborhoods
         const alreadyRequested = neighborhood.joinRequests.some(
-          request => request.user.toString() === context.user.userId
+          (request) => request.user.toString() === context.user.userId
         );
-        
+
         if (!alreadyRequested) {
           neighborhood.joinRequests.push({
             user: context.user.userId,
-            status: 'pending'
+            status: "pending",
           });
         }
-      } else if (neighborhood.type === 'personal') {
+      } else if (neighborhood.type === "personal") {
         throw new Error("Cannot join personal neighborhoods");
       }
-      
+
       await neighborhood.save();
-      
+
       return await Neighborhood.findById(neighborhood._id)
-        .populate('owner', 'username profilePhoto')
-        .populate('members.user', 'username profilePhoto')
-        .populate('joinRequests.user', 'username profilePhoto');
+        .populate("owner", "username profilePhoto")
+        .populate("members.user", "username profilePhoto")
+        .populate("joinRequests.user", "username profilePhoto");
     },
-    
+
     // Leave a neighborhood
     leaveNeighborhood: async (_, { neighborhoodId }, context) => {
       if (!context.user) throw new Error("Authentication required");
-      
+
       const neighborhood = await Neighborhood.findById(neighborhoodId);
       if (!neighborhood) throw new Error("Neighborhood not found");
-      
+
       // Can't leave if you're the owner (or implement transfer ownership)
       if (neighborhood.owner.toString() === context.user.userId) {
-        throw new Error("Neighborhood owner cannot leave. Transfer ownership or delete the neighborhood.");
+        throw new Error(
+          "Neighborhood owner cannot leave. Transfer ownership or delete the neighborhood."
+        );
       }
-      
+
       // Remove from members
       neighborhood.members = neighborhood.members.filter(
-        member => member.user.toString() !== context.user.userId
+        (member) => member.user.toString() !== context.user.userId
       );
-      
+
       await neighborhood.save();
       return true;
     },
-    
+
     // Approve join request (owner/moderator only)
     approveJoinRequest: async (_, { neighborhoodId, userId }, context) => {
       if (!context.user) throw new Error("Authentication required");
-      
+
       const neighborhood = await Neighborhood.findById(neighborhoodId);
       if (!neighborhood) throw new Error("Neighborhood not found");
-      
+
       // Check permissions
       const userRole = neighborhood.members.find(
-        member => member.user.toString() === context.user.userId
+        (member) => member.user.toString() === context.user.userId
       )?.role;
-      
-      if (!userRole || !['owner', 'moderator'].includes(userRole)) {
+
+      if (!userRole || !["owner", "moderator"].includes(userRole)) {
         throw new Error("Only owners and moderators can approve join requests");
       }
-      
+
       // Find and update the join request
       const joinRequest = neighborhood.joinRequests.find(
-        request => request.user.toString() === userId && request.status === 'pending'
+        (request) =>
+          request.user.toString() === userId && request.status === "pending"
       );
-      
+
       if (!joinRequest) throw new Error("Join request not found");
-      
-      joinRequest.status = 'approved';
-      
+
+      joinRequest.status = "approved";
+
       // Add to members
       neighborhood.members.push({
         user: userId,
-        role: 'member',
-        joinedAt: new Date()
+        role: "member",
+        joinedAt: new Date(),
       });
-      
+
       await neighborhood.save();
-      
+
       return await Neighborhood.findById(neighborhood._id)
-        .populate('owner', 'username profilePhoto')
-        .populate('members.user', 'username profilePhoto')
-        .populate('joinRequests.user', 'username profilePhoto');
-    }
+        .populate("owner", "username profilePhoto")
+        .populate("members.user", "username profilePhoto")
+        .populate("joinRequests.user", "username profilePhoto");
+    },
   }, // ← This closes the Mutation object
 
   // Field resolvers
