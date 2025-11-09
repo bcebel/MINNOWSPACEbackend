@@ -154,6 +154,18 @@ const resolvers = {
       return populatedMessage;
     },
 
+    // In your resolvers.js - add to Mutation
+updateProfile: async (_, { bio }, context) => {
+  if (!context.user) throw new Error("Authentication required");
+  
+  const user = await User.findByIdAndUpdate(
+    context.user.userId,
+    { bio },
+    { new: true }
+  );
+  
+  return user;
+}
     registerUser: async (_, { username, email, password }) => {
       const existingUser = await User.findOne({
         $or: [{ email }, { username }],

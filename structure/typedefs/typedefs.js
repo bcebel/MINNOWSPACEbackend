@@ -209,6 +209,8 @@ const typeDefs = gql`
     ): AuthPayload!
     loginUser(username: String!, password: String!): AuthPayload!
 
+    updateProfile(bio: String!): User!
+
     # Affiliate mutations
     addAffiliateLink(url: String!, title: String, description: String): User!
     updateAffiliateLink(
