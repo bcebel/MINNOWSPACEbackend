@@ -165,7 +165,7 @@ updateProfile: async (_, { bio }, context) => {
   );
   
   return user;
-}
+},
     registerUser: async (_, { username, email, password }) => {
       const existingUser = await User.findOne({
         $or: [{ email }, { username }],
