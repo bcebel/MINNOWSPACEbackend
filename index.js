@@ -105,7 +105,7 @@ app.post(
   upload.single("file"),
   async (req, res) => {
     try {
-      console.log("Upload request received:", {
+      console.log("Upload request received!:", {
         file: req.file
           ? {
               originalname: req.file.originalname,
