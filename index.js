@@ -356,6 +356,10 @@ server.listen(PORT, () => {
     "https://studio.apollographql.com/sandbox/explorer?_gl=1%2A1xbtmmh%2A_gcl_au%2AMjA3ODU5MDkyMi4xNzYyMjI1ODY0"
   );
   console.log(`🚀 Apollo Studio Sandbox: https://studio.apollographql.com/sandbox/explorer/?endpoint=${encodeURIComponent(`http://localhost:${PORT}${apolloServer.graphqlPath}`)}`);
+
+  console.log(
+    "https://studio.apollographql.com/graph/gigunit/variant/current/explorer"
+  );
   
 });
 
