@@ -15,6 +15,10 @@ const userSchema = new Schema(
       unique: true,
       match: [/.+@.+\..+/, "Must match an email address!"],
     },
+    bio: {
+      type: String,
+      default: "",
+    },
     password: {
       type: String,
       required: true,
