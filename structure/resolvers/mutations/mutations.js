@@ -193,6 +193,20 @@ const resolvers = {
         updatedAt: new Date(),
       });
       await user.save();
+      const personalNeighborhood = new Neighborhood({
+        name: `${user.username}'s Space`,
+        description: "Your personal digital neighborhood",
+        type: "personal",
+        owner: user._id,
+        members: [
+          {
+            user: user._id,
+            role: "owner",
+            joinedAt: new Date(),
+          },
+        ],
+      });
+      await personalNeighborhood.save();
 
       const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET, {
         expiresIn: "24h",
