@@ -98,6 +98,9 @@ const typeDefs = gql`
     content: String!
     imageUrl: String
     videoUrl: String
+    fileUrl: String
+    fileName: String
+    fileType: String
     room: String!
     createdAt: String!
     sender: User!
@@ -252,6 +255,9 @@ const typeDefs = gql`
       room: String!
       imageUrl: String
       videoUrl: String
+      fileUrl: String
+      fileName: String
+      fileType: String
     ): Message!
     deleteMessage(messageId: ID!): Boolean!
 
