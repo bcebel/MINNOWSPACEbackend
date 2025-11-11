@@ -168,6 +168,7 @@ const typeDefs = gql`
     users: [User!]
     user(id: ID!): User
     me: User
+    userByUsername(username: String!): User
 
     # Video queries
     videos: [Video!]

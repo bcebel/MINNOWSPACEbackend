@@ -20,6 +20,11 @@ const resolvers = {
       if (!context.user) throw new Error("Authentication required");
       return await User.findById(context.user.userId);
     },
+    userByUsername: async (_, { username }) => {
+      const user = await User.findOne({ username });
+      if (!user) throw new Error("User not found");
+      return user;
+    },
 
     // Video queries
     videos: async () => await Video.find().populate("user"),
@@ -158,13 +163,13 @@ const resolvers = {
     updateProfile: async (_, { bio, profilePhoto }, context) => {
       if (!context.user) throw new Error("Authentication required");
 
-        const updateData = {};
-        if (bio !== undefined) updateData.bio = bio;
-        if (profilePhoto !== undefined) updateData.profilePhoto = profilePhoto;
+      const updateData = {};
+      if (bio !== undefined) updateData.bio = bio;
+      if (profilePhoto !== undefined) updateData.profilePhoto = profilePhoto;
 
       const user = await User.findByIdAndUpdate(
         context.user.userId,
-        { bio },
+        updateData,
         { new: true }
       );
 
@@ -444,9 +449,43 @@ const resolvers = {
   Message: {
     id: (parent) => parent._id.toString(),
     sender: async (parent) => {
-      if (parent.sender && typeof parent.sender === "object")
+      console.log("🔍 Message.sender resolver - parent.sender:", parent.sender);
+
+      // If already populated, return it
+      if (parent.sender && typeof parent.sender === "object") {
         return parent.sender;
-      return await User.findById(parent.sender);
+      }
+
+      // If no sender ID, return a fallback user
+      if (!parent.sender) {
+        console.log("❌ Message has no sender:", parent._id);
+        return {
+          id: "unknown",
+          username: "Unknown User",
+          profilePhoto: "https://via.placeholder.com/40",
+        };
+      }
+
+      // Otherwise populate it
+      try {
+        const user = await User.findById(parent.sender);
+        if (!user) {
+          console.log("❌ User not found for sender ID:", parent.sender);
+          return {
+            id: "deleted",
+            username: "Deleted User",
+            profilePhoto: "https://via.placeholder.com/40",
+          };
+        }
+        return user;
+      } catch (error) {
+        console.error("Error populating message sender:", error);
+        return {
+          id: "error",
+          username: "Error Loading User",
+          profilePhoto: "https://via.placeholder.com/40",
+        };
+      }
     },
   },
   Post: {
@@ -473,6 +512,33 @@ const resolvers = {
       if (parent.author && typeof parent.author === "object")
         return parent.author;
       return await User.findById(parent.author);
+    },
+  },
+  // Add these field resolvers for Neighborhood
+  Neighborhood: {
+    id: (parent) => parent._id.toString(),
+    owner: async (parent) => {
+      console.log("🔍 Neighborhood.owner resolver called!");
+      console.log("🔍 parent.owner:", parent.owner);
+
+      // If already populated, return it
+      if (parent.owner && typeof parent.owner === "object") {
+        return parent.owner;
+      }
+
+      // Otherwise populate it
+      try {
+        const user = await User.findById(parent.owner);
+        console.log("🔍 Found user for owner:", user);
+        return user;
+      } catch (error) {
+        console.error("Error populating neighborhood owner:", error);
+        return null;
+      }
+    },
+    members: async (parent) => {
+      // Members should already be populated from the main query
+      return parent.members;
     },
   },
 }; // ← This closes the resolvers object
