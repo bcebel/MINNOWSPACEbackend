@@ -31,8 +31,8 @@ const corsOptions = {
   origin:
     process.env.NODE_ENV === "production"
       ? [
-          "https://gigunit.vercel.app",
           "https://gigunit.com",
+          "https://gigunit.vercel.app",
           "https://studio.apollographql.com",
           "https://studio.apollographql.dev",
           "http://localhost:3001",
@@ -43,8 +43,8 @@ const corsOptions = {
         ]
       : [
           "https://studio.apollographql.com",
-          "https://gigunit.vercel.app",
           "https://gigunit.com",
+          "https://gigunit.vercel.app",
           "http://localhost:3001",
           "http://localhost:3001/graphql",
           "http://localhost:8081",

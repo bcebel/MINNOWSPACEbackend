@@ -32,7 +32,7 @@ app.use(
 const server = http.createServer(app);
 const io = require("socket.io")(server, {
   cors: {
-    origin: "https://gigunit.vercel.app",
+    origin: "https://gigunit.com",
     methods: ["GET", "POST"],
     credentials: true,
   },
