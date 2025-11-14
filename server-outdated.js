@@ -11,8 +11,8 @@ dotenv.config({ path: path.resolve(__dirname, "./.env") });
 
 const CORS_ORIGIN =
   process.env.NODE_ENV === "production"
-    ? "https://gigunit.vercel.app"
-    : ["https://gigunit.vercel.app", "http://localhost:3000"];
+    ? "https://gigunit.com"
+    : ["https://gigunit.com", "http://localhost:3000"];
 
 const app = express();
 app.use(express.json());

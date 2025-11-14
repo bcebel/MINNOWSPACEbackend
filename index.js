@@ -31,8 +31,8 @@ const corsOptions = {
   origin:
     process.env.NODE_ENV === "production"
       ? [
-
           "https://gigunit.vercel.app",
+          "https://gigunit.com",
           "https://studio.apollographql.com",
           "https://studio.apollographql.dev",
           "http://localhost:3001",
@@ -44,6 +44,7 @@ const corsOptions = {
       : [
           "https://studio.apollographql.com",
           "https://gigunit.vercel.app",
+          "https://gigunit.com",
           "http://localhost:3001",
           "http://localhost:3001/graphql",
           "http://localhost:8081",
@@ -156,20 +157,22 @@ app.get("/api/test-neighborhood", authenticateToken, async (req, res) => {
     const testNeighborhood = new Neighborhood({
       name: "Test Neighborhood",
       description: "Just testing the model",
-      type: "private", 
+      type: "private",
       owner: req.user._id,
-      members: [{
-        user: req.user._id,
-        role: "owner"
-      }]
+      members: [
+        {
+          user: req.user._id,
+          role: "owner",
+        },
+      ],
     });
-    
+
     await testNeighborhood.save();
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       message: "Neighborhood model works!",
-      neighborhoodId: testNeighborhood._id 
+      neighborhoodId: testNeighborhood._id,
     });
   } catch (error) {
     console.error("Neighborhood test error:", error);
@@ -355,12 +358,13 @@ server.listen(PORT, () => {
   console.log(
     "https://studio.apollographql.com/sandbox/explorer?_gl=1%2A1xbtmmh%2A_gcl_au%2AMjA3ODU5MDkyMi4xNzYyMjI1ODY0"
   );
-  console.log(`🚀 Apollo Studio Sandbox: https://studio.apollographql.com/sandbox/explorer/?endpoint=${encodeURIComponent(`http://localhost:${PORT}${apolloServer.graphqlPath}`)}`);
+  console.log(
+    `🚀 Apollo Studio Sandbox: https://studio.apollographql.com/sandbox/explorer/?endpoint=${encodeURIComponent(
+      `http://localhost:${PORT}${apolloServer.graphqlPath}`
+    )}`
+  );
 
   console.log(
     "https://studio.apollographql.com/graph/gigunit/variant/current/explorer"
   );
-  
 });
-
-
