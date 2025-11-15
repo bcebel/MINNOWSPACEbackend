@@ -13,6 +13,7 @@ const messageSchema = new mongoose.Schema({
     fileName: String,
   },
   room: String,
+  neighborhood: { type: mongoose.Schema.Types.ObjectId, ref: "Neighborhood" }, // NEW
   createdAt: { type: Date, default: Date.now },
 });
 

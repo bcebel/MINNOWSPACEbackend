@@ -118,10 +118,49 @@ const resolvers = {
         .sort({ createdAt: -1 })
         .limit(20); // Limit for discovery feed
     },
+    neighborhoodMessages: async (_, { neighborhoodId }, context) => {
+      if (!context.user) throw new Error("Authentication required");
+
+      // Check if user is member of this neighborhood
+      const neighborhood = await Neighborhood.findById(neighborhoodId);
+      if (!neighborhood) throw new Error("Neighborhood not found");
+
+      const isMember = neighborhood.members.some(
+        (member) => member.user.toString() === context.user.userId
+      );
+
+      if (!isMember) throw new Error("Not a member of this neighborhood");
+
+      return await Message.find({ neighborhood: neighborhoodId })
+        .populate("sender", "username profilePhoto")
+        .sort({ createdAt: -1 })
+        .limit(50);
+    },
+
+    // Get videos for a specific neighborhood
+    neighborhoodVideos: async (_, { neighborhoodId }, context) => {
+      if (!context.user) throw new Error("Authentication required");
+
+      // Check membership
+      const neighborhood = await Neighborhood.findById(neighborhoodId);
+      const isMember = neighborhood.members.some(
+        (member) => member.user.toString() === context.user.userId
+      );
+
+      if (!isMember) throw new Error("Not a member of this neighborhood");
+
+      return await Video.find({ neighborhood: neighborhoodId })
+        .populate("user", "username profilePhoto")
+        .sort({ createdAt: -1 });
+    },
   },
 
   Mutation: {
-    sendMessage: async (_, { content, room, imageUrl, videoUrl }, context) => {
+    sendMessage: async (
+      _,
+      { content, room, imageUrl, videoUrl, neighborhoodId },
+      context
+    ) => {
       if (!context.user) throw new Error("Authentication required");
 
       console.log("🔍 Backend: Sending message:", {
@@ -131,12 +170,22 @@ const resolvers = {
         videoUrl,
       });
 
+          let neighborhood = null;
+          if (neighborhoodId) {
+            neighborhood = await Neighborhood.findById(neighborhoodId);
+            const isMember = neighborhood.members.some(
+              (member) => member.user.toString() === context.user.userId
+            );
+            if (!isMember) throw new Error("Not a member of this neighborhood");
+          }
+
       const message = new Message({
         sender: context.user.userId,
         content,
         imageUrl: imageUrl || null,
         videoUrl: videoUrl || null, // Add this too for future use
         room: room || "general",
+        neighborhood: neighborhoodId || null, // NEW
         createdAt: new Date(),
       });
 
@@ -150,7 +199,11 @@ const resolvers = {
       console.log("✅ Backend: Message populated:", populatedMessage);
 
       if (context.io) {
-        context.io.to(room || "general").emit("message", populatedMessage);
+        const emitRoom = neighborhoodId
+          ? `neighborhood-${neighborhoodId}`
+          : room;
+          context.io.to(emitRoom).emit("message", populatedMessage);
+       // context.io.to(room || "general").emit("message", populatedMessage);
         console.log("✅ Backend: Socket event emitted");
       } else {
         console.log("❌ No IO in context - cannot emit socket event");

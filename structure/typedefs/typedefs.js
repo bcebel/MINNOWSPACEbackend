@@ -102,6 +102,7 @@ const typeDefs = gql`
     fileName: String
     fileType: String
     room: String!
+    neighborhood: Neighborhood
     createdAt: String!
     sender: User!
   }
@@ -197,6 +198,9 @@ const typeDefs = gql`
     # Group queries
     groups: [Group!]
     group(id: ID!): Group
+
+    neighborhoodMessages(neighborhoodId: ID!): [Message]
+    neighborhoodVideos(neighborhoodId: ID!): [Video]
   }
 
   type Subscription {

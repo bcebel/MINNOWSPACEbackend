@@ -277,6 +277,19 @@ io.use(async (socket, next) => {
 io.on("connection", (socket) => {
   console.log(`User connected: ${socket.user.username}`);
 
+
+  socket.on("join-neighborhood", (neighborhoodId) => {
+    const room = `neighborhood-${neighborhoodId}`;
+    socket.join(room);
+    console.log(`${socket.user.username} joined neighborhood room: ${room}`);
+  });
+
+  socket.on("leave-neighborhood", (neighborhoodId) => {
+    const room = `neighborhood-${neighborhoodId}`;
+    socket.leave(room);
+    console.log(`${socket.user.username} left neighborhood room: ${room}`);
+  });
+
   socket.on("join-room", (room) => {
     socket.join(room);
     console.log(`${socket.user.username} joined room: ${room}`);

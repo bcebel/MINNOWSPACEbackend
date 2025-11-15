@@ -12,6 +12,7 @@ const videoSchema = new mongoose.Schema({
   cid: { type: String, required: true }, // IPFS Content Identifier (CID)
   ipfsUrl: { type: String, required: true }, // IPFS gateway URL
   magnetLink: { type: String, required: true }, // Magnet link for torrent
+  neighborhood: { type: mongoose.Schema.Types.ObjectId, ref: "Neighborhood" },
   createdAt: { type: Date, default: Date.now }, // Timestamp of upload
   updatedAt: { type: Date, default: Date.now }, // Timestamp of last update
 });
