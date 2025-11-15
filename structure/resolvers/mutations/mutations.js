@@ -494,64 +494,53 @@ const resolvers = {
   },
 
   // Field resolvers - COMPLETE VERSION
-  // Field resolvers - COMPREHENSIVE VERSION
+  // Field resolvers - SIMPLIFIED _id to id conversion
   User: {
-    id: (parent) => {
-      if (parent._id) return parent._id.toString();
-      if (parent.id) return parent.id.toString();
-      return parent;
-    },
+    id: (parent) => parent._id?.toString() || parent.id,
   },
   Chat: {
-    id: (parent) => {
-      if (parent._id) return parent._id.toString();
-      if (parent.id) return parent.id.toString();
-      return parent;
-    },
+    id: (parent) => parent._id?.toString() || parent.id,
   },
   Message: {
-    id: (parent) => {
-      if (parent._id) return parent._id.toString();
-      if (parent.id) return parent.id.toString();
-      return parent;
-    },
+    id: (parent) => parent._id?.toString() || parent.id,
     neighborhood: async (parent) => {
       if (!parent.neighborhood) return null;
-    
-      // If already populated, return it
+
+      // If already populated, ensure it has proper id field
       if (parent.neighborhood && typeof parent.neighborhood === "object") {
+        const neighborhood = parent.neighborhood;
         return {
-          ...parent.neighborhood,
-          id: parent.neighborhood._id ? parent.neighborhood._id.toString() : parent.neighborhood.id
+          ...neighborhood,
+          id: neighborhood._id?.toString() || neighborhood.id,
         };
       }
-    
+
       // Otherwise populate it
       try {
         const neighborhood = await Neighborhood.findById(parent.neighborhood);
-        return neighborhood ? {
-          ...neighborhood.toObject(),
-          id: neighborhood._id.toString()
-        } : null;
+        return neighborhood
+          ? {
+              ...neighborhood.toObject(),
+              id: neighborhood._id.toString(),
+            }
+          : null;
       } catch (error) {
         console.error("Error populating message neighborhood:", error);
         return null;
       }
     },
     sender: async (parent) => {
-      console.log("🔍 Message.sender resolver - parent.sender:", parent.sender);
-
-      // If already populated, return it with proper ID
+      // If already populated, ensure it has proper id field
       if (parent.sender && typeof parent.sender === "object") {
+        const sender = parent.sender;
         return {
-          ...parent.sender,
-          id: parent.sender._id ? parent.sender._id.toString() : parent.sender.id
+          ...sender,
+          id: sender._id?.toString() || sender.id,
         };
       }
 
       // If no sender ID, return a fallback user
       if (!parent.sender) {
-        console.log("❌ Message has no sender:", parent._id);
         return {
           id: "unknown",
           username: "Unknown User",
@@ -563,7 +552,6 @@ const resolvers = {
       try {
         const user = await User.findById(parent.sender);
         if (!user) {
-          console.log("❌ User not found for sender ID:", parent.sender);
           return {
             id: "deleted",
             username: "Deleted User",
@@ -572,7 +560,7 @@ const resolvers = {
         }
         return {
           ...user.toObject(),
-          id: user._id.toString()
+          id: user._id.toString(),
         };
       } catch (error) {
         console.error("Error populating message sender:", error);
@@ -585,118 +573,98 @@ const resolvers = {
     },
   },
   Post: {
-    id: (parent) => {
-      if (parent._id) return parent._id.toString();
-      if (parent.id) return parent.id.toString();
-      return parent;
-    },
+    id: (parent) => parent._id?.toString() || parent.id,
   },
   Group: {
-    id: (parent) => {
-      if (parent._id) return parent._id.toString();
-      if (parent.id) return parent.id.toString();
-      return parent;
-    },
+    id: (parent) => parent._id?.toString() || parent.id,
   },
   Video: {
-    id: (parent) => {
-      if (parent._id) return parent._id.toString();
-      if (parent.id) return parent.id.toString();
-      return parent;
-    },
+    id: (parent) => parent._id?.toString() || parent.id,
   },
   Stream: {
-    id: (parent) => {
-      if (parent._id) return parent._id.toString();
-      if (parent.id) return parent.id.toString();
-      return parent;
-    },
+    id: (parent) => parent._id?.toString() || parent.id,
   },
   Ad: {
-    id: (parent) => {
-      if (parent._id) return parent._id.toString();
-      if (parent.id) return parent.id.toString();
-      return parent;
-    },
+    id: (parent) => parent._id?.toString() || parent.id,
   },
   AffiliateLink: {
-    id: (parent) => {
-      if (parent._id) return parent._id.toString();
-      if (parent.id) return parent.id.toString();
-      return parent;
-    },
+    id: (parent) => parent._id?.toString() || parent.id,
   },
   Comment: {
-    id: (parent) => {
-      if (parent._id) return parent._id.toString();
-      if (parent.id) return parent.id.toString();
-      return parent;
-    },
+    id: (parent) => parent._id?.toString() || parent.id,
     author: async (parent) => {
       if (parent.author && typeof parent.author === "object") {
+        const author = parent.author;
         return {
-          ...parent.author,
-          id: parent.author._id ? parent.author._id.toString() : parent.author.id
+          ...author,
+          id: author._id?.toString() || author.id,
         };
       }
       const user = await User.findById(parent.author);
-      return user ? {
-        ...user.toObject(),
-        id: user._id.toString()
-      } : null;
+      return user
+        ? {
+            ...user.toObject(),
+            id: user._id.toString(),
+          }
+        : null;
     },
   },
   Neighborhood: {
-    id: (parent) => {
-      if (parent._id) return parent._id.toString();
-      if (parent.id) return parent.id.toString();
-      return parent;
-    },
+    id: (parent) => parent._id?.toString() || parent.id,
     owner: async (parent) => {
-      console.log("🔍 Neighborhood.owner resolver called!");
-      console.log("🔍 parent.owner:", parent.owner);
-
-      // If already populated, return it with proper ID
+      // If already populated, ensure it has proper id field
       if (parent.owner && typeof parent.owner === "object") {
+        const owner = parent.owner;
         return {
-          ...parent.owner,
-          id: parent.owner._id ? parent.owner._id.toString() : parent.owner.id
+          ...owner,
+          id: owner._id?.toString() || owner.id,
         };
       }
 
       // Otherwise populate it
       try {
         const user = await User.findById(parent.owner);
-        console.log("🔍 Found user for owner:", user);
-        return user ? {
-          ...user.toObject(),
-          id: user._id.toString()
-        } : null;
+        return user
+          ? {
+              ...user.toObject(),
+              id: user._id.toString(),
+            }
+          : null;
       } catch (error) {
         console.error("Error populating neighborhood owner:", error);
         return null;
       }
     },
     members: async (parent) => {
-      // Members should already be populated from the main query
-      return parent.members;
+      // Ensure all members have proper id fields
+      return parent.members.map((member) => ({
+        ...member,
+        user:
+          member.user && typeof member.user === "object"
+            ? {
+                ...member.user,
+                id: member.user._id?.toString() || member.user.id,
+              }
+            : member.user,
+      }));
     },
   },
   NeighborhoodMember: {
     user: async (parent) => {
-      // If already populated, return it with proper ID
       if (parent.user && typeof parent.user === "object") {
+        const user = parent.user;
         return {
-          ...parent.user,
-          id: parent.user._id ? parent.user._id.toString() : parent.user.id
+          ...user,
+          id: user._id?.toString() || user.id,
         };
       }
-      // Otherwise populate it
       const user = await User.findById(parent.user);
-      return user ? {
-        ...user.toObject(),
-        id: user._id.toString()
-      } : null;
+      return user
+        ? {
+            ...user.toObject(),
+            id: user._id.toString(),
+          }
+        : null;
     },
     role: (parent) => parent.role,
     joinedAt: (parent) => parent.joinedAt.toISOString(),
@@ -704,20 +672,22 @@ const resolvers = {
   JoinRequest: {
     user: async (parent) => {
       if (parent.user && typeof parent.user === "object") {
+        const user = parent.user;
         return {
-          ...parent.user,
-          id: parent.user._id ? parent.user._id.toString() : parent.user.id
+          ...user,
+          id: user._id?.toString() || user.id,
         };
       }
       const user = await User.findById(parent.user);
-      return user ? {
-        ...user.toObject(),
-        id: user._id.toString()
-      } : null;
+      return user
+        ? {
+            ...user.toObject(),
+            id: user._id.toString(),
+          }
+        : null;
     },
     requestedAt: (parent) => parent.requestedAt.toISOString(),
     status: (parent) => parent.status,
   },
-
-}
+};
 export default resolvers;
