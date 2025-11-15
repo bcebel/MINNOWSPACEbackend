@@ -263,6 +263,7 @@ const typeDefs = gql`
       fileUrl: String
       fileName: String
       fileType: String
+      neighborhoodId: ID
     ): Message!
     deleteMessage(messageId: ID!): Boolean!
 
