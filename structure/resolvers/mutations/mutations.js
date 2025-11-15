@@ -131,6 +131,7 @@ const resolvers = {
 
       if (!isMember) throw new Error("Not a member of this neighborhood");
 
+      // Message.find() always returns an array, so no need for || []
       return await Message.find({ neighborhood: neighborhoodId })
         .populate("sender", "username profilePhoto")
         .sort({ createdAt: -1 })
@@ -170,14 +171,14 @@ const resolvers = {
         videoUrl,
       });
 
-          let neighborhood = null;
-          if (neighborhoodId) {
-            neighborhood = await Neighborhood.findById(neighborhoodId);
-            const isMember = neighborhood.members.some(
-              (member) => member.user.toString() === context.user.userId
-            );
-            if (!isMember) throw new Error("Not a member of this neighborhood");
-          }
+      let neighborhood = null;
+      if (neighborhoodId) {
+        neighborhood = await Neighborhood.findById(neighborhoodId);
+        const isMember = neighborhood.members.some(
+          (member) => member.user.toString() === context.user.userId
+        );
+        if (!isMember) throw new Error("Not a member of this neighborhood");
+      }
 
       const message = new Message({
         sender: context.user.userId,
@@ -202,8 +203,8 @@ const resolvers = {
         const emitRoom = neighborhoodId
           ? `neighborhood-${neighborhoodId}`
           : room;
-          context.io.to(emitRoom).emit("message", populatedMessage);
-       // context.io.to(room || "general").emit("message", populatedMessage);
+        context.io.to(emitRoom).emit("message", populatedMessage);
+        // context.io.to(room || "general").emit("message", populatedMessage);
         console.log("✅ Backend: Socket event emitted");
       } else {
         console.log("❌ No IO in context - cannot emit socket event");
