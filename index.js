@@ -2,22 +2,18 @@ import multer from "multer";
 import path from "path";
 import { fileURLToPath } from "url";
 import express from "express";
-import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
-import bcrypt from "bcrypt";
 import http from "http";
 import cors from "cors";
 import dotenv from "dotenv";
 import { Server } from "socket.io";
 import { ApolloServer, gql } from "apollo-server-express";
-import authMiddleware from "./utils/auth.js";
 import typeDefs from "./structure/typedefs/typedefs.js";
 import ModelSchema from "./structure/models/index.js";
 import resolvers from "./structure/resolvers/queries/queries.js";
 import connectDB from "./config/connection.js";
 import videoUploadHandler from "./videoUploadHandler.js";
 import Video from "./structure/models/Video.js";
-import fs from "fs";
 
 dotenv.config();
 
