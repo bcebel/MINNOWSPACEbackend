@@ -228,6 +228,45 @@ const resolvers = {
 
       return user;
     },
+    removeMember: async (_, { neighborhoodId, userId }, context) => {
+      if (!context.user) throw new Error("Authentication required");
+
+      const neighborhood = await Neighborhood.findById(neighborhoodId);
+      if (!neighborhood) throw new Error("Neighborhood not found");
+
+      // Check if user has permission (owner or moderator)
+      const userRole = neighborhood.members.find(
+        (member) => member.user.toString() === context.user.userId
+      )?.role;
+
+      if (!userRole || !["owner", "moderator"].includes(userRole)) {
+        throw new Error("Only owners and moderators can remove members");
+      }
+
+      // Can't remove yourself or the owner
+      if (userId === context.user.userId) {
+        throw new Error("Cannot remove yourself");
+      }
+
+      const targetMember = neighborhood.members.find(
+        (member) => member.user.toString() === userId
+      );
+
+      if (targetMember?.role === "owner") {
+        throw new Error("Cannot remove the neighborhood owner");
+      }
+
+      // Remove from members
+      neighborhood.members = neighborhood.members.filter(
+        (member) => member.user.toString() !== userId
+      );
+
+      await neighborhood.save();
+
+      return await Neighborhood.findById(neighborhood._id)
+        .populate("owner", "username profilePhoto")
+        .populate("members.user", "username profilePhoto");
+    },
 
     registerUser: async (_, { username, email, password }) => {
       const existingUser = await User.findOne({

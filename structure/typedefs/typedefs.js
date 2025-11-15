@@ -82,6 +82,7 @@ const typeDefs = gql`
 
     # Invite system (optional for later)
     inviteToNeighborhood(neighborhoodId: ID!, username: String!): Boolean
+
   }
 
   type Chat {
