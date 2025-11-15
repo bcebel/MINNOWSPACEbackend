@@ -169,6 +169,7 @@ const resolvers = {
         room,
         imageUrl,
         videoUrl,
+        neighborhoodId,
       });
 
       let neighborhood = null;
@@ -184,9 +185,9 @@ const resolvers = {
         sender: context.user.userId,
         content,
         imageUrl: imageUrl || null,
-        videoUrl: videoUrl || null, // Add this too for future use
+        videoUrl: videoUrl || null,
         room: room || "general",
-        neighborhood: neighborhoodId || null, // NEW
+        neighborhood: neighborhoodId || null,
         createdAt: new Date(),
       });
 
@@ -204,7 +205,6 @@ const resolvers = {
           ? `neighborhood-${neighborhoodId}`
           : room;
         context.io.to(emitRoom).emit("message", populatedMessage);
-        // context.io.to(room || "general").emit("message", populatedMessage);
         console.log("✅ Backend: Socket event emitted");
       } else {
         console.log("❌ No IO in context - cannot emit socket event");
@@ -213,7 +213,6 @@ const resolvers = {
       return populatedMessage;
     },
 
-    // In your resolvers.js - add to Mutation
     updateProfile: async (_, { bio, profilePhoto }, context) => {
       if (!context.user) throw new Error("Authentication required");
 
@@ -229,6 +228,7 @@ const resolvers = {
 
       return user;
     },
+
     registerUser: async (_, { username, email, password }) => {
       const existingUser = await User.findOne({
         $or: [{ email }, { username }],
@@ -252,6 +252,7 @@ const resolvers = {
         updatedAt: new Date(),
       });
       await user.save();
+
       const personalNeighborhood = new Neighborhood({
         name: `${user.username}'s Space`,
         description: "Your personal digital neighborhood",
@@ -294,7 +295,6 @@ const resolvers = {
       };
     },
 
-    // Add your other mutations here...
     // Create a new neighborhood
     createNeighborhood: async (_, { name, description, type }, context) => {
       if (!context.user) throw new Error("Authentication required");
@@ -491,17 +491,34 @@ const resolvers = {
         .populate("members.user", "username profilePhoto")
         .populate("joinRequests.user", "username profilePhoto");
     },
-  }, // ← This closes the Mutation object
+  },
 
-  // Field resolvers
+  // Field resolvers - COMPLETE VERSION
   User: {
-    id: (parent) => parent._id.toString(),
+    id: (parent) => (parent._id ? parent._id.toString() : parent.id),
   },
   Chat: {
-    id: (parent) => parent._id.toString(),
+    id: (parent) => (parent._id ? parent._id.toString() : parent.id),
   },
   Message: {
-    id: (parent) => parent._id.toString(),
+    id: (parent) => (parent._id ? parent._id.toString() : parent.id),
+    neighborhood: async (parent) => {
+      if (!parent.neighborhood) return null;
+
+      // If already populated, return it
+      if (parent.neighborhood && typeof parent.neighborhood === "object") {
+        return parent.neighborhood;
+      }
+
+      // Otherwise populate it
+      try {
+        const neighborhood = await Neighborhood.findById(parent.neighborhood);
+        return neighborhood;
+      } catch (error) {
+        console.error("Error populating message neighborhood:", error);
+        return null;
+      }
+    },
     sender: async (parent) => {
       console.log("🔍 Message.sender resolver - parent.sender:", parent.sender);
 
@@ -543,19 +560,19 @@ const resolvers = {
     },
   },
   Post: {
-    id: (parent) => parent._id.toString(),
+    id: (parent) => (parent._id ? parent._id.toString() : parent.id),
   },
   Group: {
-    id: (parent) => parent._id.toString(),
+    id: (parent) => (parent._id ? parent._id.toString() : parent.id),
   },
   Video: {
-    id: (parent) => parent._id.toString(),
+    id: (parent) => (parent._id ? parent._id.toString() : parent.id),
   },
   Stream: {
-    id: (parent) => parent._id.toString(),
+    id: (parent) => (parent._id ? parent._id.toString() : parent.id),
   },
   Ad: {
-    id: (parent) => parent._id.toString(),
+    id: (parent) => (parent._id ? parent._id.toString() : parent.id),
   },
   AffiliateLink: {
     id: (parent) => parent._id?.toString() || parent.id,
@@ -568,9 +585,8 @@ const resolvers = {
       return await User.findById(parent.author);
     },
   },
-  // Add these field resolvers for Neighborhood
   Neighborhood: {
-    id: (parent) => parent._id.toString(),
+    id: (parent) => (parent._id ? parent._id.toString() : parent.id),
     owner: async (parent) => {
       console.log("🔍 Neighborhood.owner resolver called!");
       console.log("🔍 parent.owner:", parent.owner);
@@ -595,6 +611,29 @@ const resolvers = {
       return parent.members;
     },
   },
-}; // ← This closes the resolvers object
+  // NEW: Added these missing field resolvers
+  NeighborhoodMember: {
+    user: async (parent) => {
+      // If already populated, return it
+      if (parent.user && typeof parent.user === "object") {
+        return parent.user;
+      }
+      // Otherwise populate it
+      return await User.findById(parent.user);
+    },
+    role: (parent) => parent.role,
+    joinedAt: (parent) => parent.joinedAt.toISOString(),
+  },
+  JoinRequest: {
+    user: async (parent) => {
+      if (parent.user && typeof parent.user === "object") {
+        return parent.user;
+      }
+      return await User.findById(parent.user);
+    },
+    requestedAt: (parent) => parent.requestedAt.toISOString(),
+    status: (parent) => parent.status,
+  },
+};
 
 export default resolvers;
