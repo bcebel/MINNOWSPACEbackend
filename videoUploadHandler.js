@@ -40,7 +40,7 @@ export const authenticateUser = (req, res, next) => {
 // Initialize the Pinata SDK
 const pinata = new PinataSDK({
   pinataJwt: PINATA_JWT, // Use your JWT from the environment variable
-  pinataGateway: "gateway.pinata.cloud", // Default gateway domain
+  pinataGateway: "fuchsia-solid-parrot-571.mypinata.cloud", // Default gateway domain
 });
 
 // Function to calculate CID using Pinata's API
