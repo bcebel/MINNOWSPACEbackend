@@ -159,7 +159,20 @@ const resolvers = {
   Mutation: {
     sendMessage: async (
       _,
-      { content, room, imageUrl, videoUrl, neighborhoodId },
+      {
+        content,
+        room,
+        imageUrl,
+        videoUrl,
+        fileUrl,
+        fileName,
+        fileType,
+        fileSize,
+        mimeType,
+        ipfsHash,
+        ipfsData, // Add this if you want to use the nested structure
+        neighborhoodId,
+      },
       context
     ) => {
       if (!context.user) throw new Error("Authentication required");
@@ -186,6 +199,13 @@ const resolvers = {
         content,
         imageUrl: imageUrl || null,
         videoUrl: videoUrl || null,
+        fileUrl: fileUrl || null,
+        fileName: fileName || null,
+        fileType: fileType || null,
+        fileSize: fileSize || null,
+        mimeType: mimeType || null,
+        ipfsHash: ipfsHash || null,
+        ipfsData: ipfsData || null, // Add this if using nested structure
         room: room || "general",
         neighborhood: neighborhoodId || null,
         createdAt: new Date(),

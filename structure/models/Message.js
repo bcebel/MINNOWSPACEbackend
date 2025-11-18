@@ -5,6 +5,12 @@ const messageSchema = new mongoose.Schema({
   content: String,
   imageUrl: String,
   videoUrl: String,
+  fileUrl: String,
+  fileName: String,
+  fileType: String,
+  fileSize: Number,
+   mimeType: String,
+  ipfsHash: String,
   ipfsData: {
     cid: String,
     ipfsUrl: String,

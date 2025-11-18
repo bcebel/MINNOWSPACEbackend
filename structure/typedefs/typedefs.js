@@ -82,9 +82,15 @@ const typeDefs = gql`
 
     # Invite system (optional for later)
     inviteToNeighborhood(neighborhoodId: ID!, username: String!): Boolean
-
   }
 
+  type IPFSData {
+    cid: String
+    ipfsUrl: String
+    magnetLink: String
+    fileType: String
+    fileName: String
+  }
   type Chat {
     id: ID!
     name: String!
@@ -93,19 +99,45 @@ const typeDefs = gql`
     createdAt: String!
     updatedAt: String!
   }
+  input MessageInput {
+    content: String!
+    room: String!
+    imageUrl: String
+    videoUrl: String
+    fileUrl: String
+    fileName: String
+    fileType: String
+    fileSize: Float
+    mimeType: String
+    ipfsHash: String
+    ipfsData: IPFSDataInput
+    neighborhoodId: ID
+  }
+
+  input IPFSDataInput {
+    cid: String
+    ipfsUrl: String
+    magnetLink: String
+    fileType: String
+    fileName: String
+  }
 
   type Message {
     id: ID!
+    sender: User!
     content: String!
     imageUrl: String
     videoUrl: String
     fileUrl: String
     fileName: String
     fileType: String
+    fileSize: Float # Keep as Float in GraphQL
+    mimeType: String
+    ipfsHash: String
+    ipfsData: IPFSData
     room: String!
     neighborhood: Neighborhood
     createdAt: String!
-    sender: User!
   }
 
   type Post {
