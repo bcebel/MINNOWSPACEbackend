@@ -99,6 +99,13 @@ const typeDefs = gql`
     createdAt: String!
     updatedAt: String!
   }
+  input IPFSDataInput {
+    cid: String
+    ipfsUrl: String
+    magnetLink: String
+    fileType: String
+    fileName: String
+  }
   input MessageInput {
     content: String!
     room: String!
@@ -112,14 +119,6 @@ const typeDefs = gql`
     ipfsHash: String
     ipfsData: IPFSDataInput
     neighborhoodId: ID
-  }
-
-  input IPFSDataInput {
-    cid: String
-    ipfsUrl: String
-    magnetLink: String
-    fileType: String
-    fileName: String
   }
 
   type Message {
@@ -296,8 +295,13 @@ const typeDefs = gql`
       fileUrl: String
       fileName: String
       fileType: String
+      fileSize: Float # ADD THIS
+      mimeType: String # ADD THIS
+      ipfsHash: String # ADD THIS
+      ipfsData: IPFSDataInput # ADD THIS
       neighborhoodId: ID
     ): Message!
+
     deleteMessage(messageId: ID!): Boolean!
 
     # Post mutations
