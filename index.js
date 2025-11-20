@@ -59,6 +59,7 @@ app.use("/graphql", cors(corsOptions));
 
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET;
+const PINATA_GATEWAY = process.env.PINATA_GATEWAY;
 
 connectDB();
 
@@ -144,6 +145,136 @@ app.post(
     }
   }
 );
+
+// Backend route - /api/webtorrent-player
+// Backend route - UPDATED FOR EARLIER PLAYBACK
+app.get('/api/webtorrent-player', (req, res) => {
+  const { fileName, magnetLink, cid, id } = req.query;
+  
+  let cleanMagnetLink = decodeURIComponent(magnetLink || '');
+  if (cleanMagnetLink.startsWith('magnet:?magnet:')) {
+    cleanMagnetLink = cleanMagnetLink.replace('magnet:?magnet:', 'magnet:?');
+  }
+  
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>WebTorrent Player</title>
+        <style>
+            body { margin: 0; padding: 15px; background: #1a1a1a; color: white; font-family: Arial, sans-serif; }
+            .video-card { border: 1px solid #333; padding: 15px; border-radius: 8px; background: #222; max-width: 600px; margin: 0 auto; }
+            video { width: 100%; max-height: 400px; background: #000; border-radius: 8px; }
+            .status { color: #FFFF00; margin: 10px 0; font-size: 14px; text-align: center; }
+            .progress-bar { width: 100%; height: 20px; background: #333; border-radius: 10px; margin: 10px 0; overflow: hidden; }
+            .progress-fill { height: 100%; background: linear-gradient(90deg, #00FF00, #00AAFF); transition: width 0.3s; }
+            .stats { color: #888; font-size: 12px; text-align: center; margin: 5px 0; }
+        </style>
+    </head>
+    <body>
+        <div class="video-card">
+            <div style="color: #00FF00; text-align:center; margin-bottom:10px;">🎬 ${fileName || 'Video'}</div>
+            <div class="status" id="status">🚀 Starting WebTorrent...</div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+            </div>
+            <div class="stats" id="stats">👥 0 peers | 📥 0%</div>
+            <video id="videoPlayer" controls style="display:none;"></video>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
+        <script>
+            const client = new WebTorrent();
+            const videoElement = document.getElementById('videoPlayer');
+            const statusElement = document.getElementById('status');
+            const statsElement = document.getElementById('stats');
+            const progressFill = document.getElementById('progressFill');
+
+            ${cleanMagnetLink ? `
+            // WEBTORRENT MODE - Start immediately
+            console.log('Starting WebTorrent with:', '${cleanMagnetLink}');
+            
+            const torrent = client.add('${cleanMagnetLink}');
+            let hasStartedPlaying = false;
+
+            torrent.on('ready', () => {
+                console.log('Torrent ready');
+                statusElement.textContent = '📦 Torrent ready - ' + torrent.files.length + ' files';
+            });
+
+            torrent.on('download', (bytes) => {
+                const percent = Math.round(torrent.progress * 100);
+                progressFill.style.width = percent + '%';
+                statsElement.textContent = '👥 ' + torrent.numPeers + ' peers | 📥 ' + percent + '% | ⚡ ' + (torrent.downloadSpeed / 1024 / 1024).toFixed(2) + ' MB/s';
+                
+                // Start playing once we have some data (5% buffer)
+                if (percent >= 5 && !hasStartedPlaying) {
+                    playVideo();
+                }
+                
+                statusElement.textContent = '📥 Downloading: ' + percent + '% - ' + torrent.numPeers + ' peers';
+            });
+
+            torrent.on('done', () => {
+                statusElement.textContent = '✅ Complete! Streaming from ' + torrent.numPeers + ' peers';
+                progressFill.style.background = '#00FF00';
+            });
+
+            function playVideo() {
+                const file = torrent.files.find(f => 
+                    f.name.includes('.mp4') || f.name.includes('.mov') || f.name.includes('.webm')
+                );
+                
+                if (file) {
+                    console.log('Playing video file:', file.name);
+                    file.renderTo(videoElement, (err, elem) => {
+                        if (!err) {
+                            videoElement.style.display = 'block';
+                            hasStartedPlaying = true;
+                            statusElement.textContent = '🎬 Now playing - ' + torrent.numPeers + ' peers';
+                            videoElement.play().catch(e => {
+                                console.log('Autoplay blocked, waiting for user interaction');
+                            });
+                        }
+                    });
+                }
+            }
+
+            // Fallback if no progress in 10 seconds
+            setTimeout(() => {
+                if (torrent.progress === 0) {
+                    statusElement.textContent = '❌ No progress - you might be the first seeder!';
+                    ${cid ? `
+                    // Optional: Auto-fallback to IPFS
+                    console.log('Falling back to IPFS');
+                    videoElement.src = 'https://${PINATA_GATEWAY}/ipfs/${cid}';
+                    videoElement.style.display = 'block';
+                    statusElement.textContent = '📡 Using IPFS fallback';
+                    ` : ''}
+                }
+            }, 10000);
+
+            ` : `
+            // NO MAGNET LINK - Use IPFS directly
+            ${cid ? `
+            console.log('Using direct IPFS');
+            videoElement.src = 'https://${PINATA_GATEWAY}/ipfs/${cid}';
+            videoElement.style.display = 'block';
+            statusElement.textContent = '📡 Streaming from IPFS';
+            progressFill.style.width = '100%';
+            progressFill.style.background = '#00AAFF';
+            statsElement.textContent = 'Direct IPFS streaming';
+            ` : `
+            statusElement.textContent = '❌ No video source available';
+            `}
+            `}
+        </script>
+    </body>
+    </html>
+  `);
+});
 
 // Add this after your other routes, before socket.io
 app.get("/api/test-neighborhood", authenticateToken, async (req, res) => {

@@ -16,6 +16,7 @@ const FILEBASE_ACCESS_KEY = process.env.FILEBASE_ACCESS_KEY;
 const FILEBASE_SECRET_KEY = process.env.FILEBASE_SECRET_KEY;
 const FILEBASE_BUCKET_NAME = process.env.FILEBASE_BUCKET_NAME;
 const PINATA_JWT = process.env.PINATA_JWT;
+const PINATA_GATEWAY = process.env.PINATA_GATEWAY;
 
 //auth middleware
 export const authenticateUser = (req, res, next) => {
@@ -40,7 +41,7 @@ export const authenticateUser = (req, res, next) => {
 // Initialize the Pinata SDK
 const pinata = new PinataSDK({
   pinataJwt: PINATA_JWT, // Use your JWT from the environment variable
-  pinataGateway: "fuchsia-solid-parrot-571.mypinata.cloud", // Default gateway domain
+  pinataGateway: PINATA_GATEWAY, // Default gateway domain
 });
 
 // Function to calculate CID using Pinata's API
