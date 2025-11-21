@@ -116,12 +116,17 @@ async function calculateCID(fileBuffer, fileName) {
       createTorrent(
         permanentFilePath,
         {
+          name: cid,
           announce: [
             "wss://tracker.openwebtorrent.com",
             "udp://tracker.opentrackr.org:1337/announce",
             "udp://tracker.internetwarriors.net:1337/announce",
             "udp://tracker.torrent.eu.org:451/announce",
             "udp://tracker.coppersurfer.tk:6969/announce",
+          ],
+          urlList: [
+            `https://${PINATA_GATEWAY}/ipfs/${cid}`,
+            `https://ipfs.filebase.io/ipfs/${cid}`,
           ],
         },
         async (err, torrent) => {
