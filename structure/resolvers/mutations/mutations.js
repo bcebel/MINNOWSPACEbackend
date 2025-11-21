@@ -168,6 +168,7 @@ const resolvers = {
         fileName,
         fileType,
         fileSize,
+        magnetLink,
         mimeType,
         ipfsHash,
         ipfsData, // Add this if you want to use the nested structure
@@ -193,7 +194,7 @@ const resolvers = {
         );
         if (!isMember) throw new Error("Not a member of this neighborhood");
       }
-      const magnetLink = ipfsData?.magnetLink || null;
+      //const magnetLink = ipfsData?.magnetLink || null;
       
       const message = new Message({
         sender: context.user.userId,

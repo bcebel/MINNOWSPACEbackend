@@ -27,6 +27,7 @@ const corsOptions = {
   origin:
     process.env.NODE_ENV === "production"
       ? [
+          "https://bubblebase.app",
           "https://gigunit.com",
           "https://gigunit.vercel.app",
           "https://studio.apollographql.com",
@@ -38,7 +39,8 @@ const corsOptions = {
           "exp://localhost:19000",
         ]
       : [
-          "https://studio.apollographql.com",
+        "https://studio.apollographql.com",
+        "https://bubblebase.app",
           "https://gigunit.com",
           "https://gigunit.vercel.app",
           "http://localhost:3001",
@@ -148,14 +150,14 @@ app.post(
 
 // Backend route - /api/webtorrent-player
 // Backend route - UPDATED FOR EARLIER PLAYBACK
-app.get('/api/webtorrent-player', (req, res) => {
+app.get("/api/webtorrent-player", (req, res) => {
   const { fileName, magnetLink, cid, id } = req.query;
-  
-  let cleanMagnetLink = decodeURIComponent(magnetLink || '');
-  if (cleanMagnetLink.startsWith('magnet:?magnet:')) {
-    cleanMagnetLink = cleanMagnetLink.replace('magnet:?magnet:', 'magnet:?');
+
+  let cleanMagnetLink = decodeURIComponent(magnetLink || "");
+  if (cleanMagnetLink.startsWith("magnet:?magnet:")) {
+    cleanMagnetLink = cleanMagnetLink.replace("magnet:?magnet:", "magnet:?");
   }
-  
+
   res.send(`
     <!DOCTYPE html>
     <html>
@@ -175,7 +177,9 @@ app.get('/api/webtorrent-player', (req, res) => {
     </head>
     <body>
         <div class="video-card">
-            <div style="color: #00FF00; text-align:center; margin-bottom:10px;">🎬 ${fileName || 'Video'}</div>
+            <div style="color: #00FF00; text-align:center; margin-bottom:10px;">🎬 ${
+              fileName || "Video"
+            }</div>
             <div class="status" id="status">🚀 Starting WebTorrent...</div>
             <div class="progress-bar">
                 <div class="progress-fill" id="progressFill" style="width: 0%"></div>
@@ -192,7 +196,9 @@ app.get('/api/webtorrent-player', (req, res) => {
             const statsElement = document.getElementById('stats');
             const progressFill = document.getElementById('progressFill');
 
-            ${cleanMagnetLink ? `
+            ${
+              cleanMagnetLink
+                ? `
             // WEBTORRENT MODE - Start immediately
             console.log('Starting WebTorrent with:', '${cleanMagnetLink}');
             
@@ -246,19 +252,26 @@ app.get('/api/webtorrent-player', (req, res) => {
             setTimeout(() => {
                 if (torrent.progress === 0) {
                     statusElement.textContent = '❌ No progress - you might be the first seeder!';
-                    ${cid ? `
+                    ${
+                      cid
+                        ? `
                     // Optional: Auto-fallback to IPFS
                     console.log('Falling back to IPFS');
                     videoElement.src = 'https://${PINATA_GATEWAY}/ipfs/${cid}';
                     videoElement.style.display = 'block';
                     statusElement.textContent = '📡 Using IPFS fallback';
-                    ` : ''}
+                    `
+                        : ""
+                    }
                 }
             }, 10000);
 
-            ` : `
+            `
+                : `
             // NO MAGNET LINK - Use IPFS directly
-            ${cid ? `
+            ${
+              cid
+                ? `
             console.log('Using direct IPFS');
             videoElement.src = 'https://${PINATA_GATEWAY}/ipfs/${cid}';
             videoElement.style.display = 'block';
@@ -266,10 +279,13 @@ app.get('/api/webtorrent-player', (req, res) => {
             progressFill.style.width = '100%';
             progressFill.style.background = '#00AAFF';
             statsElement.textContent = 'Direct IPFS streaming';
-            ` : `
+            `
+                : `
             statusElement.textContent = '❌ No video source available';
-            `}
-            `}
+            `
+            }
+            `
+            }
         </script>
     </body>
     </html>
@@ -408,7 +424,6 @@ io.use(async (socket, next) => {
 io.on("connection", (socket) => {
   console.log(`User connected: ${socket.user.username}`);
 
-
   socket.on("join-neighborhood", (neighborhoodId) => {
     const room = `neighborhood-${neighborhoodId}`;
     socket.join(room);
@@ -465,19 +480,21 @@ io.on("connection", (socket) => {
 app.get("/api/videos", async (req, res) => {
   try {
     const videos = await Video.find({})
-      .select('title description fileName fileSize fileType cid ipfsUrl magnetLink user createdAt') // ADD magnetLink here
+      .select(
+        "title description fileName fileSize fileType cid ipfsUrl magnetLink user createdAt"
+      ) // ADD magnetLink here
       .sort({ createdAt: -1 })
       .populate("user", "username");
-    
-    console.log('Videos fetched:', videos.length);
+
+    console.log("Videos fetched:", videos.length);
     if (videos.length > 0) {
-      console.log('Sample video:', {
+      console.log("Sample video:", {
         title: videos[0].title,
         magnetLink: videos[0].magnetLink, // This should now show the magnet link
-        fileName: videos[0].fileName
+        fileName: videos[0].fileName,
       });
     }
-    
+
     res.json(videos);
   } catch (error) {
     console.error(error);
@@ -489,19 +506,21 @@ app.get("/api/videos", async (req, res) => {
 app.get("/api/videos/:id", async (req, res) => {
   try {
     const video = await Video.findById(req.params.id)
-      .select('title description fileName fileSize fileType cid ipfsUrl magnetLink user createdAt')
+      .select(
+        "title description fileName fileSize fileType cid ipfsUrl magnetLink user createdAt"
+      )
       .populate("user", "username");
-    
+
     if (!video) {
       return res.status(404).json({ error: "Video not found" });
     }
-    
-    console.log('Single video fetched:', {
+
+    console.log("Single video fetched:", {
       title: video.title,
       magnetLink: video.magnetLink,
-      fileName: video.fileName
+      fileName: video.fileName,
     });
-    
+
     res.json(video);
   } catch (error) {
     console.error(error);
@@ -513,18 +532,18 @@ app.get("/api/videos/:id", async (req, res) => {
 app.get("/api/debug-videos", async (req, res) => {
   try {
     const videos = await Video.find({});
-    
-    const debugData = videos.map(video => ({
+
+    const debugData = videos.map((video) => ({
       _id: video._id,
       title: video.title,
       fileName: video.fileName,
       magnetLink: video.magnetLink, // This will show if it exists in DB
       cid: video.cid,
       hasMagnetLink: !!video.magnetLink,
-      magnetLinkLength: video.magnetLink ? video.magnetLink.length : 0
+      magnetLinkLength: video.magnetLink ? video.magnetLink.length : 0,
     }));
-    
-    console.log('DEBUG - All videos with magnet links:', debugData);
+
+    console.log("DEBUG - All videos with magnet links:", debugData);
     res.json(debugData);
   } catch (error) {
     console.error(error);
