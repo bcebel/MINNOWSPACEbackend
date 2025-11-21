@@ -115,6 +115,7 @@ const typeDefs = gql`
     fileName: String
     fileType: String
     fileSize: Float
+    magnetLink: String
     mimeType: String
     ipfsHash: String
     ipfsData: IPFSDataInput
@@ -131,6 +132,7 @@ const typeDefs = gql`
     fileName: String
     fileType: String
     fileSize: Float # Keep as Float in GraphQL
+    magnetLink: String
     mimeType: String
     ipfsHash: String
     ipfsData: IPFSData
@@ -301,6 +303,7 @@ const typeDefs = gql`
       fileUrl: String
       fileName: String
       fileType: String
+      magnetLink: String
       fileSize: Float # ADD THIS
       mimeType: String # ADD THIS
       ipfsHash: String # ADD THIS
