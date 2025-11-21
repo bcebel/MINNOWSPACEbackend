@@ -193,13 +193,15 @@ const resolvers = {
         );
         if (!isMember) throw new Error("Not a member of this neighborhood");
       }
-
+      const magnetLink = ipfsData?.magnetLink || null;
+      
       const message = new Message({
         sender: context.user.userId,
         content,
         imageUrl: imageUrl || null,
         videoUrl: videoUrl || null,
         fileUrl: fileUrl || null,
+        magnetLink: magnetLink || null,
         fileName: fileName || null,
         fileType: fileType || null,
         fileSize: fileSize || null,

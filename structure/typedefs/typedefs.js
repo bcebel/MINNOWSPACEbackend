@@ -174,6 +174,12 @@ const typeDefs = gql`
     description: String!
     youtubeVideoId: String!
     thumbnail: String!
+    fileName: String!
+    fileSize: Int!
+    fileType: String!
+    cid: String!
+    ipfsUrl: String!
+    magnetLink: String!
     user: User!
     createdAt: String!
   }

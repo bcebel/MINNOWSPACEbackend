@@ -461,15 +461,74 @@ io.on("connection", (socket) => {
   });
 });
 
+// Replace this endpoint in your server.js
 app.get("/api/videos", async (req, res) => {
   try {
     const videos = await Video.find({})
+      .select('title description fileName fileSize fileType cid ipfsUrl magnetLink user createdAt') // ADD magnetLink here
       .sort({ createdAt: -1 })
       .populate("user", "username");
+    
+    console.log('Videos fetched:', videos.length);
+    if (videos.length > 0) {
+      console.log('Sample video:', {
+        title: videos[0].title,
+        magnetLink: videos[0].magnetLink, // This should now show the magnet link
+        fileName: videos[0].fileName
+      });
+    }
+    
     res.json(videos);
   } catch (error) {
     console.error(error);
     res.status(500).send("Failed to fetch videos.");
+  }
+});
+
+// Add this endpoint to your server.js
+app.get("/api/videos/:id", async (req, res) => {
+  try {
+    const video = await Video.findById(req.params.id)
+      .select('title description fileName fileSize fileType cid ipfsUrl magnetLink user createdAt')
+      .populate("user", "username");
+    
+    if (!video) {
+      return res.status(404).json({ error: "Video not found" });
+    }
+    
+    console.log('Single video fetched:', {
+      title: video.title,
+      magnetLink: video.magnetLink,
+      fileName: video.fileName
+    });
+    
+    res.json(video);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to fetch video." });
+  }
+});
+
+// Add this debug endpoint to check your data
+app.get("/api/debug-videos", async (req, res) => {
+  try {
+    const videos = await Video.find({});
+    
+    const debugData = videos.map(video => ({
+      _id: video._id,
+      title: video.title,
+      fileName: video.fileName,
+      magnetLink: video.magnetLink, // This will show if it exists in DB
+      cid: video.cid,
+      hasMagnetLink: !!video.magnetLink,
+      magnetLinkLength: video.magnetLink ? video.magnetLink.length : 0
+    }));
+    
+    console.log('DEBUG - All videos with magnet links:', debugData);
+    res.json(debugData);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Debug failed" });
   }
 });
 
