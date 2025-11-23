@@ -154,6 +154,98 @@ const resolvers = {
         .populate("user", "username profilePhoto")
         .sort({ createdAt: -1 });
     },
+
+    getMyVideos: async (_, __, { user }) => {
+      try {
+        if (!user) {
+          throw new Error("Authentication required");
+        }
+
+        console.log("🔐 Fetching videos for user:", user.userId);
+
+        const videos = await Video.find({ user: user.userId })
+          .populate("user", "username profilePhoto")
+          .populate("neighborhood", "name description")
+          .sort({ createdAt: -1 });
+
+        console.log(`✅ Found ${videos.length} videos for user ${user.userId}`);
+        return videos;
+      } catch (error) {
+        console.error("❌ Error in getMyVideos:", error);
+        throw new Error("Failed to fetch videos: " + error.message);
+      }
+    },
+    // NEW: Get neighborhood videos (with access control)
+    getNeighborhoodVideos: async (_, { neighborhoodId }, { user }) => {
+      try {
+        if (!user) {
+          throw new Error("Authentication required");
+        }
+
+        console.log("🏘️ Fetching neighborhood videos:", {
+          neighborhoodId,
+          userId: user.userId,
+        });
+
+        // Verify user has access to this neighborhood
+        const neighborhood = await Neighborhood.findOne({
+          _id: neighborhoodId,
+          $or: [{ owner: user.userId }, { "members.user": user.userId }],
+        });
+
+        if (!neighborhood) {
+          throw new Error("Access denied to neighborhood");
+        }
+
+        const videos = await Video.find({ neighborhood: neighborhoodId })
+          .populate("user", "username profilePhoto")
+          .populate("neighborhood", "name description")
+          .sort({ createdAt: -1 });
+
+        console.log(
+          `✅ Found ${videos.length} videos for neighborhood ${neighborhoodId}`
+        );
+        return videos;
+      } catch (error) {
+        console.error("❌ Error in getNeighborhoodVideos:", error);
+        throw new Error(
+          "Failed to fetch neighborhood videos: " + error.message
+        );
+      }
+    },
+
+    // NEW: Get specific user's videos (public only or with permission)
+    getUserVideos: async (_, { userId }, { user }) => {
+      try {
+        if (!user) {
+          throw new Error("Authentication required");
+        }
+
+        console.log("👤 Fetching user videos:", {
+          targetUserId: userId,
+          requestorId: user.userId,
+        });
+
+        // Users can see their own videos or public videos from others
+        const query = { user: userId };
+
+        // If requesting someone else's videos, only show public ones
+        if (userId !== user.userId) {
+          query.isPublic = true;
+        }
+
+        const videos = await Video.find(query)
+          .populate("user", "username profilePhoto")
+          .populate("neighborhood", "name description")
+          .sort({ createdAt: -1 });
+
+        console.log(`✅ Found ${videos.length} videos for user ${userId}`);
+        return videos;
+      } catch (error) {
+        console.error("❌ Error in getUserVideos:", error);
+        throw new Error("Failed to fetch user videos: " + error.message);
+      }
+    }
   },
 
   Mutation: {
@@ -195,7 +287,7 @@ const resolvers = {
         if (!isMember) throw new Error("Not a member of this neighborhood");
       }
       //const magnetLink = ipfsData?.magnetLink || null;
-      
+
       const message = new Message({
         sender: context.user.userId,
         content,
@@ -365,7 +457,9 @@ const resolvers = {
       const validTypes = ["personal", "private", "public", "global"];
       if (!validTypes.includes(type)) {
         throw new Error(
-          `Invalid neighborhood type. Must be one of: ${validTypes.join(", ")}`
+          `Invalid neighborhood type. Must be one of: ${validTypes.join(
+            ", "
+          )}`
         );
       }
 
@@ -526,7 +620,9 @@ const resolvers = {
       )?.role;
 
       if (!userRole || !["owner", "moderator"].includes(userRole)) {
-        throw new Error("Only owners and moderators can approve join requests");
+        throw new Error(
+          "Only owners and moderators can approve join requests"
+        );
       }
 
       // Find and update the join request
@@ -582,9 +678,9 @@ const resolvers = {
         const neighborhood = await Neighborhood.findById(parent.neighborhood);
         return neighborhood
           ? {
-              ...neighborhood.toObject(),
-              id: neighborhood._id.toString(),
-            }
+            ...neighborhood.toObject(),
+            id: neighborhood._id.toString(),
+          }
           : null;
       } catch (error) {
         console.error("Error populating message neighborhood:", error);
@@ -665,9 +761,9 @@ const resolvers = {
       const user = await User.findById(parent.author);
       return user
         ? {
-            ...user.toObject(),
-            id: user._id.toString(),
-          }
+          ...user.toObject(),
+          id: user._id.toString(),
+        }
         : null;
     },
   },
@@ -688,9 +784,9 @@ const resolvers = {
         const user = await User.findById(parent.owner);
         return user
           ? {
-              ...user.toObject(),
-              id: user._id.toString(),
-            }
+            ...user.toObject(),
+            id: user._id.toString(),
+          }
           : null;
       } catch (error) {
         console.error("Error populating neighborhood owner:", error);
@@ -704,9 +800,9 @@ const resolvers = {
         user:
           member.user && typeof member.user === "object"
             ? {
-                ...member.user,
-                id: member.user._id?.toString() || member.user.id,
-              }
+              ...member.user,
+              id: member.user._id?.toString() || member.user.id,
+            }
             : member.user,
       }));
     },
@@ -723,9 +819,9 @@ const resolvers = {
       const user = await User.findById(parent.user);
       return user
         ? {
-            ...user.toObject(),
-            id: user._id.toString(),
-          }
+          ...user.toObject(),
+          id: user._id.toString(),
+        }
         : null;
     },
     role: (parent) => parent.role,
@@ -743,13 +839,15 @@ const resolvers = {
       const user = await User.findById(parent.user);
       return user
         ? {
-            ...user.toObject(),
-            id: user._id.toString(),
-          }
+          ...user.toObject(),
+          id: user._id.toString(),
+        }
         : null;
     },
     requestedAt: (parent) => parent.requestedAt.toISOString(),
     status: (parent) => parent.status,
   },
-};
+}
+
+
 export default resolvers;

@@ -183,6 +183,7 @@ const typeDefs = gql`
     ipfsUrl: String!
     magnetLink: String!
     user: User!
+    neighborhood: Neighborhood
     createdAt: String!
   }
 
@@ -241,6 +242,10 @@ const typeDefs = gql`
 
     neighborhoodMessages(neighborhoodId: ID!): [Message]
     neighborhoodVideos(neighborhoodId: ID!): [Video]
+
+    getMyVideos: [Video]
+    getNeighborhoodVideos(neighborhoodId: ID!): [Video]
+    getUserVideos(userId: ID!): [Video]
   }
 
   type Subscription {
