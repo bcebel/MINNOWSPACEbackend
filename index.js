@@ -27,6 +27,7 @@ const corsOptions = {
   origin:
     process.env.NODE_ENV === "production"
       ? [
+
           "https://bubblebase.app",
           "https://gigunit.com",
           "https://gigunit.vercel.app",
@@ -477,14 +478,23 @@ io.on("connection", (socket) => {
 });
 
 // Replace this endpoint in your server.js
-app.get("/api/videos", authenticateToken, async (req, res) => {
+app.get("/api/videos", async (req, res) => {
   try {
-    const videos = await Video.find({ user: req.user._id }) // ← ONLY this line changed
+    const videos = await Video.find({})
       .select(
         "title description fileName fileSize fileType cid ipfsUrl magnetLink user createdAt"
-      )
+      ) // ADD magnetLink here
       .sort({ createdAt: -1 })
       .populate("user", "username");
+
+    console.log("Videos fetched:", videos.length);
+    if (videos.length > 0) {
+      console.log("Sample video:", {
+        title: videos[0].title,
+        magnetLink: videos[0].magnetLink, // This should now show the magnet link
+        fileName: videos[0].fileName,
+      });
+    }
 
     res.json(videos);
   } catch (error) {
