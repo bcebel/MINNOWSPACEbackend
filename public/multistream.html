@@ -137,7 +137,7 @@
                 sourceSpan.textContent = "Pinata";
                 console.log(`Pinata cached: ${video.title} - ${video.cid}`);
             } else {
-                const pinataUrl = `https://fuchsia-solid-parrot-571.mypinata.cloud/ipfs/${video.cid}`;
+                const pinataUrl = `https://gateway.pinata.cloud/ipfs/${video.cid}`;
                 videoElement.src = pinataUrl;
                 pinataCache.set(video.cid, pinataUrl);
                 sourceSpan.textContent = "Pinata";
