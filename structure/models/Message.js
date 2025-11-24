@@ -10,6 +10,7 @@ const messageSchema = new mongoose.Schema(
     fileName: String,
     fileType: String,
     fileSize: Number,
+    ipfsUrl: String,
     mimeType: String,
     ipfsHash: String,
     ipfsData: {

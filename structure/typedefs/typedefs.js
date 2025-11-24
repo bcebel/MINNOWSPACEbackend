@@ -135,6 +135,7 @@ const typeDefs = gql`
     magnetLink: String
     mimeType: String
     cid: String
+    ipfsUrl: String
     ipfsHash: String
     ipfsData: IPFSData
     room: String!
