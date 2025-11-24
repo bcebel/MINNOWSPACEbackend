@@ -20,6 +20,7 @@ const messageSchema = new mongoose.Schema(
       fileName: String,
     },
     magnetLink: String,
+    cid: String,
     room: String,
     neighborhood: { type: mongoose.Schema.Types.ObjectId, ref: "Neighborhood" },
     createdAt: { type: Date, default: Date.now },

@@ -134,6 +134,7 @@ const typeDefs = gql`
     fileSize: Float # Keep as Float in GraphQL
     magnetLink: String
     mimeType: String
+    cid: String
     ipfsHash: String
     ipfsData: IPFSData
     room: String!
