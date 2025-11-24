@@ -477,7 +477,8 @@ io.on("connection", (socket) => {
   });
 });
 
-// Replace this endpoint in your server.js
+// Replace this endpoint in your server.j
+/*
 app.get("/api/videos", async (req, res) => {
   try {
     const videos = await Video.find({})
@@ -552,6 +553,7 @@ app.get("/api/debug-videos", async (req, res) => {
   }
 });
 
+*/
 app.post("/api/track-click", async (req, res) => {
   try {
     const { affiliateLinkId } = req.body;
