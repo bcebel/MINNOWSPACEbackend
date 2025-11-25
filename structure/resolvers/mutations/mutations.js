@@ -245,7 +245,7 @@ const resolvers = {
         console.error("❌ Error in getUserVideos:", error);
         throw new Error("Failed to fetch user videos: " + error.message);
       }
-    }
+    },
   },
 
   Mutation: {
@@ -263,8 +263,10 @@ const resolvers = {
         magnetLink,
         mimeType,
         ipfsHash,
-        ipfsData, // Add this if you want to use the nested structure
+        ipfsData,
         neighborhoodId,
+        cid,
+        ipfsUrl,
       },
       context
     ) => {
@@ -300,7 +302,9 @@ const resolvers = {
         fileSize: fileSize || null,
         mimeType: mimeType || null,
         ipfsHash: ipfsHash || null,
-        ipfsData: ipfsData || null, // Add this if using nested structure
+        ipfsData: ipfsData || null,
+        cid: cid || null, 
+        ipfsUrl: ipfsUrl || null, 
         room: room || "general",
         neighborhood: neighborhoodId || null,
         createdAt: new Date(),
@@ -457,9 +461,7 @@ const resolvers = {
       const validTypes = ["personal", "private", "public", "global"];
       if (!validTypes.includes(type)) {
         throw new Error(
-          `Invalid neighborhood type. Must be one of: ${validTypes.join(
-            ", "
-          )}`
+          `Invalid neighborhood type. Must be one of: ${validTypes.join(", ")}`
         );
       }
 
@@ -620,9 +622,7 @@ const resolvers = {
       )?.role;
 
       if (!userRole || !["owner", "moderator"].includes(userRole)) {
-        throw new Error(
-          "Only owners and moderators can approve join requests"
-        );
+        throw new Error("Only owners and moderators can approve join requests");
       }
 
       // Find and update the join request
@@ -678,9 +678,9 @@ const resolvers = {
         const neighborhood = await Neighborhood.findById(parent.neighborhood);
         return neighborhood
           ? {
-            ...neighborhood.toObject(),
-            id: neighborhood._id.toString(),
-          }
+              ...neighborhood.toObject(),
+              id: neighborhood._id.toString(),
+            }
           : null;
       } catch (error) {
         console.error("Error populating message neighborhood:", error);
@@ -761,9 +761,9 @@ const resolvers = {
       const user = await User.findById(parent.author);
       return user
         ? {
-          ...user.toObject(),
-          id: user._id.toString(),
-        }
+            ...user.toObject(),
+            id: user._id.toString(),
+          }
         : null;
     },
   },
@@ -784,9 +784,9 @@ const resolvers = {
         const user = await User.findById(parent.owner);
         return user
           ? {
-            ...user.toObject(),
-            id: user._id.toString(),
-          }
+              ...user.toObject(),
+              id: user._id.toString(),
+            }
           : null;
       } catch (error) {
         console.error("Error populating neighborhood owner:", error);
@@ -800,9 +800,9 @@ const resolvers = {
         user:
           member.user && typeof member.user === "object"
             ? {
-              ...member.user,
-              id: member.user._id?.toString() || member.user.id,
-            }
+                ...member.user,
+                id: member.user._id?.toString() || member.user.id,
+              }
             : member.user,
       }));
     },
@@ -819,9 +819,9 @@ const resolvers = {
       const user = await User.findById(parent.user);
       return user
         ? {
-          ...user.toObject(),
-          id: user._id.toString(),
-        }
+            ...user.toObject(),
+            id: user._id.toString(),
+          }
         : null;
     },
     role: (parent) => parent.role,
@@ -839,15 +839,14 @@ const resolvers = {
       const user = await User.findById(parent.user);
       return user
         ? {
-          ...user.toObject(),
-          id: user._id.toString(),
-        }
+            ...user.toObject(),
+            id: user._id.toString(),
+          }
         : null;
     },
     requestedAt: (parent) => parent.requestedAt.toISOString(),
     status: (parent) => parent.status,
   },
-}
-
+};
 
 export default resolvers;

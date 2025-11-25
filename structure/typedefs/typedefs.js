@@ -311,10 +311,12 @@ const typeDefs = gql`
       fileName: String
       fileType: String
       magnetLink: String
-      fileSize: Float # ADD THIS
-      mimeType: String # ADD THIS
-      ipfsHash: String # ADD THIS
-      ipfsData: IPFSDataInput # ADD THIS
+      fileSize: Int
+      mimeType: String
+      ipfsHash: String
+      ipfsData: IPFSDataInput
+      cid: String
+      ipfsUrl: String
       neighborhoodId: ID
     ): Message!
 
