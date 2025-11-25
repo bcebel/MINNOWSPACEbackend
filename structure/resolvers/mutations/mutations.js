@@ -316,6 +316,18 @@ const resolvers = {
       const populatedMessage = await Message.findById(message._id)
         .populate("sender", "username profilePhoto")
         .exec();
+      
+        const result = {
+          ...populatedMessage.toObject(),
+          id: populatedMessage._id.toString(), // Convert ObjectId to string
+          sender: populatedMessage.sender
+            ? {
+                ...populatedMessage.sender.toObject(),
+                id: populatedMessage.sender._id.toString(), // Convert sender ID too
+              }
+            : null,
+        };
+
 
       console.log("✅ Backend: Message populated:", populatedMessage);
 
