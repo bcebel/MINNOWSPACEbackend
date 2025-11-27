@@ -429,8 +429,8 @@ attachMagnet: async (_, { id, magnetLink }, { user }) => {
       await user.save();
 
       const personalNeighborhood = new Neighborhood({
-        name: `${user.username}'s Space`,
-        description: "Your personal digital neighborhood",
+        name: `${user.username}'s Bubble`,
+        description: "Your personal digital bubbledom",
         type: "personal",
         owner: user._id,
         members: [
