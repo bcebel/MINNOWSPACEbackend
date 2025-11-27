@@ -309,8 +309,8 @@ const resolvers = {
         mimeType: mimeType || null,
         ipfsHash: ipfsHash || null,
         ipfsData: ipfsData || null,
-        cid: cid || null, 
-        ipfsUrl: ipfsUrl || null, 
+        cid: cid || null,
+        ipfsUrl: ipfsUrl || null,
         room: room || "general",
         neighborhood: neighborhoodId || null,
         createdAt: new Date(),
@@ -322,18 +322,17 @@ const resolvers = {
       const populatedMessage = await Message.findById(message._id)
         .populate("sender", "username profilePhoto")
         .exec();
-      
-        const result = {
-          ...populatedMessage.toObject(),
-          id: populatedMessage._id.toString(), // Convert ObjectId to string
-          sender: populatedMessage.sender
-            ? {
-                ...populatedMessage.sender.toObject(),
-                id: populatedMessage.sender._id.toString(), // Convert sender ID too
-              }
-            : null,
-        };
 
+      const result = {
+        ...populatedMessage.toObject(),
+        id: populatedMessage._id.toString(), // Convert ObjectId to string
+        sender: populatedMessage.sender
+          ? {
+              ...populatedMessage.sender.toObject(),
+              id: populatedMessage.sender._id.toString(), // Convert sender ID too
+            }
+          : null,
+      };
 
       console.log("✅ Backend: Message populated:", populatedMessage);
 
@@ -349,41 +348,50 @@ const resolvers = {
 
       return populatedMessage;
     },
-// In your resolvers.js - FIXED VERSION
+    // In your resolvers.js - FIXED VERSION
 
-  addAffiliateLink: async (_, { url, title, description }, context) => {
-    try {
-      // Get user ID from context (authentication) instead of parameters
-      if (!context.user) {
-        throw new Error('Authentication required');
+    addAffiliateLink: async (_, { url, title, description }, context) => {
+      try {
+        if (!context.user) {
+          throw new Error("Authentication required");
+        }
+
+        const userId = context.user.id;
+        console.log("🔄 Looking for user with ID:", userId);
+
+        // Use _id for MongoDB query
+        const user = await User.findById(userId);
+        console.log("🔍 User found:", user ? "Yes" : "No");
+
+        if (!user) {
+          throw new Error(`User not found with ID: ${userId}`);
+        }
+
+        // Validate the affiliate link (make sure this function is defined)
+        if (!validateAffiliateLink(url)) {
+          throw new Error(
+            "Invalid affiliate link. Must be from approved networks (impact.com, cj.com, rakuten.com, shareasale.com, awin.com, webgains.com)"
+          );
+        }
+
+        const newLink = {
+          url,
+          title: title || "",
+          description: description || "",
+          clicks: 0,
+        };
+
+        user.affiliateLinks.push(newLink);
+        await user.save();
+
+        console.log("✅ Affiliate link added successfully");
+        return user;
+      } catch (error) {
+        console.error("❌ Error in addAffiliateLink:", error);
+        throw new Error(`Error adding affiliate link: ${error.message}`);
       }
-      
-      const userId = context.user.id;
-      
-      // Validate the affiliate link
-      if (!validateAffiliateLink(url)) {
-        throw new Error('Invalid affiliate link. Must be from approved networks (impact.com, cj.com, rakuten.com)');
-      }
-      
-      const user = await User.findById(userId); // Use User, not Minnow
-      if (!user) throw new Error('User not found');
-      
-      const newLink = {
-        url,
-        title: title || '',
-        description: description || '',
-        clicks: 0
-      };
-      
-      user.affiliateLinks.push(newLink);
-      await user.save();
-      
-      return user;
-    } catch (error) {
-      throw new Error(`Error adding affiliate link: ${error.message}`);
-    }
-  },
-  // ... your other mutations
+    },
+    // ... your other mutations
 
     updateProfile: async (_, { bio, profilePhoto }, context) => {
       if (!context.user) throw new Error("Authentication required");
@@ -427,16 +435,16 @@ const resolvers = {
       if (targetMember?.role === "owner") {
         throw new Error("Cannot remove the neighborhood owner");
       }
-attachMagnet: async (_, { id, magnetLink }, { user }) => {
-  // optional: verify the media row belongs to the caller
-  const media = await Video.findOne({ _id: id, owner: user.id });
-  if (!media) throw new Error("Not found or not yours");
-  return Video.findByIdAndUpdate(id, { magnetLink }, { new: true });
-},
-  // Remove from members
-  (neighborhood.members = neighborhood.members.filter(
-    (member) => member.user.toString() !== userId
-  ));
+      attachMagnet: async (_, { id, magnetLink }, { user }) => {
+        // optional: verify the media row belongs to the caller
+        const media = await Video.findOne({ _id: id, owner: user.id });
+        if (!media) throw new Error("Not found or not yours");
+        return Video.findByIdAndUpdate(id, { magnetLink }, { new: true });
+      },
+        // Remove from members
+        (neighborhood.members = neighborhood.members.filter(
+          (member) => member.user.toString() !== userId
+        ));
 
       await neighborhood.save();
 
