@@ -393,21 +393,7 @@ const resolvers = {
     },
     // ... your other mutations
 
-    updateProfile: async (_, { bio, profilePhoto }, context) => {
-      if (!context.user) throw new Error("Authentication required");
-
-      const updateData = {};
-      if (bio !== undefined) updateData.bio = bio;
-      if (profilePhoto !== undefined) updateData.profilePhoto = profilePhoto;
-
-      const user = await User.findByIdAndUpdate(
-        context.user.userId,
-        updateData,
-        { new: true }
-      );
-
-      return user;
-    },
+ 
     removeMember: async (_, { neighborhoodId, userId }, context) => {
       if (!context.user) throw new Error("Authentication required");
 

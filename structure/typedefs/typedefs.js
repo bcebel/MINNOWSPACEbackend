@@ -106,6 +106,11 @@ const typeDefs = gql`
     fileType: String
     fileName: String
   }
+  input AffiliateLinkInput {
+    url: String!
+    title: String
+    description: String
+  }
   input MessageInput {
     content: String!
     room: String!
@@ -264,7 +269,11 @@ const typeDefs = gql`
     ): AuthPayload!
     loginUser(username: String!, password: String!): AuthPayload!
 
-    updateProfile(bio: String, profilePhoto: String): User!
+    updateProfile(
+      bio: String
+      profilePhoto: String
+      affiliateLinks: [AffiliateLinkInput]
+    ): User!
 
     # Affiliate mutations
     addAffiliateLink(url: String!, title: String, description: String): User!
