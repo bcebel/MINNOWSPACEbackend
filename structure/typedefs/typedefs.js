@@ -71,7 +71,7 @@ const typeDefs = gql`
       rules: String
     ): Neighborhood
     deleteNeighborhood(id: ID!): Boolean
-
+    attachMagnet(id: ID!, magnetLink: String!): Video
     joinNeighborhood(neighborhoodId: ID!): Neighborhood
     leaveNeighborhood(neighborhoodId: ID!): Boolean
 

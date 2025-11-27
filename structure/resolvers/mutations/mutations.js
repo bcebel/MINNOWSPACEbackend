@@ -386,11 +386,16 @@ const resolvers = {
       if (targetMember?.role === "owner") {
         throw new Error("Cannot remove the neighborhood owner");
       }
-
-      // Remove from members
-      neighborhood.members = neighborhood.members.filter(
-        (member) => member.user.toString() !== userId
-      );
+attachMagnet: async (_, { id, magnetLink }, { user }) => {
+  // optional: verify the media row belongs to the caller
+  const media = await Video.findOne({ _id: id, owner: user.id });
+  if (!media) throw new Error("Not found or not yours");
+  return Video.findByIdAndUpdate(id, { magnetLink }, { new: true });
+},
+  // Remove from members
+  (neighborhood.members = neighborhood.members.filter(
+    (member) => member.user.toString() !== userId
+  ));
 
       await neighborhood.save();
 
