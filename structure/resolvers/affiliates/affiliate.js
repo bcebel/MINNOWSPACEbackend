@@ -4,22 +4,29 @@ const validateAffiliateLink = (link) => {
   return regex.test(link);
 };
 
-// Then in your mutations:
+
 Mutation: {
-  addAffiliateLink: async (_, { userId, url, title }) => {
+  addAffiliateLink: async (_, { url, title, description }, context) => {
     try {
-      // Now just call the function that's already defined
+      // Get user ID from context (authentication) instead of parameters
+      if (!context.user) {
+        throw new Error('Authentication required');
+      }
+      
+      const userId = context.user.id;
+      
+      // Validate the affiliate link
       if (!validateAffiliateLink(url)) {
         throw new Error('Invalid affiliate link. Must be from approved networks (impact.com, cj.com, rakuten.com)');
       }
       
-      const user = await Minnow.findById(userId);
+      const user = await User.findById(userId); // Use User, not Minnow
       if (!user) throw new Error('User not found');
       
       const newLink = {
         url,
         title: title || '',
-        description: '',
+        description: description || '',
         clicks: 0
       };
       
@@ -31,5 +38,5 @@ Mutation: {
       throw new Error(`Error adding affiliate link: ${error.message}`);
     }
   },
-  // ... your existing mutations
+  // ... your other mutations
 }
