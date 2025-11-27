@@ -10,6 +10,12 @@ import Message from "../../models/Message.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
+// Define this at the TOP of your resolvers file (with your other imports)
+const validateAffiliateLink = (link) => {
+  const regex = /^(https?:\/\/)(www\.)?(impact\.com|cj\.com|rakuten\.com)\/.*$/;
+  return regex.test(link);
+};
+
 
 const resolvers = {
   Query: {
