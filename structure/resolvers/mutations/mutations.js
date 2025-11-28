@@ -404,18 +404,11 @@ const resolvers = {
           throw new Error("Authentication required");
         }
 
-        // GO BACK TO context.user.id - this was working!
-        const userId = context.user.id;
-        console.log("🔄 Looking for user with ID:", userId);
+        // Use the working line that was already working
+        const user = await User.findById(context.user.id);
+        if (!user) throw new Error("User not found");
 
-        const user = await User.findById(userId);
-        if (!user) {
-          console.log("❌ User not found with ID:", userId);
-          throw new Error("User not found");
-        }
-
-        console.log("✅ User found:", user.username);
-
+        // Update basic profile fields
         if (bio !== undefined) user.bio = bio;
         if (profilePhoto !== undefined) user.profilePhoto = profilePhoto;
 
@@ -423,12 +416,15 @@ const resolvers = {
         if (affiliateLinks && affiliateLinks.length > 0) {
           console.log("📝 Adding affiliate links:", affiliateLinks);
 
+          // Clear existing links and add new ones (or append - your choice)
+          user.affiliateLinks = []; // Clear first, then add new ones
+
           for (const link of affiliateLinks) {
             if (link.url && link.url.trim()) {
               const newLink = {
                 url: link.url,
-                title: link.title || "",
-                description: link.description || "",
+                title: link.title || "", // This includes the title now
+                description: "", // You said no description
                 clicks: 0,
               };
               user.affiliateLinks.push(newLink);
@@ -437,7 +433,7 @@ const resolvers = {
         }
 
         await user.save();
-        console.log("✅ Profile updated successfully");
+        console.log("✅ Profile updated with affiliate links");
         return user;
       } catch (error) {
         console.error("❌ Error updating profile:", error);
