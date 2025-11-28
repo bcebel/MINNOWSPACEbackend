@@ -349,7 +349,74 @@ const resolvers = {
       return populatedMessage;
     },
     // In your resolvers.js - FIXED VERSION
+    deleteMessage: async (_, { messageId }, context) => {
+      try {
+        if (!context.user) {
+          throw new Error("Authentication required");
+        }
 
+        const message = await Message.findById(messageId);
+        if (!message) {
+          throw new Error("Message not found");
+        }
+
+        // Check if user owns the message or is admin
+        const isOwner = message.sender.toString() === context.user.id;
+        if (!isOwner) {
+          // Optional: Check if user is neighborhood admin
+          const neighborhood = await Neighborhood.findOne({
+            _id: message.neighborhood,
+            $or: [
+              { owner: context.user.id },
+              { "members.user": context.user.id, "members.role": "admin" },
+            ],
+          });
+          if (!neighborhood) {
+            throw new Error("Not authorized to delete this message");
+          }
+        }
+
+        // Delete associated files from IPFS (optional)
+        if (message.imageUrl || message.videoUrl || message.fileUrl) {
+          console.log("Cleaning up media for message:", messageId);
+          // You might want to add IPFS cleanup logic here
+        }
+
+        await Message.findByIdAndDelete(messageId);
+        return true;
+      } catch (error) {
+        console.error("Delete message error:", error);
+        throw new Error(`Failed to delete message: ${error.message}`);
+      }
+    },
+
+    deletePost: async (_, { postId }, context) => {
+      try {
+        if (!context.user) {
+          throw new Error("Authentication required");
+        }
+
+        const post = await Post.findById(postId).populate("author");
+        if (!post) {
+          throw new Error("Post not found");
+        }
+
+        // Check if user owns the post or is admin
+        const isOwner = post.author._id.toString() === context.user.id;
+        if (!isOwner) {
+          throw new Error("Not authorized to delete this post");
+        }
+
+        // Delete associated comments
+        await Comment.deleteMany({ _id: { $in: post.comments } });
+
+        await Post.findByIdAndDelete(postId);
+        return true;
+      } catch (error) {
+        console.error("Delete post error:", error);
+        throw new Error(`Failed to delete post: ${error.message}`);
+      }
+    },
     addAffiliateLink: async (_, { url, title, description }, context) => {
       try {
         if (!context.user) {
