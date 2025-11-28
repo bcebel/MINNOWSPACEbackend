@@ -59,6 +59,8 @@ const typeDefs = gql`
   }
 
   extend type Mutation {
+    deletePost(postId: ID!): Boolean
+    deleteMessage(messageId: ID!): Boolean
     createNeighborhood(
       name: String!
       description: String
