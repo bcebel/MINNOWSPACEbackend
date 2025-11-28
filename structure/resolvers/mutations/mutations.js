@@ -419,7 +419,7 @@ updateProfile: async (_, { bio, profilePhoto, affiliateLinks }, context) => {
             user.affiliateLinks.push(newLink);
           }
         }
-      
+      }
       
       await user.save();
       return user;
@@ -427,7 +427,7 @@ updateProfile: async (_, { bio, profilePhoto, affiliateLinks }, context) => {
       throw new Error(`Error updating profile: ${error.message}`);
     }
   },
-}
+
     removeMember: async (_, { neighborhoodId, userId }, context) => {
       if (!context.user) throw new Error("Authentication required");
 
