@@ -393,41 +393,57 @@ const resolvers = {
     },
     // ... your other mutations
 
-updateProfile: async (_, { bio, profilePhoto, affiliateLinks }, context) => {
-    try {
-      if (!context.user) {
-        throw new Error('Authentication required');
-      }
-      
-      const user = await User.findById(context.user.id);
-      if (!user) throw new Error('User not found');
-      
-      if (bio !== undefined) user.bio = bio;
-      if (profilePhoto !== undefined) user.profilePhoto = profilePhoto;
-      
-      // Add affiliate links if provided
-      if (affiliateLinks && affiliateLinks.length > 0) {
-        // Validate and add each link
-        for (const link of affiliateLinks) {
-          if (link.url.trim()) {
-            const newLink = {
-              url: link.url,
-              title: link.title || '',
-              description: link.description || '',
-              clicks: 0
-            };
-            user.affiliateLinks.push(newLink);
+    // In your resolvers.js - GO BACK TO WHAT WAS WORKING
+    updateProfile: async (
+      _,
+      { bio, profilePhoto, affiliateLinks },
+      context
+    ) => {
+      try {
+        if (!context.user) {
+          throw new Error("Authentication required");
+        }
+
+        // GO BACK TO context.user.id - this was working!
+        const userId = context.user.id;
+        console.log("🔄 Looking for user with ID:", userId);
+
+        const user = await User.findById(userId);
+        if (!user) {
+          console.log("❌ User not found with ID:", userId);
+          throw new Error("User not found");
+        }
+
+        console.log("✅ User found:", user.username);
+
+        if (bio !== undefined) user.bio = bio;
+        if (profilePhoto !== undefined) user.profilePhoto = profilePhoto;
+
+        // Add affiliate links if provided
+        if (affiliateLinks && affiliateLinks.length > 0) {
+          console.log("📝 Adding affiliate links:", affiliateLinks);
+
+          for (const link of affiliateLinks) {
+            if (link.url && link.url.trim()) {
+              const newLink = {
+                url: link.url,
+                title: link.title || "",
+                description: link.description || "",
+                clicks: 0,
+              };
+              user.affiliateLinks.push(newLink);
+            }
           }
         }
-      }
-      
-      await user.save();
-      return user;
-    } catch (error) {
-      throw new Error(`Error updating profile: ${error.message}`);
-    }
-  },
 
+        await user.save();
+        console.log("✅ Profile updated successfully");
+        return user;
+      } catch (error) {
+        console.error("❌ Error updating profile:", error);
+        throw new Error(`Error updating profile: ${error.message}`);
+      }
+    },
     removeMember: async (_, { neighborhoodId, userId }, context) => {
       if (!context.user) throw new Error("Authentication required");
 
