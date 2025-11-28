@@ -405,7 +405,7 @@ const resolvers = {
         }
 
         // Use the working line that was already working
-        const user = await User.findById(context.user.id);
+        const user = await User.findById(context.user.userId);
         if (!user) throw new Error("User not found");
 
         // Update basic profile fields
