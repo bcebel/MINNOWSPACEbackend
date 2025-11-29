@@ -54,8 +54,11 @@ randomAffiliateLink: async (_, __, context) => {
     const allLinks = [];
     usersWithLinks.forEach(user => {
       user.affiliateLinks.forEach(link => {
+        // Properly handle the _id conversion
+        const linkId = link._id ? link._id.toString() : null;
+        
         allLinks.push({
-          _id: link._id,
+          id: linkId, // Use the string version directly as 'id'
           url: link.url,
           title: link.title,
           description: link.description,
@@ -74,19 +77,13 @@ randomAffiliateLink: async (_, __, context) => {
     const randomLink = allLinks[randomIndex];
 
     console.log("✅ Random affiliate link found:", {
-      id: randomLink._id,
+      id: randomLink.id,
       title: randomLink.title,
       url: randomLink.url,
       totalLinksAvailable: allLinks.length
     });
 
-    return {
-      id: randomLink._id?.toString(),
-      url: randomLink.url,
-      title: randomLink.title,
-      description: randomLink.description,
-      clicks: randomLink.clicks
-    };
+    return randomLink; // Return the object with proper 'id' field
 
   } catch (error) {
     console.error("❌ Error in randomAffiliateLink resolver:", error);
