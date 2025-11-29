@@ -8,7 +8,16 @@ import WebTorrent from "webtorrent";
 import dotenv from "dotenv";
 import { PinataSDK } from "pinata-web3";
 import Video from "./structure/models/Video.js";
+import Image from "./structure/models/Image.js";
 import cors from "cors"; // Add this
+
+const announce = [
+  "wss://tracker.openwebtorrent.com",
+  "udp://tracker.opentrackr.org:1337/announce",
+  "udp://tracker.internetwarriors.net:1337/announce",
+  "udp://tracker.torrent.eu.org:451/announce",
+  "udp://tracker.coppersurfer.tk:6969/announce",
+];
 
 dotenv.config();
 
@@ -115,13 +124,13 @@ export default (app) => {
         // 2.  create torrent / seed
         createTorrent(
           permanentFilePath,
-          { announce: [...sameTrackers] },
+         { announce },
           async (err, torrent) => {
             if (err) return res.status(500).json({ error: "Torrent failed" });
 
             client.seed(
               permanentFilePath,
-              { announce: [...sameTrackers] },
+            { announce },
               async (seed) => {
                 const newImage = new Image({
                   ...sameFields,
@@ -146,62 +155,40 @@ export default (app) => {
       fs.writeFileSync(permanentFilePath, req.file.buffer);
 
       // Create a torrent file
-      createTorrent(
-        permanentFilePath,
-        {
-          announce: [
-            "wss://tracker.openwebtorrent.com",
-            "udp://tracker.opentrackr.org:1337/announce",
-            "udp://tracker.internetwarriors.net:1337/announce",
-            "udp://tracker.torrent.eu.org:451/announce",
-            "udp://tracker.coppersurfer.tk:6969/announce",
-          ],
-        },
-        async (err, torrent) => {
-          if (err) {
-            console.error(err);
-            return res.status(500).send("Torrent creation failed.");
-          }
+ createTorrent(
+  permanentFilePath,
+  { announce }, // ✅ use the constant
+  async (err, torrent) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).send("Torrent creation failed.");
+    }
 
-          // Seed the torrent
-          const client = new WebTorrent();
-          client.seed(
-            permanentFilePath,
-            {
-              announce: [
-                "wss://tracker.openwebtorrent.com",
-                "udp://tracker.opentrackr.org:1337/announce",
-                "udp://tracker.internetwarriors.net:1337/announce",
-                "udp://tracker.torrent.eu.org:451/announce",
-                "udp://tracker.coppersurfer.tk:6969/announce",
-              ],
-            },
-            async (torrentData) => {
-              console.log(
-                "Torrent seeded successfully:",
-                torrentData.magnetURI
-              );
+    // Seed the torrent
+    const client = new WebTorrent();
+    client.seed(
+      permanentFilePath,
+      { announce }, // ✅ use the constant
+      async (torrentData) => {
+        console.log("Torrent seeded successfully:", torrentData.magnetURI);
 
-              // Save video metadata to MongoDB
-              const newVideo = new Video({
-                title: title || "Untitled Video",
-                description: description || "",
-                user: uid,
-                fileName: req.file.originalname,
-                fileSize: req.file.size,
-                fileType: req.file.mimetype,
-                cid,
-                ipfsUrl,
-                magnetLink: torrentData.magnetURI,
-              });
-              await newVideo.save();
-
-              // Respond with IPFS URL and magnet link
-              res.json({ ipfsUrl, magnetLink: torrentData.magnetURI });
-            }
-          );
-        }
-      );
+  const newVideo = new Video({
+    title: title || "Untitled Video",
+    description: description || "",
+    user: uid,
+    fileName: req.file.originalname,
+    fileSize: req.file.size,
+    fileType: req.file.mimetype,
+    cid,
+    ipfsUrl,
+    magnetLink: torrentData.magnetURI,
+  });
+        await newVideo.save();
+        res.json({ ipfsUrl, magnetLink: torrentData.magnetURI });
+      }
+    );
+  }
+);
     } catch (error) {
       console.error(error);
       res.status(500).send("Upload failed.");
