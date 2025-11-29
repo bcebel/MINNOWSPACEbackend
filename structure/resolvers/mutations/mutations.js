@@ -13,7 +13,7 @@ import mongoose from "mongoose";
 // Define this at the TOP of your resolvers file (with your other imports)
 const validateAffiliateLink = (link) => {
   const regex =
-    /^(https?:\/\/)(www\.)?(tkqlhce\.com|cj\.com|rakuten\.com)\/.*$/;
+    /^(https?:\/\/)(www\.)?(tkqlhce\.com|anrdoezrs\.com|dpbolvw\.com)\/.*$/;
   return regex.test(link);
 };
 
