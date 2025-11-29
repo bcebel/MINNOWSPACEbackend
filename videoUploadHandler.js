@@ -10,7 +10,8 @@ import { PinataSDK } from "pinata-web3";
 import Video from "./structure/models/Video.js";
 import Image from "./structure/models/Image.js";
 import cors from "cors"; // Add this
-
+// after the try-block starts
+const client = new WebTorrent(); 
 const announce = [
   "wss://tracker.openwebtorrent.com",
   "udp://tracker.opentrackr.org:1337/announce",
@@ -165,7 +166,6 @@ export default (app) => {
     }
 
     // Seed the torrent
-    const client = new WebTorrent();
     client.seed(
       permanentFilePath,
       { announce }, // ✅ use the constant
