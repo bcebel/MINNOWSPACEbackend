@@ -102,6 +102,41 @@ export default (app) => {
       await s3.send(new PutObjectCommand(params));
       const ipfsUrl = `https://ipfs.filebase.io/ipfs/${cid}`;
 
+      // after CID + Filebase/S3 succeed
+      if (req.file.mimetype.startsWith("image/")) {
+        // create torrent (same code-path as video)
+        createTorrent(
+          permanentFilePath,
+          { announce: [...sameTrackers] },
+          async (err, torrent) => {
+            if (err) return res.status(500).json({ error: "Torrent failed" });
+
+            client.seed(
+              permanentFilePath,
+              { announce: [...sameTrackers] },
+              async (seed) => {
+                const newImage = new Image({
+                  title: title || req.file.originalname,
+                  description: description || "",
+                  user: uid,
+                  fileName: req.file.originalname,
+                  fileSize: req.file.size,
+                  fileType: "image",
+                  mimetype: req.file.mimetype,
+                  cid,
+                  ipfsUrl,
+                  magnetLink: seed.magnetURI,
+                });
+                await newImage.save();
+                res.json({ ipfsUrl, magnetLink: seed.magnetURI });
+              }
+            );
+          }
+        );
+        return; // skip video branch
+      }
+      // existing video branch continues unchanged
+
       // Save the file permanently for seeding
       const uploadsDir = path.join(process.cwd(), "uploads");
       if (!fs.existsSync(uploadsDir)) {

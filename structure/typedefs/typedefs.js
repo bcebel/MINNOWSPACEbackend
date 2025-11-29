@@ -18,6 +18,23 @@ const typeDefs = gql`
     updatedAt: String!
   }
 
+  type Image {
+  id: ID!
+  title: String!
+  description: String
+  user: User!
+  neighborhood: Neighborhood
+  fileName: String!
+  fileSize: Int!
+  fileType: String!
+  mimetype: String!
+  cid: String!
+  ipfsUrl: String!
+  magnetLink: String!
+  isPublic: Boolean!
+  createdAt: String!
+}
+
   type AffiliateLink {
     id: ID!
     url: String!
@@ -56,6 +73,10 @@ const typeDefs = gql`
     neighborhood(id: ID!): Neighborhood
     myNeighborhoods: [Neighborhood]
     discoverNeighborhoods: [Neighborhood] # Public neighborhoods to discover
+    images: [Image!]!
+    image(id: ID!): Image
+    neighborhoodImages(neighborhoodId: ID!): [Image!]!
+    myImages: [Image!]!
   }
 
   extend type Mutation {
@@ -84,6 +105,19 @@ const typeDefs = gql`
 
     # Invite system (optional for later)
     inviteToNeighborhood(neighborhoodId: ID!, username: String!): Boolean
+
+    sendImage(
+    neighborhoodId: ID
+    title: String
+    description: String
+    fileName: String!
+    fileSize: Int!
+    fileType: String!
+    mimetype: String!
+    cid: String!
+    ipfsUrl: String!
+    magnetLink: String!
+  ): Image!
   }
 
   type IPFSData {
@@ -234,7 +268,7 @@ const typeDefs = gql`
     ad(id: ID!): Ad
 
     randomAffiliateLink: AffiliateLink
-    
+
     # Chat queries
     chats: [Chat!]
     chat(id: ID!): Chat
