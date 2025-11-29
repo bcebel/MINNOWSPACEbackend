@@ -12,7 +12,8 @@ import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 // Define this at the TOP of your resolvers file (with your other imports)
 const validateAffiliateLink = (link) => {
-  const regex = /^(https?:\/\/)(www\.)?(impact\.com|cj\.com|rakuten\.com)\/.*$/;
+  const regex =
+    /^(https?:\/\/)(www\.)?(tkqlhce\.com|cj\.com|anrdoezrs\.com)\/.*$/;
   return regex.test(link);
 };
 
