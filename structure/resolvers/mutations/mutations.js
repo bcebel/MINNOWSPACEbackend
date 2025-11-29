@@ -32,60 +32,67 @@ const resolvers = {
       return user;
     },
     // Add to your Query resolvers
-    randomAffiliateLink: async (_, __, context) => {
-      try {
-        if (!context.user) {
-          throw new Error("Authentication required");
-        }
+randomAffiliateLink: async (_, __, context) => {
+  try {
+    if (!context.user) {
+      throw new Error("Authentication required");
+    }
 
-        console.log("🎲 Fetching random affiliate link...");
+    console.log("🎲 Fetching random affiliate link...");
 
-        // Use MongoDB aggregation to get a random affiliate link from all users
-        const result = await User.aggregate([
-          // Only get users that have affiliate links
-          { $match: { "affiliateLinks.0": { $exists: true } } },
-          // Unwind the affiliateLinks array to create a document for each link
-          { $unwind: "$affiliateLinks" },
-          // Sample one random document from the results
-          { $sample: { size: 1 } },
-          // Project only the fields we need (no user info)
-          {
-            $project: {
-              _id: "$affiliateLinks._id",
-              url: "$affiliateLinks.url",
-              title: "$affiliateLinks.title",
-              description: "$affiliateLinks.description",
-              clicks: "$affiliateLinks.clicks",
-            },
-          },
-        ]);
+    // Get all users that have affiliate links
+    const usersWithLinks = await User.find({
+      "affiliateLinks.0": { $exists: true }
+    }).select("affiliateLinks");
 
-        if (result.length === 0) {
-          console.log("❌ No affiliate links found in database");
-          return null;
-        }
+    if (usersWithLinks.length === 0) {
+      console.log("❌ No affiliate links found in database");
+      return null;
+    }
 
-        const randomLink = result[0];
-        console.log("✅ Random affiliate link found:", {
-          id: randomLink._id,
-          title: randomLink.title,
-          url: randomLink.url,
+    // Collect all affiliate links from all users
+    const allLinks = [];
+    usersWithLinks.forEach(user => {
+      user.affiliateLinks.forEach(link => {
+        allLinks.push({
+          _id: link._id,
+          url: link.url,
+          title: link.title,
+          description: link.description,
+          clicks: link.clicks
         });
+      });
+    });
 
-        return {
-          id: randomLink._id?.toString() || randomLink.id,
-          url: randomLink.url,
-          title: randomLink.title,
-          description: randomLink.description,
-          clicks: randomLink.clicks,
-        };
-      } catch (error) {
-        console.error("❌ Error in randomAffiliateLink resolver:", error);
-        throw new Error(
-          `Failed to get random affiliate link: ${error.message}`
-        );
-      }
-    },
+    if (allLinks.length === 0) {
+      console.log("❌ No affiliate links found after processing");
+      return null;
+    }
+
+    // Pick a random link
+    const randomIndex = Math.floor(Math.random() * allLinks.length);
+    const randomLink = allLinks[randomIndex];
+
+    console.log("✅ Random affiliate link found:", {
+      id: randomLink._id,
+      title: randomLink.title,
+      url: randomLink.url,
+      totalLinksAvailable: allLinks.length
+    });
+
+    return {
+      id: randomLink._id?.toString(),
+      url: randomLink.url,
+      title: randomLink.title,
+      description: randomLink.description,
+      clicks: randomLink.clicks
+    };
+
+  } catch (error) {
+    console.error("❌ Error in randomAffiliateLink resolver:", error);
+    throw new Error(`Failed to get random affiliate link: ${error.message}`);
+  }
+},
     // Video queries
     videos: async () => await Video.find().populate("user"),
     video: async (_, { id }) => await Video.findById(id).populate("user"),
