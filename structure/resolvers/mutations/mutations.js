@@ -385,8 +385,10 @@ const resolvers = {
 
       const populatedMessage = await Message.findById(message._id)
         .populate("sender", "username profilePhoto")
+        .populate("neighborhood") // Make sure neighborhood is populated
         .exec();
 
+      // 🔥 NUCLEAR FIX - Apply fixIds to everything
       const result = fixIds(populatedMessage.toObject());
 
       console.log("✅ Backend: ALL IDs converted safely");
@@ -401,7 +403,7 @@ const resolvers = {
 
       return result;
     },
-    // In your resolvers.js - FIXED VERSION
+
     deleteMessage: async (_, { messageId }, context) => {
       try {
         if (!context.user) {
