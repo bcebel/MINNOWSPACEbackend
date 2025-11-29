@@ -321,94 +321,148 @@ const resolvers = {
 
   Mutation: {
     sendMessage: async (
-      _,
-      {
-        content,
-        room,
-        imageUrl,
-        videoUrl,
-        fileUrl,
-        fileName,
-        fileType,
-        fileSize,
-        magnetLink,
-        mimeType,
-        ipfsHash,
-        ipfsData,
-        neighborhoodId,
-        cid,
-        ipfsUrl,
-      },
-      context
-    ) => {
-      if (!context.user) throw new Error("Authentication required");
+  _,
+  {
+    content,
+    room,
+    imageUrl,
+    videoUrl,
+    fileUrl,
+    fileName,
+    fileType,
+    fileSize,
+    magnetLink,
+    mimeType,
+    ipfsHash,
+    ipfsData,
+    neighborhoodId,
+    cid,
+    ipfsUrl,
+  },
+  context
+) => {
+  if (!context.user) throw new Error("Authentication required");
 
-      console.log("🔍 Backend: Sending message:", {
-        content,
-        room,
-        imageUrl,
-        videoUrl,
-        neighborhoodId,
-      });
+  // 🚨 COMPREHENSIVE BACKEND LOGGING
+  console.log("🚨 ===== BACKEND - RECEIVED MESSAGE ARGS =====");
+  console.log("🚨 Full args:", {
+    content,
+    room,
+    imageUrl,
+    videoUrl,
+    fileUrl,
+    fileName,
+    fileType,
+    fileSize,
+    magnetLink,
+    mimeType,
+    ipfsHash,
+    ipfsData,
+    neighborhoodId,
+    cid,
+    ipfsUrl,
+  });
+  
+  console.log("🚨 Individual field details:");
+  const args = {
+    content, room, imageUrl, videoUrl, fileUrl, fileName, fileType, 
+    fileSize, magnetLink, mimeType, ipfsHash, ipfsData, neighborhoodId, cid, ipfsUrl
+  };
+  
+  Object.keys(args).forEach(key => {
+    console.log(`🚨   ${key}:`, {
+      value: args[key],
+      type: typeof args[key],
+      isNull: args[key] === null,
+      isUndefined: args[key] === undefined,
+      stringCheck: typeof args[key] === 'string' ? `String length: ${args[key]?.length}` : 'Not a string',
+      jsonCheck: (() => {
+        try {
+          return JSON.stringify(args[key]);
+        } catch (e) {
+          return `Cannot stringify: ${e.message}`;
+        }
+      })()
+    });
+  });
+  console.log("🚨 ===== END BACKEND LOGGING =====");
 
-      let neighborhood = null;
-      if (neighborhoodId) {
-        neighborhood = await Neighborhood.findById(neighborhoodId);
-        const isMember = neighborhood.members.some(
-          (member) => member.user.toString() === context.user.userId
-        );
-        if (!isMember) throw new Error("Not a member of this neighborhood");
-      }
+  // Check for empty objects that might be causing the issue
+  const problematicFields = [];
+  Object.keys(args).forEach(key => {
+    if (args[key] && typeof args[key] === 'object' && Object.keys(args[key]).length === 0) {
+      problematicFields.push(key);
+    }
+  });
+  
+  if (problematicFields.length > 0) {
+    console.log("🚨 PROBLEMATIC EMPTY OBJECTS FOUND IN ARGS:", problematicFields);
+    throw new Error(`Found empty objects in fields: ${problematicFields.join(', ')}`);
+  }
 
-      const message = new Message({
-        sender: context.user.userId,
-        content,
-        imageUrl: imageUrl || null,
-        videoUrl: videoUrl || null,
-        fileUrl: fileUrl || null,
-        magnetLink: magnetLink || null,
-        fileName: fileName || null,
-        fileType: fileType || null,
-        fileSize: fileSize || null,
-        mimeType: mimeType || null,
-        ipfsHash: ipfsHash || null,
-        ipfsData: ipfsData || null,
-        cid: cid || null,
-        ipfsUrl: ipfsUrl || null,
-        room: room || "general",
-        neighborhood: neighborhoodId || null,
-        createdAt: new Date(),
-      });
+  console.log("🔍 Backend: Sending message:", {
+    content,
+    room,
+    imageUrl,
+    videoUrl,
+    neighborhoodId,
+  });
 
-      await message.save();
-      console.log("✅ Backend: Message saved with ID:", message._id);
+  let neighborhood = null;
+  if (neighborhoodId) {
+    neighborhood = await Neighborhood.findById(neighborhoodId);
+    const isMember = neighborhood.members.some(
+      (member) => member.user.toString() === context.user.userId
+    );
+    if (!isMember) throw new Error("Not a member of this neighborhood");
+  }
 
-      const populatedMessage = await Message.findById(message._id)
-        .populate("sender", "username profilePhoto")
-        .populate("neighborhood") // 🚨 REMOVE THIS LINE - it's causing the ID issues
-        .exec();
+  const message = new Message({
+    sender: context.user.userId,
+    content,
+    imageUrl: imageUrl || null,
+    videoUrl: videoUrl || null,
+    fileUrl: fileUrl || null,
+    magnetLink: magnetLink || null,
+    fileName: fileName || null,
+    fileType: fileType || null,
+    fileSize: fileSize || null,
+    mimeType: mimeType || null,
+    ipfsHash: ipfsHash || null,
+    ipfsData: ipfsData || null,
+    cid: cid || null,
+    ipfsUrl: ipfsUrl || null,
+    room: room || "general",
+    neighborhood: neighborhoodId || null,
+    createdAt: new Date(),
+  });
 
-      // 🔥 NUCLEAR FIX - Apply fixIds to everything
-      const result = fixIds(populatedMessage.toObject());
+  await message.save();
+  console.log("✅ Backend: Message saved with ID:", message._id);
 
-      console.log("✅ Backend: ALL IDs converted safely");
+  // 🚨 TEMPORARY FIX: Don't populate neighborhood to avoid ID issues
+  const populatedMessage = await Message.findById(message._id)
+    .populate("sender", "username profilePhoto")
+    .exec();
 
-      if (result.neighborhood) {
-        console.log("🔍 Neighborhood before fix:", result.neighborhood);
-        result.neighborhood = fixIds(result.neighborhood);
-        console.log("🔍 Neighborhood after fix:", result.neighborhood);
-      }
+  console.log("🚨 Populated message BEFORE fixIds:", populatedMessage);
 
-      if (context.io) {
-        const emitRoom = neighborhoodId
-          ? `neighborhood-${neighborhoodId}`
-          : room;
-        context.io.to(emitRoom).emit("message", result);
-      }
-      console.log("✅ Backend: Message populated:", result);
+  // 🔥 NUCLEAR FIX - Apply fixIds to everything
+  const result = fixIds(populatedMessage.toObject());
 
-      return result;
-    },
+  console.log("🚨 Populated message AFTER fixIds:", result);
+
+  if (context.io) {
+    const emitRoom = neighborhoodId
+      ? `neighborhood-${neighborhoodId}`
+      : room;
+    context.io.to(emitRoom).emit("message", result);
+  }
+  console.log("✅ Backend: Message populated:", result);
+
+  return result;
+},
+
 
     deleteMessage: async (_, { messageId }, context) => {
       try {
