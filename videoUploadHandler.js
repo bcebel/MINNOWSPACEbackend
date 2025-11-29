@@ -70,7 +70,7 @@ export default (app) => {
 
   async function handleUpload(req, res) {
     const { title, description } = req.body;
-    const uid = req.user._id; // Extract the user's ID from the authenticated request
+    const uid = req.user.userId; // Extract the user's ID from the authenticated request
     if (!uid) {
       return res.status(400).send("UID is required.");
     }
