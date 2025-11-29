@@ -876,9 +876,24 @@ const resolvers = {
       // If already populated, ensure it has proper id field
       if (parent.neighborhood && typeof parent.neighborhood === "object") {
         const neighborhood = parent.neighborhood;
+
+        // Handle Buffer ID case
+        let neighborhoodId;
+        if (neighborhood._id && neighborhood._id.type === "Buffer") {
+          try {
+            const bufferData = Buffer.from(neighborhood._id.data);
+            neighborhoodId = new mongoose.Types.ObjectId(bufferData).toString();
+          } catch (error) {
+            console.error("Error converting neighborhood Buffer ID:", error);
+            return null;
+          }
+        } else {
+          neighborhoodId = neighborhood._id?.toString() || neighborhood.id;
+        }
+
         return {
           ...neighborhood,
-          id: neighborhood._id?.toString() || neighborhood.id,
+          id: neighborhoodId,
         };
       }
 
