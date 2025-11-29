@@ -103,8 +103,16 @@ export default (app) => {
       const ipfsUrl = `https://ipfs.filebase.io/ipfs/${cid}`;
 
       // after CID + Filebase/S3 succeed
+      // after CID + Filebase success
       if (req.file.mimetype.startsWith("image/")) {
-        // create torrent (same code-path as video)
+        // 1.  save to disk (mirror video logic)
+        const uploadsDir = path.join(process.cwd(), "uploads");
+        if (!fs.existsSync(uploadsDir))
+          fs.mkdirSync(uploadsDir, { recursive: true });
+        const permanentFilePath = path.join(uploadsDir, `${cid}.image`); // any extension works
+        fs.writeFileSync(permanentFilePath, req.file.buffer);
+
+        // 2.  create torrent / seed
         createTorrent(
           permanentFilePath,
           { announce: [...sameTrackers] },
@@ -116,15 +124,7 @@ export default (app) => {
               { announce: [...sameTrackers] },
               async (seed) => {
                 const newImage = new Image({
-                  title: title || req.file.originalname,
-                  description: description || "",
-                  user: uid,
-                  fileName: req.file.originalname,
-                  fileSize: req.file.size,
-                  fileType: "image",
-                  mimetype: req.file.mimetype,
-                  cid,
-                  ipfsUrl,
+                  ...sameFields,
                   magnetLink: seed.magnetURI,
                 });
                 await newImage.save();
@@ -133,7 +133,7 @@ export default (app) => {
             );
           }
         );
-        return; // skip video branch
+        return;
       }
       // existing video branch continues unchanged
 
