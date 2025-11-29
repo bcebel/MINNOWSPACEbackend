@@ -354,7 +354,7 @@ const apolloServer = new ApolloServer({
       const token = authHeader.substring(7);
       try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        user = { userId: decoded._id };
+        user = { userId: decoded.userId }; // ✅ CORRECT
         console.log("🔐 GraphQL Context - Decoded user:", decoded);
       } catch (error) {
         console.log("🔐 GraphQL Context - Token invalid:", error.message);
@@ -408,7 +408,7 @@ io.use(async (socket, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded._id);
+    const user = await User.findById(decoded.userId); // ✅ CORRECT - using userId
 
     if (!user) return next(new Error("User not found"));
 
