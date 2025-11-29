@@ -32,64 +32,65 @@ const resolvers = {
       return user;
     },
     // Add to your Query resolvers
-randomAffiliateLink: async (_, __, context) => {
-  try {
-    if (!context.user) {
-      throw new Error("Authentication required");
-    }
+    randomAffiliateLink: async (_, __, context) => {
+      try {
+        if (!context.user) {
+          throw new Error("Authentication required");
+        }
 
-    console.log("🎲 Fetching random affiliate link...");
+        console.log("🎲 Fetching random affiliate link...");
 
-    // Get all users that have affiliate links
-    const usersWithLinks = await User.find({
-      "affiliateLinks.0": { $exists: true }
-    }).select("affiliateLinks");
+        // Get all users that have affiliate links
+        const usersWithLinks = await User.find({
+          "affiliateLinks.0": { $exists: true },
+        }).select("affiliateLinks");
 
-    if (usersWithLinks.length === 0) {
-      console.log("❌ No affiliate links found in database");
-      return null;
-    }
+        if (usersWithLinks.length === 0) {
+          console.log("❌ No affiliate links found in database");
+          return null;
+        }
 
-    // Collect all affiliate links from all users
-    const allLinks = [];
-    usersWithLinks.forEach(user => {
-      user.affiliateLinks.forEach(link => {
-        // Properly handle the _id conversion
-        const linkId = link._id ? link._id.toString() : null;
-        
-        allLinks.push({
-          id: linkId, // Use the string version directly as 'id'
-          url: link.url,
-          title: link.title,
-          description: link.description,
-          clicks: link.clicks
+        // Collect all affiliate links from all users
+        const allLinks = [];
+        usersWithLinks.forEach((user) => {
+          user.affiliateLinks.forEach((link) => {
+            // Properly handle the _id conversion
+            const linkId = link._id ? link._id.toString() : null;
+
+            allLinks.push({
+              id: linkId, // Use the string version directly as 'id'
+              url: link.url,
+              title: link.title,
+              description: link.description,
+              clicks: link.clicks,
+            });
+          });
         });
-      });
-    });
 
-    if (allLinks.length === 0) {
-      console.log("❌ No affiliate links found after processing");
-      return null;
-    }
+        if (allLinks.length === 0) {
+          console.log("❌ No affiliate links found after processing");
+          return null;
+        }
 
-    // Pick a random link
-    const randomIndex = Math.floor(Math.random() * allLinks.length);
-    const randomLink = allLinks[randomIndex];
+        // Pick a random link
+        const randomIndex = Math.floor(Math.random() * allLinks.length);
+        const randomLink = allLinks[randomIndex];
 
-    console.log("✅ Random affiliate link found:", {
-      id: randomLink.id,
-      title: randomLink.title,
-      url: randomLink.url,
-      totalLinksAvailable: allLinks.length
-    });
+        console.log("✅ Random affiliate link found:", {
+          id: randomLink.id,
+          title: randomLink.title,
+          url: randomLink.url,
+          totalLinksAvailable: allLinks.length,
+        });
 
-    return randomLink; // Return the object with proper 'id' field
-
-  } catch (error) {
-    console.error("❌ Error in randomAffiliateLink resolver:", error);
-    throw new Error(`Failed to get random affiliate link: ${error.message}`);
-  }
-},
+        return randomLink; // Return the object with proper 'id' field
+      } catch (error) {
+        console.error("❌ Error in randomAffiliateLink resolver:", error);
+        throw new Error(
+          `Failed to get random affiliate link: ${error.message}`
+        );
+      }
+    },
     // Video queries
     videos: async () => await Video.find().populate("user"),
     video: async (_, { id }) => await Video.findById(id).populate("user"),
@@ -383,7 +384,7 @@ randomAffiliateLink: async (_, __, context) => {
 
       const result = {
         ...populatedMessage.toObject(),
-        id: populatedMessage._id.toString(), // Convert ObjectId to string
+        id: populatedMessage._id.toString(), // Ensure proper string conversion
         sender: populatedMessage.sender
           ? {
               ...populatedMessage.sender.toObject(),
@@ -392,19 +393,17 @@ randomAffiliateLink: async (_, __, context) => {
           : null,
       };
 
-      console.log("✅ Backend: Message populated:", populatedMessage);
+      console.log("✅ Backend: Message populated and IDs converted");
 
       if (context.io) {
         const emitRoom = neighborhoodId
           ? `neighborhood-${neighborhoodId}`
           : room;
-        context.io.to(emitRoom).emit("message", populatedMessage);
+        context.io.to(emitRoom).emit("message", result); // Emit the fixed result
         console.log("✅ Backend: Socket event emitted");
-      } else {
-        console.log("❌ No IO in context - cannot emit socket event");
       }
 
-      return populatedMessage;
+      return result; // Return the fixed result
     },
     // In your resolvers.js - FIXED VERSION
     deleteMessage: async (_, { messageId }, context) => {
@@ -956,7 +955,28 @@ randomAffiliateLink: async (_, __, context) => {
     id: (parent) => parent._id?.toString() || parent.id,
   },
   AffiliateLink: {
-    id: (parent) => parent._id?.toString() || parent.id,
+    id: (parent) => {
+      // Handle Buffer ID (the problematic case)
+      if (parent._id && parent._id.type === "Buffer") {
+        try {
+          // Convert Buffer to ObjectId then to string
+          const bufferData = Buffer.from(parent._id.data);
+          const objectId = new mongoose.Types.ObjectId(bufferData);
+          return objectId.toString();
+        } catch (error) {
+          console.error("Error converting Buffer ID:", error);
+          return null;
+        }
+      }
+      // Normal case - ObjectId or string
+      if (parent._id) {
+        return parent._id.toString();
+      }
+      if (parent.id) {
+        return parent.id.toString();
+      }
+      return null;
+    },
   },
   Comment: {
     id: (parent) => parent._id?.toString() || parent.id,
