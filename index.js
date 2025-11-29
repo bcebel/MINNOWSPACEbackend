@@ -372,7 +372,7 @@ await apolloServer.start();
 apolloServer.applyMiddleware({
   app,
   path: "/graphql",
-  cors: false,
+  cors: corsOptions,
 });
 
 app.get("/api/health", (req, res) => {
