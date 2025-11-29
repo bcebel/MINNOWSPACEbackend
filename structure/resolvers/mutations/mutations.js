@@ -11,7 +11,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 
-// 🔥 NUCLEAR OPTION: Stop GraphQL ID conversion issues
+// 🔥 NUCLEAR OPTION: Stop GraphQL ID conversion issues// 🔥 UPDATED FIXIDS FUNCTION - Handle dates and buffers
 const fixIds = (obj) => {
   if (!obj) return obj;
 
@@ -20,13 +20,38 @@ const fixIds = (obj) => {
     return obj.map(fixIds);
   }
 
+  // If it's a Date object, convert to ISO string
+  if (obj instanceof Date) {
+    return obj.toISOString();
+  }
+
+  // If it's a MongoDB ObjectId buffer, convert to string
+  if (obj && obj.buffer && Buffer.isBuffer(obj.buffer)) {
+    return obj.toString();
+  }
+
   // If it's an object, fix its IDs
-  if (typeof obj === "object") {
+  if (typeof obj === "object" && obj !== null) {
     const fixed = { ...obj };
 
     // Convert _id to id and ensure it's a string
     if (fixed._id) {
-      fixed.id = fixed._id.toString();
+      if (fixed._id.buffer && Buffer.isBuffer(fixed._id.buffer)) {
+        // Handle ObjectId buffer
+        fixed.id = fixed._id.toString();
+      } else {
+        fixed.id = fixed._id.toString();
+      }
+    }
+
+    // Handle createdAt and other date fields
+    if (fixed.createdAt) {
+      if (fixed.createdAt instanceof Date) {
+        fixed.createdAt = fixed.createdAt.toISOString();
+      } else if (typeof fixed.createdAt === 'object' && Object.keys(fixed.createdAt).length === 0) {
+        // If it's an empty object, set to current date
+        fixed.createdAt = new Date().toISOString();
+      }
     }
 
     // Fix any nested objects
@@ -321,148 +346,81 @@ const resolvers = {
 
   Mutation: {
     sendMessage: async (
-  _,
-  {
-    content,
-    room,
-    imageUrl,
-    videoUrl,
-    fileUrl,
-    fileName,
-    fileType,
-    fileSize,
-    magnetLink,
-    mimeType,
-    ipfsHash,
-    ipfsData,
-    neighborhoodId,
-    cid,
-    ipfsUrl,
-  },
-  context
-) => {
-  if (!context.user) throw new Error("Authentication required");
+      _,
+      {
+        content,
+        room,
+        imageUrl,
+        videoUrl,
+        fileUrl,
+        fileName,
+        fileType,
+        fileSize,
+        magnetLink,
+        mimeType,
+        neighborhoodId,
+      },
+      context
+    ) => {
+      if (!context.user) throw new Error("Authentication required");
 
-  // 🚨 COMPREHENSIVE BACKEND LOGGING
-  console.log("🚨 ===== BACKEND - RECEIVED MESSAGE ARGS =====");
-  console.log("🚨 Full args:", {
-    content,
-    room,
-    imageUrl,
-    videoUrl,
-    fileUrl,
-    fileName,
-    fileType,
-    fileSize,
-    magnetLink,
-    mimeType,
-    ipfsHash,
-    ipfsData,
-    neighborhoodId,
-    cid,
-    ipfsUrl,
-  });
-  
-  console.log("🚨 Individual field details:");
-  const args = {
-    content, room, imageUrl, videoUrl, fileUrl, fileName, fileType, 
-    fileSize, magnetLink, mimeType, ipfsHash, ipfsData, neighborhoodId, cid, ipfsUrl
-  };
-  
-  Object.keys(args).forEach(key => {
-    console.log(`🚨   ${key}:`, {
-      value: args[key],
-      type: typeof args[key],
-      isNull: args[key] === null,
-      isUndefined: args[key] === undefined,
-      stringCheck: typeof args[key] === 'string' ? `String length: ${args[key]?.length}` : 'Not a string',
-      jsonCheck: (() => {
-        try {
-          return JSON.stringify(args[key]);
-        } catch (e) {
-          return `Cannot stringify: ${e.message}`;
-        }
-      })()
-    });
-  });
-  console.log("🚨 ===== END BACKEND LOGGING =====");
+      console.log("🔍 Backend: Sending message:", {
+        content,
+        room,
+        imageUrl,
+        videoUrl,
+        neighborhoodId,
+      });
 
-  // Check for empty objects that might be causing the issue
-  const problematicFields = [];
-  Object.keys(args).forEach(key => {
-    if (args[key] && typeof args[key] === 'object' && Object.keys(args[key]).length === 0) {
-      problematicFields.push(key);
-    }
-  });
-  
-  if (problematicFields.length > 0) {
-    console.log("🚨 PROBLEMATIC EMPTY OBJECTS FOUND IN ARGS:", problematicFields);
-    throw new Error(`Found empty objects in fields: ${problematicFields.join(', ')}`);
-  }
+      let neighborhood = null;
+      if (neighborhoodId) {
+        neighborhood = await Neighborhood.findById(neighborhoodId);
+        const isMember = neighborhood.members.some(
+          (member) => member.user.toString() === context.user.userId
+        );
+        if (!isMember) throw new Error("Not a member of this neighborhood");
+      }
 
-  console.log("🔍 Backend: Sending message:", {
-    content,
-    room,
-    imageUrl,
-    videoUrl,
-    neighborhoodId,
-  });
+      const message = new Message({
+        sender: context.user.userId,
+        content,
+        imageUrl: imageUrl || null,
+        videoUrl: videoUrl || null,
+        fileUrl: fileUrl || null,
+        magnetLink: magnetLink || null,
+        fileName: fileName || null,
+        fileType: fileType || null,
+        fileSize: fileSize || null,
+        mimeType: mimeType || null,
+        room: room || "neighborhood",
+        neighborhood: neighborhoodId || null,
+        createdAt: new Date(), // ✅ Explicitly set date
+      });
 
-  let neighborhood = null;
-  if (neighborhoodId) {
-    neighborhood = await Neighborhood.findById(neighborhoodId);
-    const isMember = neighborhood.members.some(
-      (member) => member.user.toString() === context.user.userId
-    );
-    if (!isMember) throw new Error("Not a member of this neighborhood");
-  }
+      await message.save();
+      console.log("✅ Backend: Message saved with ID:", message._id);
 
-  const message = new Message({
-    sender: context.user.userId,
-    content,
-    imageUrl: imageUrl || null,
-    videoUrl: videoUrl || null,
-    fileUrl: fileUrl || null,
-    magnetLink: magnetLink || null,
-    fileName: fileName || null,
-    fileType: fileType || null,
-    fileSize: fileSize || null,
-    mimeType: mimeType || null,
-    ipfsHash: ipfsHash || null,
-    ipfsData: ipfsData || null,
-    cid: cid || null,
-    ipfsUrl: ipfsUrl || null,
-    room: room || "general",
-    neighborhood: neighborhoodId || null,
-    createdAt: new Date(),
-  });
+      // 🚨 SIMPLIFIED: Only populate sender, don't populate neighborhood
+      const populatedMessage = await Message.findById(message._id)
+        .populate("sender", "username profilePhoto")
+        .exec();
 
-  await message.save();
-  console.log("✅ Backend: Message saved with ID:", message._id);
+      console.log("🚨 Raw populated message:", populatedMessage);
 
-  // 🚨 TEMPORARY FIX: Don't populate neighborhood to avoid ID issues
-  const populatedMessage = await Message.findById(message._id)
-    .populate("sender", "username profilePhoto")
-    .exec();
+      // 🔥 Apply the updated fixIds function
+      const result = fixIds(populatedMessage.toObject());
 
-  console.log("🚨 Populated message BEFORE fixIds:", populatedMessage);
+      console.log("🚨 Fixed result:", result);
 
-  // 🔥 NUCLEAR FIX - Apply fixIds to everything
-  const result = fixIds(populatedMessage.toObject());
+      if (context.io) {
+        const emitRoom = neighborhoodId
+          ? `neighborhood-${neighborhoodId}`
+          : room;
+        context.io.to(emitRoom).emit("message", result);
+      }
 
-  console.log("🚨 Populated message AFTER fixIds:", result);
-
-  if (context.io) {
-    const emitRoom = neighborhoodId
-      ? `neighborhood-${neighborhoodId}`
-      : room;
-    context.io.to(emitRoom).emit("message", result);
-  }
-  console.log("✅ Backend: Message populated:", result);
-
-  return result;
-},
-
+      return result;
+    },
 
     deleteMessage: async (_, { messageId }, context) => {
       try {
