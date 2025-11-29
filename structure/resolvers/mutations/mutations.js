@@ -362,19 +362,7 @@ const resolvers = {
 
         // Check if user owns the message or is admin
         const isOwner = message.sender.toString() === context.user.id;
-        if (!isOwner) {
-          // Optional: Check if user is neighborhood admin
-          const neighborhood = await Neighborhood.findOne({
-            _id: message.neighborhood,
-            $or: [
-              { owner: context.user.id },
-              { "members.user": context.user.id, "members.role": "admin" },
-            ],
-          });
-          if (!neighborhood) {
-            throw new Error("Not authorized to delete this message");
-          }
-        }
+   
 
         // Delete associated files from IPFS (optional)
         if (message.imageUrl || message.videoUrl || message.fileUrl) {
