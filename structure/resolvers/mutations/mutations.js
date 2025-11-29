@@ -385,7 +385,6 @@ const resolvers = {
 
       const populatedMessage = await Message.findById(message._id)
         .populate("sender", "username profilePhoto")
-        .populate("neighborhood") // Make sure neighborhood is populated
         .exec();
 
       // 🔥 NUCLEAR FIX - Apply fixIds to everything
