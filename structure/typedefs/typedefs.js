@@ -233,6 +233,8 @@ const typeDefs = gql`
     ads: [Ad!]
     ad(id: ID!): Ad
 
+    randomAffiliateLink: AffiliateLink
+    
     # Chat queries
     chats: [Chat!]
     chat(id: ID!): Chat
