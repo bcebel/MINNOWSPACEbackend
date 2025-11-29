@@ -14,31 +14,31 @@ import mongoose from "mongoose";
 // 🔥 NUCLEAR OPTION: Stop GraphQL ID conversion issues
 const fixIds = (obj) => {
   if (!obj) return obj;
-  
+
   // If it's an array, fix each item
   if (Array.isArray(obj)) {
     return obj.map(fixIds);
   }
-  
+
   // If it's an object, fix its IDs
-  if (typeof obj === 'object') {
+  if (typeof obj === "object") {
     const fixed = { ...obj };
-    
+
     // Convert _id to id and ensure it's a string
     if (fixed._id) {
       fixed.id = fixed._id.toString();
     }
-    
+
     // Fix any nested objects
-    Object.keys(fixed).forEach(key => {
-      if (typeof fixed[key] === 'object' && fixed[key] !== null) {
+    Object.keys(fixed).forEach((key) => {
+      if (typeof fixed[key] === "object" && fixed[key] !== null) {
         fixed[key] = fixIds(fixed[key]);
       }
     });
-    
+
     return fixed;
   }
-  
+
   return obj;
 };
 // Define this at the TOP of your resolvers file (with your other imports)
@@ -385,12 +385,19 @@ const resolvers = {
 
       const populatedMessage = await Message.findById(message._id)
         .populate("sender", "username profilePhoto")
+        .populate("neighborhood") // 🚨 REMOVE THIS LINE - it's causing the ID issues
         .exec();
 
       // 🔥 NUCLEAR FIX - Apply fixIds to everything
       const result = fixIds(populatedMessage.toObject());
 
       console.log("✅ Backend: ALL IDs converted safely");
+
+      if (result.neighborhood) {
+        console.log("🔍 Neighborhood before fix:", result.neighborhood);
+        result.neighborhood = fixIds(result.neighborhood);
+        console.log("🔍 Neighborhood after fix:", result.neighborhood);
+      }
 
       if (context.io) {
         const emitRoom = neighborhoodId
