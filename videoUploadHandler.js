@@ -133,10 +133,18 @@ export default (app) => {
               permanentFilePath,
             { announce },
               async (seed) => {
-                const newImage = new Image({
-                  ...sameFields,
-                  magnetLink: seed.magnetURI,
-                });
+          const newImage = new Image({
+            title: title || req.file.originalname,
+            description: description || "",
+            user: uid,
+            fileName: req.file.originalname,
+            fileSize: req.file.size,
+            fileType: "image",
+            mimetype: req.file.mimetype,
+            cid,
+            ipfsUrl,
+            magnetLink: seed.magnetURI,
+          });
                 await newImage.save();
                 res.json({ ipfsUrl, magnetLink: seed.magnetURI });
               }
