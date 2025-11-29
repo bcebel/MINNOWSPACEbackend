@@ -10,6 +10,37 @@ import Message from "../../models/Message.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
+
+// 🔥 NUCLEAR OPTION: Stop GraphQL ID conversion issues
+const fixIds = (obj) => {
+  if (!obj) return obj;
+  
+  // If it's an array, fix each item
+  if (Array.isArray(obj)) {
+    return obj.map(fixIds);
+  }
+  
+  // If it's an object, fix its IDs
+  if (typeof obj === 'object') {
+    const fixed = { ...obj };
+    
+    // Convert _id to id and ensure it's a string
+    if (fixed._id) {
+      fixed.id = fixed._id.toString();
+    }
+    
+    // Fix any nested objects
+    Object.keys(fixed).forEach(key => {
+      if (typeof fixed[key] === 'object' && fixed[key] !== null) {
+        fixed[key] = fixIds(fixed[key]);
+      }
+    });
+    
+    return fixed;
+  }
+  
+  return obj;
+};
 // Define this at the TOP of your resolvers file (with your other imports)
 const validateAffiliateLink = (link) => {
   const regex = /^(https?:\/\/)(www\.)?(impact\.com|cj\.com|rakuten\.com)\/.*$/;
@@ -29,6 +60,41 @@ const resolvers = {
       const user = await User.findOne({ username });
       if (!user) throw new Error("User not found");
       return user;
+    },
+
+    randomAffiliateLink: async (_, __, context) => {
+      try {
+        if (!context.user) throw new Error("Authentication required");
+
+        console.log("🎲 Fetching random affiliate link...");
+
+        // Get all users with affiliate links
+        const usersWithLinks = await User.find({
+          "affiliateLinks.0": { $exists: true },
+        }).select("affiliateLinks");
+
+        if (usersWithLinks.length === 0) return null;
+
+        // Flatten all links
+        const allLinks = [];
+        usersWithLinks.forEach((user) => {
+          user.affiliateLinks.forEach((link) => {
+            allLinks.push(fixIds(link)); // 🔥 APPLY THE FIX
+          });
+        });
+
+        if (allLinks.length === 0) return null;
+
+        // Pick random link
+        const randomLink =
+          allLinks[Math.floor(Math.random() * allLinks.length)];
+
+        console.log("✅ Random affiliate link found");
+        return randomLink;
+      } catch (error) {
+        console.error("❌ Error in randomAffiliateLink:", error);
+        throw error;
+      }
     },
 
     // Video queries
@@ -254,81 +320,87 @@ const resolvers = {
   },
 
   Mutation: {
-    sendMessage: async () =>
-      // ... (existing sendMessage logic is correct)
+    sendMessage: async (
+      _,
       {
-        if (!context.user) throw new Error("Authentication required");
-
-        console.log("🔍 Backend: Sending message:", {
-          content,
-          room,
-          imageUrl,
-          videoUrl,
-          neighborhoodId,
-        });
-
-        let neighborhood = null;
-        if (neighborhoodId) {
-          neighborhood = await Neighborhood.findById(neighborhoodId);
-          const isMember = neighborhood.members.some(
-            (member) => member.user.toString() === context.user.userId
-          );
-          if (!isMember) throw new Error("Not a member of this neighborhood");
-        }
-        //const magnetLink = ipfsData?.magnetLink || null;
-
-        const message = new Message({
-          sender: context.user.userId,
-          content,
-          imageUrl: imageUrl || null,
-          videoUrl: videoUrl || null,
-          fileUrl: fileUrl || null,
-          magnetLink: magnetLink || null,
-          fileName: fileName || null,
-          fileType: fileType || null,
-          fileSize: fileSize || null,
-          mimeType: mimeType || null,
-          ipfsHash: ipfsHash || null,
-          ipfsData: ipfsData || null,
-          cid: cid || null,
-          ipfsUrl: ipfsUrl || null,
-          room: room || "general",
-          neighborhood: neighborhoodId || null,
-          createdAt: new Date(),
-        });
-
-        await message.save();
-        console.log("✅ Backend: Message saved with ID:", message._id);
-
-        const populatedMessage = await Message.findById(message._id)
-          .populate("sender", "username profilePhoto")
-          .exec();
-
-        const result = {
-          ...populatedMessage.toObject(),
-          id: populatedMessage._id.toString(), // Convert ObjectId to string
-          sender: populatedMessage.sender
-            ? {
-                ...populatedMessage.sender.toObject(),
-                id: populatedMessage.sender._id.toString(), // Convert sender ID too
-              }
-            : null,
-        };
-
-        console.log("✅ Backend: Message populated:", populatedMessage);
-
-        if (context.io) {
-          const emitRoom = neighborhoodId
-            ? `neighborhood-${neighborhoodId}`
-            : room;
-          context.io.to(emitRoom).emit("message", populatedMessage);
-          console.log("✅ Backend: Socket event emitted");
-        } else {
-          console.log("❌ No IO in context - cannot emit socket event");
-        }
-
-        return populatedMessage;
+        content,
+        room,
+        imageUrl,
+        videoUrl,
+        fileUrl,
+        fileName,
+        fileType,
+        fileSize,
+        magnetLink,
+        mimeType,
+        ipfsHash,
+        ipfsData,
+        neighborhoodId,
+        cid,
+        ipfsUrl,
       },
+      context
+    ) => {
+      if (!context.user) throw new Error("Authentication required");
+
+      console.log("🔍 Backend: Sending message:", {
+        content,
+        room,
+        imageUrl,
+        videoUrl,
+        neighborhoodId,
+      });
+
+      let neighborhood = null;
+      if (neighborhoodId) {
+        neighborhood = await Neighborhood.findById(neighborhoodId);
+        const isMember = neighborhood.members.some(
+          (member) => member.user.toString() === context.user.userId
+        );
+        if (!isMember) throw new Error("Not a member of this neighborhood");
+      }
+
+      const message = new Message({
+        sender: context.user.userId,
+        content,
+        imageUrl: imageUrl || null,
+        videoUrl: videoUrl || null,
+        fileUrl: fileUrl || null,
+        magnetLink: magnetLink || null,
+        fileName: fileName || null,
+        fileType: fileType || null,
+        fileSize: fileSize || null,
+        mimeType: mimeType || null,
+        ipfsHash: ipfsHash || null,
+        ipfsData: ipfsData || null,
+        cid: cid || null,
+        ipfsUrl: ipfsUrl || null,
+        room: room || "general",
+        neighborhood: neighborhoodId || null,
+        createdAt: new Date(),
+      });
+
+      await message.save();
+      console.log("✅ Backend: Message saved with ID:", message._id);
+
+      const populatedMessage = await Message.findById(message._id)
+        .populate("sender", "username profilePhoto")
+        .exec();
+
+      const result = fixIds(populatedMessage.toObject());
+
+      console.log("✅ Backend: ALL IDs converted safely");
+
+      if (context.io) {
+        const emitRoom = neighborhoodId
+          ? `neighborhood-${neighborhoodId}`
+          : room;
+        context.io.to(emitRoom).emit("message", result);
+      }
+      console.log("✅ Backend: Message populated:", result);
+
+      return result;
+    },
     // In your resolvers.js - FIXED VERSION
     deleteMessage: async (_, { messageId }, context) => {
       try {
@@ -822,203 +894,6 @@ const resolvers = {
         .populate("members.user", "username profilePhoto")
         .populate("joinRequests.user", "username profilePhoto");
     },
-  },
-
-  // Field resolvers - COMPLETE VERSION
-  // Field resolvers - SIMPLIFIED _id to id conversion
-  User: {
-    id: (parent) => parent._id?.toString() || parent.id,
-  },
-  Chat: {
-    id: (parent) => parent._id?.toString() || parent.id,
-  },
-  Message: {
-    id: (parent) => parent._id?.toString() || parent.id,
-    neighborhood: async (parent) => {
-      if (!parent.neighborhood) return null;
-
-      // If already populated, ensure it has proper id field
-      if (parent.neighborhood && typeof parent.neighborhood === "object") {
-        const neighborhood = parent.neighborhood;
-        return {
-          ...neighborhood,
-          id: neighborhood._id?.toString() || neighborhood.id,
-        };
-      }
-
-      // Otherwise populate it
-      try {
-        const neighborhood = await Neighborhood.findById(parent.neighborhood);
-        return neighborhood
-          ? {
-              ...neighborhood.toObject(),
-              id: neighborhood._id.toString(),
-            }
-          : null;
-      } catch (error) {
-        console.error("Error populating message neighborhood:", error);
-        return null;
-      }
-    },
-    sender: async (parent) => {
-      // If already populated, ensure it has proper id field
-      if (parent.sender && typeof parent.sender === "object") {
-        const sender = parent.sender;
-        return {
-          ...sender,
-          id: sender._id?.toString() || sender.id,
-        };
-      }
-
-      // If no sender ID, return a fallback user
-      if (!parent.sender) {
-        return {
-          id: "unknown",
-          username: "Unknown User",
-          profilePhoto: "https://via.placeholder.com/40",
-        };
-      }
-
-      // Otherwise populate it
-      try {
-        const user = await User.findById(parent.sender);
-        if (!user) {
-          return {
-            id: "deleted",
-            username: "Deleted User",
-            profilePhoto: "https://via.placeholder.com/40",
-          };
-        }
-        return {
-          ...user.toObject(),
-          id: user._id.toString(),
-        };
-      } catch (error) {
-        console.error("Error populating message sender:", error);
-        return {
-          id: "error",
-          username: "Error Loading User",
-          profilePhoto: "https://via.placeholder.com/40",
-        };
-      }
-    },
-  },
-  Post: {
-    id: (parent) => parent._id?.toString() || parent.id,
-  },
-  Group: {
-    id: (parent) => parent._id?.toString() || parent.id,
-  },
-  Video: {
-    id: (parent) => parent._id?.toString() || parent.id,
-  },
-  Stream: {
-    id: (parent) => parent._id?.toString() || parent.id,
-  },
-  Ad: {
-    id: (parent) => parent._id?.toString() || parent.id,
-  },
-  AffiliateLink: {
-    id: (parent) => parent._id?.toString() || parent.id,
-  },
-  Comment: {
-    id: (parent) => parent._id?.toString() || parent.id,
-    author: async (parent) => {
-      if (parent.author && typeof parent.author === "object") {
-        const author = parent.author;
-        return {
-          ...author,
-          id: author._id?.toString() || author.id,
-        };
-      }
-      const user = await User.findById(parent.author);
-      return user
-        ? {
-            ...user.toObject(),
-            id: user._id.toString(),
-          }
-        : null;
-    },
-  },
-  Neighborhood: {
-    id: (parent) => parent._id?.toString() || parent.id,
-    owner: async (parent) => {
-      // If already populated, ensure it has proper id field
-      if (parent.owner && typeof parent.owner === "object") {
-        const owner = parent.owner;
-        return {
-          ...owner,
-          id: owner._id?.toString() || owner.id,
-        };
-      }
-
-      // Otherwise populate it
-      try {
-        const user = await User.findById(parent.owner);
-        return user
-          ? {
-              ...user.toObject(),
-              id: user._id.toString(),
-            }
-          : null;
-      } catch (error) {
-        console.error("Error populating neighborhood owner:", error);
-        return null;
-      }
-    },
-    members: async (parent) => {
-      // Ensure all members have proper id fields
-      return parent.members.map((member) => ({
-        ...member,
-        user:
-          member.user && typeof member.user === "object"
-            ? {
-                ...member.user,
-                id: member.user._id?.toString() || member.user.id,
-              }
-            : member.user,
-      }));
-    },
-  },
-  NeighborhoodMember: {
-    user: async (parent) => {
-      if (parent.user && typeof parent.user === "object") {
-        const user = parent.user;
-        return {
-          ...user,
-          id: user._id?.toString() || user.id,
-        };
-      }
-      const user = await User.findById(parent.user);
-      return user
-        ? {
-            ...user.toObject(),
-            id: user._id.toString(),
-          }
-        : null;
-    },
-    role: (parent) => parent.role,
-    joinedAt: (parent) => parent.joinedAt.toISOString(),
-  },
-  JoinRequest: {
-    user: async (parent) => {
-      if (parent.user && typeof parent.user === "object") {
-        const user = parent.user;
-        return {
-          ...user,
-          id: user._id?.toString() || user.id,
-        };
-      }
-      const user = await User.findById(parent.user);
-      return user
-        ? {
-            ...user.toObject(),
-            id: user._id.toString(),
-          }
-        : null;
-    },
-    requestedAt: (parent) => parent.requestedAt.toISOString(),
-    status: (parent) => parent.status,
   },
 };
 
