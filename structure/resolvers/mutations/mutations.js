@@ -119,15 +119,40 @@ const resolvers = {
         .limit(50);
 
       console.log("✅ Backend: Found", messages.length, "messages");
-      return messages;
+
+      // Ensure all message IDs are properly converted
+      return messages.map((msg) => ({
+        ...msg.toObject(),
+        id: msg._id.toString(),
+        sender: msg.sender
+          ? {
+              ...msg.sender.toObject(),
+              id: msg.sender._id.toString(),
+            }
+          : null,
+      }));
     },
 
     message: async (_, { id }, context) => {
       if (!context.user) throw new Error("Authentication required");
-      return await Message.findById(id).populate(
+      const msg = await Message.findById(id).populate(
         "sender",
         "username profilePhoto"
       );
+
+      if (!msg) return null;
+
+      // Ensure ID is properly converted
+      return {
+        ...msg.toObject(),
+        id: msg._id.toString(),
+        sender: msg.sender
+          ? {
+              ...msg.sender.toObject(),
+              id: msg.sender._id.toString(),
+            }
+          : null,
+      };
     },
 
     // Post queries
@@ -197,10 +222,22 @@ const resolvers = {
       if (!isMember) throw new Error("Not a member of this neighborhood");
 
       // Message.find() always returns an array, so no need for || []
-      return await Message.find({ neighborhood: neighborhoodId })
+      const messages = await Message.find({ neighborhood: neighborhoodId })
         .populate("sender", "username profilePhoto")
         .sort({ createdAt: -1 })
         .limit(50);
+
+      // Ensure all message IDs are properly converted
+      return messages.map((msg) => ({
+        ...msg.toObject(),
+        id: msg._id.toString(),
+        sender: msg.sender
+          ? {
+              ...msg.sender.toObject(),
+              id: msg.sender._id.toString(),
+            }
+          : null,
+      }));
     },
 
     // Get videos for a specific neighborhood
@@ -382,13 +419,28 @@ const resolvers = {
         .populate("sender", "username profilePhoto")
         .exec();
 
+      // Helper function to convert IDs safely
+      const convertIdToString = (id) => {
+        if (!id) return null;
+        if (typeof id === "string") return id;
+        if (id.type === "Buffer" && id.data) {
+          try {
+            return new mongoose.Types.ObjectId(Buffer.from(id.data)).toString();
+          } catch (e) {
+            return null;
+          }
+        }
+        if (id.toString) return id.toString();
+        return null;
+      };
+
       const result = {
         ...populatedMessage.toObject(),
-        id: populatedMessage._id.toString(), // Ensure proper string conversion
+        id: convertIdToString(populatedMessage._id),
         sender: populatedMessage.sender
           ? {
               ...populatedMessage.sender.toObject(),
-              id: populatedMessage.sender._id.toString(), // Convert sender ID too
+              id: convertIdToString(populatedMessage.sender._id),
             }
           : null,
       };
@@ -861,15 +913,70 @@ const resolvers = {
   },
 
   // Field resolvers - COMPLETE VERSION
+  // Helper function to safely convert IDs (handles Buffer objects from MongoDB)
+  convertIdToString: (id) => {
+    if (!id) return null;
+    if (typeof id === "string") return id;
+    if (id.type === "Buffer" && id.data) {
+      try {
+        return new mongoose.Types.ObjectId(Buffer.from(id.data)).toString();
+      } catch (e) {
+        console.error("Error converting Buffer ID:", e);
+        return null;
+      }
+    }
+    if (id.toString) return id.toString();
+    return null;
+  },
+
   // Field resolvers - SIMPLIFIED _id to id conversion
   User: {
-    id: (parent) => parent._id?.toString() || parent.id,
+    id: (parent) => {
+      if (!parent._id) return parent.id || null;
+      if (typeof parent._id === "string") return parent._id;
+      if (parent._id.type === "Buffer" && parent._id.data) {
+        try {
+          return new mongoose.Types.ObjectId(
+            Buffer.from(parent._id.data)
+          ).toString();
+        } catch (e) {
+          return null;
+        }
+      }
+      return parent._id.toString();
+    },
   },
   Chat: {
-    id: (parent) => parent._id?.toString() || parent.id,
+    id: (parent) => {
+      if (!parent._id) return parent.id || null;
+      if (typeof parent._id === "string") return parent._id;
+      if (parent._id.type === "Buffer" && parent._id.data) {
+        try {
+          return new mongoose.Types.ObjectId(
+            Buffer.from(parent._id.data)
+          ).toString();
+        } catch (e) {
+          return null;
+        }
+      }
+      return parent._id.toString();
+    },
   },
   Message: {
-    id: (parent) => parent._id?.toString() || parent.id,
+    id: (parent) => {
+      if (!parent._id) return parent.id || null;
+      if (typeof parent._id === "string") return parent._id;
+      if (parent._id.type === "Buffer" && parent._id.data) {
+        try {
+          return new mongoose.Types.ObjectId(
+            Buffer.from(parent._id.data)
+          ).toString();
+        } catch (e) {
+          return null;
+        }
+      }
+      return parent._id.toString();
+    },
     neighborhood: async (parent) => {
       if (!parent.neighborhood) return null;
 
@@ -955,19 +1062,84 @@ const resolvers = {
     },
   },
   Post: {
-    id: (parent) => parent._id?.toString() || parent.id,
+    id: (parent) => {
+      if (!parent._id) return parent.id || null;
+      if (typeof parent._id === "string") return parent._id;
+      if (parent._id.type === "Buffer" && parent._id.data) {
+        try {
+          return new mongoose.Types.ObjectId(
+            Buffer.from(parent._id.data)
+          ).toString();
+        } catch (e) {
+          return null;
+        }
+      }
+      return parent._id.toString();
+    },
   },
   Group: {
-    id: (parent) => parent._id?.toString() || parent.id,
+    id: (parent) => {
+      if (!parent._id) return parent.id || null;
+      if (typeof parent._id === "string") return parent._id;
+      if (parent._id.type === "Buffer" && parent._id.data) {
+        try {
+          return new mongoose.Types.ObjectId(
+            Buffer.from(parent._id.data)
+          ).toString();
+        } catch (e) {
+          return null;
+        }
+      }
+      return parent._id.toString();
+    },
   },
   Video: {
-    id: (parent) => parent._id?.toString() || parent.id,
+    id: (parent) => {
+      if (!parent._id) return parent.id || null;
+      if (typeof parent._id === "string") return parent._id;
+      if (parent._id.type === "Buffer" && parent._id.data) {
+        try {
+          return new mongoose.Types.ObjectId(
+            Buffer.from(parent._id.data)
+          ).toString();
+        } catch (e) {
+          return null;
+        }
+      }
+      return parent._id.toString();
+    },
   },
   Stream: {
-    id: (parent) => parent._id?.toString() || parent.id,
+    id: (parent) => {
+      if (!parent._id) return parent.id || null;
+      if (typeof parent._id === "string") return parent._id;
+      if (parent._id.type === "Buffer" && parent._id.data) {
+        try {
+          return new mongoose.Types.ObjectId(
+            Buffer.from(parent._id.data)
+          ).toString();
+        } catch (e) {
+          return null;
+        }
+      }
+      return parent._id.toString();
+    },
   },
   Ad: {
-    id: (parent) => parent._id?.toString() || parent.id,
+    id: (parent) => {
+      if (!parent._id) return parent.id || null;
+      if (typeof parent._id === "string") return parent._id;
+      if (parent._id.type === "Buffer" && parent._id.data) {
+        try {
+          return new mongoose.Types.ObjectId(
+            Buffer.from(parent._id.data)
+          ).toString();
+        } catch (e) {
+          return null;
+        }
+      }
+      return parent._id.toString();
+    },
   },
   AffiliateLink: {
     id: (parent) => {
@@ -994,7 +1166,20 @@ const resolvers = {
     },
   },
   Comment: {
-    id: (parent) => parent._id?.toString() || parent.id,
+    id: (parent) => {
+      if (!parent._id) return parent.id || null;
+      if (typeof parent._id === "string") return parent._id;
+      if (parent._id.type === "Buffer" && parent._id.data) {
+        try {
+          return new mongoose.Types.ObjectId(
+            Buffer.from(parent._id.data)
+          ).toString();
+        } catch (e) {
+          return null;
+        }
+      }
+      return parent._id.toString();
+    },
     author: async (parent) => {
       if (parent.author && typeof parent.author === "object") {
         const author = parent.author;
@@ -1013,7 +1198,20 @@ const resolvers = {
     },
   },
   Neighborhood: {
-    id: (parent) => parent._id?.toString() || parent.id,
+    id: (parent) => {
+      if (!parent._id) return parent.id || null;
+      if (typeof parent._id === "string") return parent._id;
+      if (parent._id.type === "Buffer" && parent._id.data) {
+        try {
+          return new mongoose.Types.ObjectId(
+            Buffer.from(parent._id.data)
+          ).toString();
+        } catch (e) {
+          return null;
+        }
+      }
+      return parent._id.toString();
+    },
     owner: async (parent) => {
       // If already populated, ensure it has proper id field
       if (parent.owner && typeof parent.owner === "object") {
