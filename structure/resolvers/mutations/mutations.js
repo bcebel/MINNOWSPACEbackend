@@ -66,10 +66,40 @@ const fixIds = (obj) => {
 
   return obj;
 };
-// Define this at the TOP of your resolvers file (with your other imports)
-const validateAffiliateLink = (link) => {
-  const regex = /^(https?:\/\/)(www\.)?(impact\.com|cj\.com|rakuten\.com)\/.*$/;
-  return regex.test(link);
+
+const validateAffiliateHtml = (html) => {
+  const allowedDomains = [
+    "anrdoezrs.net",
+    "tkqlhce.com",
+    "jdoqocy.com",
+    "tqlkg.com",
+    "ftjcfx.com",
+    "awltovhc.com",
+    "kqzyfj.com",
+  ];
+
+  const domainPattern = allowedDomains.join("|");
+
+  // Find ALL URLs
+  const urlRegex = /https?:\/\/[^\s"']+/gi;
+  const allUrls = html.match(urlRegex) || [];
+
+  // Check each URL against approved domains
+  const approvedUrls = allUrls.filter((url) =>
+    url.match(new RegExp(`https://www\\.(${domainPattern})/`, "i"))
+  );
+
+  // Must have exactly 2 approved URLs and no other URLs
+  const hasCorrectUrlCount = approvedUrls.length === 2 && allUrls.length === 2;
+
+  // Additionally validate basic HTML structure
+  const hasValidStructure =
+    html.includes("<a href=") &&
+    html.includes('target="_top"') &&
+    html.includes("<img src=") &&
+    html.includes("</a>");
+
+  return hasCorrectUrlCount && hasValidStructure;
 };
 
 const resolvers = {
