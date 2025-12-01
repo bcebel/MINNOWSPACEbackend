@@ -545,7 +545,7 @@ const resolvers = {
         }
 
         // Validate the affiliate link (make sure this function is defined)
-        if (!validateAffiliateLink(url)) {
+        if (!validateAffiliateLink(html)) {
           throw new Error(
             "Invalid affiliate link. Must be from approved networks (impact.com, cj.com, rakuten.com, shareasale.com, awin.com, webgains.com)"
           );
