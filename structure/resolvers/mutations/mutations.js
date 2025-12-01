@@ -316,18 +316,48 @@ const resolvers = {
           throw new Error("Authentication required");
         }
 
-        console.log("🏘️ Fetching neighborhood videos:", {
+        console.log("🔍 DEBUG getNeighborhoodVideos:", {
           neighborhoodId,
           userId: user.userId,
+          userObjectId: new mongoose.Types.ObjectId(user.userId), // Convert to ObjectId
         });
+
+        // Check if neighborhood exists at all
+        const neighborhoodExists = await Neighborhood.findById(neighborhoodId);
+        console.log("🔍 Neighborhood exists:", !!neighborhoodExists);
+
+        if (!neighborhoodExists) {
+          throw new Error("Neighborhood not found");
+        }
+
+        // Debug: Check what the neighborhood actually contains
+        console.log("🔍 Neighborhood members:", neighborhoodExists.members);
+        console.log("🔍 Neighborhood owner:", neighborhoodExists.owner);
 
         // Verify user has access to this neighborhood
         const neighborhood = await Neighborhood.findOne({
           _id: neighborhoodId,
-          $or: [{ owner: user.userId }, { "members.user": user.userId }],
+          $or: [
+            { owner: new mongoose.Types.ObjectId(user.userId) }, // Convert to ObjectId
+            { "members.user": new mongoose.Types.ObjectId(user.userId) }, // Convert to ObjectId
+          ],
         });
 
+        console.log("🔍 User has access to neighborhood:", !!neighborhood);
+
         if (!neighborhood) {
+          // Let's see why access was denied
+          const neighborhoodForDebug = await Neighborhood.findById(
+            neighborhoodId
+          );
+          console.log("🔍 ACCESS DENIED DEBUG:", {
+            neighborhoodOwner: neighborhoodForDebug?.owner?.toString(),
+            neighborhoodMembers: neighborhoodForDebug?.members?.map((m) =>
+              m.user?.toString()
+            ),
+            userId: user.userId,
+            userIdType: typeof user.userId,
+          });
           throw new Error("Access denied to neighborhood");
         }
 
@@ -339,6 +369,14 @@ const resolvers = {
         console.log(
           `✅ Found ${videos.length} videos for neighborhood ${neighborhoodId}`
         );
+
+        // Debug: Show video details
+        videos.forEach((video) => {
+          console.log(
+            `📹 Video: ${video.title} - Neighborhood: ${video.neighborhood?._id}`
+          );
+        });
+
         return videos;
       } catch (error) {
         console.error("❌ Error in getNeighborhoodVideos:", error);
