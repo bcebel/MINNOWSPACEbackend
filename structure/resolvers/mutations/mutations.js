@@ -312,77 +312,30 @@ const resolvers = {
     // NEW: Get neighborhood videos (with access control)
     getNeighborhoodVideos: async (_, { neighborhoodId }, { user }) => {
       try {
-        if (!user) {
-          throw new Error("Authentication required");
-        }
+        if (!user) throw new Error("Authentication required");
 
-        console.log("🔍 DEBUG getNeighborhoodVideos:", {
-          neighborhoodId,
-          userId: user.userId,
-          userObjectId: new mongoose.Types.ObjectId(user.userId), // Convert to ObjectId
-        });
+        // Get neighborhood members
+        const neighborhood = await Neighborhood.findById(
+          neighborhoodId
+        ).populate("members.user", "_id");
 
-        // Check if neighborhood exists at all
-        const neighborhoodExists = await Neighborhood.findById(neighborhoodId);
-        console.log("🔍 Neighborhood exists:", !!neighborhoodExists);
+        const memberIds = neighborhood.members.map((m) => m.user._id);
 
-        if (!neighborhoodExists) {
-          throw new Error("Neighborhood not found");
-        }
-
-        // Debug: Check what the neighborhood actually contains
-        console.log("🔍 Neighborhood members:", neighborhoodExists.members);
-        console.log("🔍 Neighborhood owner:", neighborhoodExists.owner);
-
-        // Verify user has access to this neighborhood
-        const neighborhood = await Neighborhood.findOne({
-          _id: neighborhoodId,
-          $or: [
-            { owner: new mongoose.Types.ObjectId(user.userId) }, // Convert to ObjectId
-            { "members.user": new mongoose.Types.ObjectId(user.userId) }, // Convert to ObjectId
-          ],
-        });
-
-        console.log("🔍 User has access to neighborhood:", !!neighborhood);
-
-        if (!neighborhood) {
-          // Let's see why access was denied
-          const neighborhoodForDebug = await Neighborhood.findById(
-            neighborhoodId
-          );
-          console.log("🔍 ACCESS DENIED DEBUG:", {
-            neighborhoodOwner: neighborhoodForDebug?.owner?.toString(),
-            neighborhoodMembers: neighborhoodForDebug?.members?.map((m) =>
-              m.user?.toString()
-            ),
-            userId: user.userId,
-            userIdType: typeof user.userId,
-          });
-          throw new Error("Access denied to neighborhood");
-        }
-
-        const videos = await Video.find({ neighborhood: neighborhoodId })
+        // Get videos from all neighborhood members
+        const videos = await Video.find({
+          user: { $in: memberIds },
+        })
           .populate("user", "username profilePhoto")
           .populate("neighborhood", "name description")
           .sort({ createdAt: -1 });
 
         console.log(
-          `✅ Found ${videos.length} videos for neighborhood ${neighborhoodId}`
+          `✅ Found ${videos.length} videos from ${memberIds.length} neighborhood members`
         );
-
-        // Debug: Show video details
-        videos.forEach((video) => {
-          console.log(
-            `📹 Video: ${video.title} - Neighborhood: ${video.neighborhood?._id}`
-          );
-        });
-
         return videos;
       } catch (error) {
-        console.error("❌ Error in getNeighborhoodVideos:", error);
-        throw new Error(
-          "Failed to fetch neighborhood videos: " + error.message
-        );
+        console.error("❌ Error:", error);
+        throw error;
       }
     },
 
