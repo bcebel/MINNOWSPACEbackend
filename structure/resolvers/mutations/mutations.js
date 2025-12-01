@@ -134,7 +134,15 @@ const resolvers = {
         const allLinks = [];
         usersWithLinks.forEach((user) => {
           user.affiliateLinks.forEach((link) => {
-            allLinks.push(fixIds(link)); // 🔥 APPLY THE FIX
+            // 🔥 SIMPLIFIED: Just convert to plain object, no recursive fixing
+            const simpleLink = {
+              id: link._id ? link._id.toString() : link.id,
+              url: link.url,
+              title: link.title || "",
+              description: link.description || "",
+              clicks: link.clicks || 0,
+            };
+            allLinks.push(simpleLink);
           });
         });
 
@@ -144,7 +152,7 @@ const resolvers = {
         const randomLink =
           allLinks[Math.floor(Math.random() * allLinks.length)];
 
-        console.log("✅ Random affiliate link found");
+        console.log("✅ Random affiliate link found:", randomLink.title);
         return randomLink;
       } catch (error) {
         console.error("❌ Error in randomAffiliateLink:", error);
