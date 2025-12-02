@@ -28,6 +28,19 @@ const FILEBASE_BUCKET_NAME = process.env.FILEBASE_BUCKET_NAME;
 const PINATA_JWT = process.env.PINATA_JWT;
 const PINATA_GATEWAY = process.env.PINATA_GATEWAY;
 
+const getFileType = (mimetype, originalname) => {
+  if (mimetype.startsWith("video/")) return "video";
+  if (mimetype.startsWith("image/")) return "image";
+  if (mimetype.startsWith("audio/")) return "audio";
+
+  // Fallback based on file extension
+  const ext = originalname.split(".").pop().toLowerCase();
+  if (["mp4", "mov", "avi", "mkv", "webm"].includes(ext)) return "video";
+  if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext)) return "image";
+  if (["mp3", "wav", "ogg"].includes(ext)) return "audio";
+
+  return "file";
+};
 //auth middleware
 export const authenticateUser = (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -78,61 +91,73 @@ export default (app) => {
     "video"
   );
 
-  async function handleUpload(req, res) {
-    const { title, description } = req.body;
-    const uid = req.user.userId; // Extract the user's ID from the authenticated request
-    if (!uid) {
-      return res.status(400).send("UID is required.");
+async function handleUpload(req, res) {
+  const { title, description } = req.body;
+  const uid = req.user.userId;
+
+  if (!uid) {
+    return res.status(400).send("UID is required.");
+  }
+
+  if (!req.file) {
+    return res.status(400).send("No file uploaded.");
+  }
+
+  try {
+    // Calculate CID using Pinata
+    const cid = await calculateCID(req.file.buffer, req.file.originalname);
+
+    // Upload file to Filebase S3
+    const s3 = new S3Client({
+      endpoint: "https://s3.filebase.com",
+      region: "us-east-1",
+      credentials: {
+        accessKeyId: FILEBASE_ACCESS_KEY,
+        secretAccessKey: FILEBASE_SECRET_KEY,
+      },
+    });
+
+    const params = {
+      Bucket: FILEBASE_BUCKET_NAME,
+      Key: cid,
+      Body: req.file.buffer,
+    };
+
+    await s3.send(new PutObjectCommand(params));
+    const ipfsUrl = `https://ipfs.filebase.io/ipfs/${cid}`;
+
+    // Determine file type
+    const fileType = getFileType(req.file.mimetype, req.file.originalname);
+    const isImage = fileType === "image";
+    const isVideo = fileType === "video";
+
+    // Determine optimal strategy
+    const strategy = isVideo ? "sequential" : "rarest";
+
+    // Save the file permanently for seeding
+    const uploadsDir = path.join(process.cwd(), "uploads");
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
     }
 
-    if (!req.file) {
-      return res.status(400).send("No file uploaded.");
-    }
+    // Use appropriate file extension
+    const fileExt = isImage ? "image" : isVideo ? "mp4" : "bin";
+    const permanentFilePath = path.join(uploadsDir, `${cid}.${fileExt}`);
+    fs.writeFileSync(permanentFilePath, req.file.buffer);
 
-    try {
-      // Calculate CID using Pinata
-      const cid = await calculateCID(req.file.buffer, req.file.originalname);
+    // Create a torrent file
+    createTorrent(permanentFilePath, { announce }, async (err, torrent) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).send("Torrent creation failed.");
+      }
 
-      // Upload file to Filebase S3
-      const s3 = new S3Client({
-        endpoint: "https://s3.filebase.com",
-        region: "us-east-1",
-        credentials: {
-          accessKeyId: FILEBASE_ACCESS_KEY,
-          secretAccessKey: FILEBASE_SECRET_KEY,
-        },
-      });
+      // Seed the torrent
+      client.seed(permanentFilePath, { announce }, async (torrentData) => {
+        console.log("Torrent seeded successfully:", torrentData.magnetURI);
 
-      const params = {
-        Bucket: FILEBASE_BUCKET_NAME,
-        Key: cid,
-        Body: req.file.buffer,
-      };
-
-      await s3.send(new PutObjectCommand(params));
-      const ipfsUrl = `https://ipfs.filebase.io/ipfs/${cid}`;
-
-      // after CID + Filebase/S3 succeed
-      // after CID + Filebase success
-      if (req.file.mimetype.startsWith("image/")) {
-        // 1.  save to disk (mirror video logic)
-        const uploadsDir = path.join(process.cwd(), "uploads");
-        if (!fs.existsSync(uploadsDir))
-          fs.mkdirSync(uploadsDir, { recursive: true });
-        const permanentFilePath = path.join(uploadsDir, `${cid}.image`); // any extension works
-        fs.writeFileSync(permanentFilePath, req.file.buffer);
-
-        // 2.  create torrent / seed
-        createTorrent(
-          permanentFilePath,
-         { announce },
-          async (err, torrent) => {
-            if (err) return res.status(500).json({ error: "Torrent failed" });
-
-            client.seed(
-              permanentFilePath,
-            { announce },
-              async (seed) => {
+        if (isImage) {
+          // Save as Image
           const newImage = new Image({
             title: title || req.file.originalname,
             description: description || "",
@@ -143,65 +168,56 @@ export default (app) => {
             mimetype: req.file.mimetype,
             cid,
             ipfsUrl,
-            magnetLink: seed.magnetURI,
+            magnetLink: torrentData.magnetURI,
+            strategy: "rarest", // Images use rarest strategy
           });
-                await newImage.save();
-                res.json({ ipfsUrl, magnetLink: seed.magnetURI });
-              }
-            );
-          }
-        );
-        return;
-      }
-      // existing video branch continues unchanged
-
-      // Save the file permanently for seeding
-      const uploadsDir = path.join(process.cwd(), "uploads");
-      if (!fs.existsSync(uploadsDir)) {
-        fs.mkdirSync(uploadsDir, { recursive: true });
-      }
-      const permanentFilePath = path.join(uploadsDir, `${cid}.mp4`);
-      fs.writeFileSync(permanentFilePath, req.file.buffer);
-
-      // Create a torrent file
- createTorrent(
-  permanentFilePath,
-  { announce }, // ✅ use the constant
-  async (err, torrent) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).send("Torrent creation failed.");
-    }
-
-    // Seed the torrent
-    client.seed(
-      permanentFilePath,
-      { announce }, // ✅ use the constant
-      async (torrentData) => {
-        console.log("Torrent seeded successfully:", torrentData.magnetURI);
-
-  const newVideo = new Video({
-    title: title || "Untitled Video",
-    description: description || "",
-    user: uid,
-    fileName: req.file.originalname,
-    fileSize: req.file.size,
-    fileType: req.file.mimetype,
-    cid,
-    ipfsUrl,
-    magnetLink: torrentData.magnetURI,
-  });
-        await newVideo.save();
-        res.json({ ipfsUrl, magnetLink: torrentData.magnetURI });
-      }
-    );
+          await newImage.save();
+          res.json({
+            ipfsUrl,
+            magnetLink: torrentData.magnetURI,
+            fileType: "image",
+            strategy: "rarest",
+          });
+        } else {
+          // Save as Video (or other media)
+          const newVideo = new Video({
+            title: title || req.file.originalname,
+            description: description || "",
+            user: uid,
+            fileName: req.file.originalname,
+            fileSize: req.file.size,
+            fileType: fileType, // Use the determined file type
+            mimetype: req.file.mimetype,
+            cid,
+            ipfsUrl,
+            magnetLink: torrentData.magnetURI,
+            strategy: strategy, // Set the optimal strategy
+            // Add optional video metadata
+            videoMetadata: isVideo
+              ? {
+                  hasFastStart: req.file.originalname
+                    .toLowerCase()
+                    .endsWith(".mp4"),
+                  // You could extract more metadata here with ffmpeg or similar
+                }
+              : null,
+          });
+          await newVideo.save();
+          res.json({
+            ipfsUrl,
+            magnetLink: torrentData.magnetURI,
+            fileType: fileType,
+            strategy: strategy,
+            optimizedFor: isVideo ? "streaming" : "quick load",
+          });
+        }
+      });
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Upload failed.");
   }
-);
-    } catch (error) {
-      console.error(error);
-      res.status(500).send("Upload failed.");
-    }
-  }
+}
 
   app.post("/upload", authenticateUser, uploadHandler, handleUpload);
 };

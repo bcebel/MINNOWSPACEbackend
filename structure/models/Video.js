@@ -15,8 +15,19 @@ const videoSchema = new mongoose.Schema({
   neighborhood: { type: mongoose.Schema.Types.ObjectId, ref: "Neighborhood" },
   createdAt: { type: Date, default: Date.now }, // Timestamp of upload
   updatedAt: { type: Date, default: Date.now }, // Timestamp of last update
-});
-
+    strategy: {
+    type: String,
+    enum: ['sequential', 'rarest'],
+    default: 'sequential' // Default for videos
+  },
+      videoMetadata: {
+    duration: Number,
+    bitrate: Number,
+    codec: String,
+    resolution: String,
+    hasFastStart: Boolean // For MP4 moov atom position
+  }
+}, { timestamps: true });
 // Middleware to update `updatedAt` on save
 videoSchema.pre("save", function (next) {
   this.updatedAt = new Date();
