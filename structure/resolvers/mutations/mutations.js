@@ -375,9 +375,12 @@ const resolvers = {
     },
 
     // New combined resolver
+    // Replace your current getNeighborhoodGallery resolver with this:
     getNeighborhoodGallery: async (_, { neighborhoodId }, { user }) => {
       try {
         if (!user) throw new Error("Authentication required");
+
+        console.log("🎨 Fetching gallery for neighborhood:", neighborhoodId);
 
         // Verify access
         const neighborhood = await Neighborhood.findOne({
@@ -385,7 +388,12 @@ const resolvers = {
           $or: [{ owner: user.userId }, { "members.user": user.userId }],
         });
 
-        if (!neighborhood) throw new Error("Access denied to neighborhood");
+        if (!neighborhood) {
+          console.log("❌ Access denied or neighborhood not found");
+          throw new Error("Access denied to neighborhood");
+        }
+
+        console.log("✅ Access granted to neighborhood:", neighborhood.name);
 
         // Get videos from this neighborhood
         const videos = await Video.find({ neighborhood: neighborhoodId })
@@ -397,17 +405,18 @@ const resolvers = {
           .populate("user", "username profilePhoto")
           .populate("neighborhood", "name description");
 
-        // Combine and sort by date
-        const allMedia = [...videos, ...images].sort(
-          (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+        console.log(
+          `📊 Found: ${videos.length} videos, ${images.length} images`
         );
 
-        console.log(
-          `🎨 Gallery: ${videos.length} videos + ${images.length} images = ${allMedia.length} items`
-        );
-        return allMedia;
+        // Return as GalleryResponse object
+        return {
+          videos: videos,
+          images: images,
+          totalCount: videos.length + images.length,
+        };
       } catch (error) {
-        console.error("Error getting neighborhood gallery:", error);
+        console.error("❌ Error in getNeighborhoodGallery:", error);
         throw error;
       }
     },
