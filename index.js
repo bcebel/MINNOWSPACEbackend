@@ -554,6 +554,10 @@ app.get("/api/debug-videos", async (req, res) => {
 });
 
 */
+
+
+
+
 app.post("/api/track-click", async (req, res) => {
   try {
     const { affiliateLinkId } = req.body;

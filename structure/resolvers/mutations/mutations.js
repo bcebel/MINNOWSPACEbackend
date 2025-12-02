@@ -310,34 +310,100 @@ const resolvers = {
       }
     },
     // NEW: Get neighborhood videos (with access control)
-    getNeighborhoodVideos: async (_, { neighborhoodId }, { user }) => {
-      try {
-        if (!user) throw new Error("Authentication required");
+// Update your getNeighborhoodVideos resolver
+getNeighborhoodVideos: async (_, { neighborhoodId }, { user }) => {
+  try {
+    if (!user) throw new Error("Authentication required");
 
-        // Get neighborhood members
-        const neighborhood = await Neighborhood.findById(
-          neighborhoodId
-        ).populate("members.user", "_id");
+    console.log("🏘️ Fetching videos FOR neighborhood:", neighborhoodId);
 
-        const memberIds = neighborhood.members.map((m) => m.user._id);
+    // 1. Verify user has access
+    const neighborhood = await Neighborhood.findOne({
+      _id: neighborhoodId,
+      $or: [{ owner: user.userId }, { "members.user": user.userId }],
+    });
 
-        // Get videos from all neighborhood members
-        const videos = await Video.find({
-          user: { $in: memberIds },
-        })
-          .populate("user", "username profilePhoto")
-          .populate("neighborhood", "name description")
-          .sort({ createdAt: -1 });
+    if (!neighborhood) throw new Error("Access denied to neighborhood");
 
-        console.log(
-          `✅ Found ${videos.length} videos from ${memberIds.length} neighborhood members`
-        );
-        return videos;
-      } catch (error) {
-        console.error("❌ Error:", error);
-        throw error;
-      }
+    // 2. ✅ CRITICAL: Only get videos WITH this neighborhood ID
+    const videos = await Video.find({ 
+      neighborhood: neighborhoodId  // This is the key filter!
+    })
+      .populate("user", "username profilePhoto")
+      .populate("neighborhood", "name description")
+      .sort({ createdAt: -1 });
+
+    console.log(`✅ Found ${videos.length} videos SHARED TO neighborhood ${neighborhoodId}`);
+    return videos;
+  } catch (error) {
+    console.error("❌ Error:", error);
+    throw error;
+  }
     },
+
+    // Add this resolver for neighborhood images
+getNeighborhoodImages: async (_, { neighborhoodId }, { user }) => {
+  try {
+    if (!user) throw new Error("Authentication required");
+
+    // Verify access
+    const neighborhood = await Neighborhood.findOne({
+      _id: neighborhoodId,
+      $or: [{ owner: user.userId }, { "members.user": user.userId }],
+    });
+
+    if (!neighborhood) throw new Error("Access denied to neighborhood");
+
+    // Get images shared to this neighborhood
+    const images = await Image.find({ 
+      neighborhood: neighborhoodId  // Only images shared here
+    })
+      .populate("user", "username profilePhoto")
+      .populate("neighborhood", "name description")
+      .sort({ createdAt: -1 });
+
+    return images;
+  } catch (error) {
+    console.error("Error getting neighborhood images:", error);
+    throw error;
+  }
+    },
+
+    // New combined resolver
+getNeighborhoodGallery: async (_, { neighborhoodId }, { user }) => {
+  try {
+    if (!user) throw new Error("Authentication required");
+
+    // Verify access
+    const neighborhood = await Neighborhood.findOne({
+      _id: neighborhoodId,
+      $or: [{ owner: user.userId }, { "members.user": user.userId }],
+    });
+
+    if (!neighborhood) throw new Error("Access denied to neighborhood");
+
+    // Get videos from this neighborhood
+    const videos = await Video.find({ neighborhood: neighborhoodId })
+      .populate("user", "username profilePhoto")
+      .populate("neighborhood", "name description");
+
+    // Get images from this neighborhood
+    const images = await Image.find({ neighborhood: neighborhoodId })
+      .populate("user", "username profilePhoto")
+      .populate("neighborhood", "name description");
+
+    // Combine and sort by date
+    const allMedia = [...videos, ...images].sort(
+      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    );
+
+    console.log(`🎨 Gallery: ${videos.length} videos + ${images.length} images = ${allMedia.length} items`);
+    return allMedia;
+  } catch (error) {
+    console.error("Error getting neighborhood gallery:", error);
+    throw error;
+  }
+},
 
     // NEW: Get specific user's videos (public only or with permission)
     getUserVideos: async (_, { userId }, { user }) => {

@@ -19,21 +19,21 @@ const typeDefs = gql`
   }
 
   type Image {
-  id: ID!
-  title: String!
-  description: String
-  user: User!
-  neighborhood: Neighborhood
-  fileName: String!
-  fileSize: Int!
-  fileType: String!
-  mimetype: String!
-  cid: String!
-  ipfsUrl: String!
-  magnetLink: String!
-  isPublic: Boolean!
-  createdAt: String!
-}
+    id: ID!
+    title: String!
+    description: String
+    user: User!
+    neighborhood: Neighborhood
+    fileName: String!
+    fileSize: Int!
+    fileType: String!
+    mimetype: String!
+    cid: String!
+    ipfsUrl: String!
+    magnetLink: String!
+    isPublic: Boolean!
+    createdAt: String!
+  }
 
   type AffiliateLink {
     id: ID!
@@ -107,17 +107,17 @@ const typeDefs = gql`
     inviteToNeighborhood(neighborhoodId: ID!, username: String!): Boolean
 
     sendImage(
-    neighborhoodId: ID
-    title: String
-    description: String
-    fileName: String!
-    fileSize: Int!
-    fileType: String!
-    mimetype: String!
-    cid: String!
-    ipfsUrl: String!
-    magnetLink: String!
-  ): Image!
+      neighborhoodId: ID
+      title: String
+      description: String
+      fileName: String!
+      fileSize: Int!
+      fileType: String!
+      mimetype: String!
+      cid: String!
+      ipfsUrl: String!
+      magnetLink: String!
+    ): Image!
   }
 
   type IPFSData {
@@ -259,6 +259,10 @@ const typeDefs = gql`
     videos: [Video!]
     video(id: ID!): Video
 
+    getNeighborhoodVideos(neighborhoodId: ID!): [Video]
+    getNeighborhoodImages(neighborhoodId: ID!): [Image]
+    getNeighborhoodGallery(neighborhoodId: ID!): GalleryResponse
+
     # Stream queries
     streams: [Stream!]
     stream(id: ID!): Stream
@@ -291,6 +295,12 @@ const typeDefs = gql`
     getMyVideos: [Video]
     getNeighborhoodVideos(neighborhoodId: ID!): [Video]
     getUserVideos(userId: ID!): [Video]
+  }
+
+  type GalleryResponse {
+    videos: [Video]
+    images: [Image]
+    totalCount: Int
   }
 
   type Subscription {
