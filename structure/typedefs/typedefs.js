@@ -293,7 +293,6 @@ const typeDefs = gql`
     neighborhoodVideos(neighborhoodId: ID!): [Video]
 
     getMyVideos: [Video]
-    getNeighborhoodVideos(neighborhoodId: ID!): [Video]
     getUserVideos(userId: ID!): [Video]
   }
 
