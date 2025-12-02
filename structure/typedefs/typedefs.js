@@ -31,6 +31,7 @@ const typeDefs = gql`
     cid: String!
     ipfsUrl: String!
     magnetLink: String!
+    strategy: String
     isPublic: Boolean!
     createdAt: String!
   }
@@ -226,6 +227,7 @@ const typeDefs = gql`
     ipfsUrl: String!
     magnetLink: String!
     user: User!
+    strategy: String
     neighborhood: Neighborhood
     createdAt: String!
   }
