@@ -92,7 +92,7 @@ export default (app) => {
   );
 
 async function handleUpload(req, res) {
-  const { title, description } = req.body;
+  const { title, description, neighborhoodId } = req.body;
   const uid = req.user.userId;
 
   if (!uid) {
@@ -170,6 +170,7 @@ async function handleUpload(req, res) {
             ipfsUrl,
             magnetLink: torrentData.magnetURI,
             strategy: "rarest", // Images use rarest strategy
+            neighborhood: neighborhoodId || null,
           });
           await newImage.save();
           res.json({
@@ -177,6 +178,7 @@ async function handleUpload(req, res) {
             magnetLink: torrentData.magnetURI,
             fileType: "image",
             strategy: "rarest",
+            neighborhoodId: neighborhoodId || null,
           });
         } else {
           // Save as Video (or other media)
@@ -201,6 +203,7 @@ async function handleUpload(req, res) {
                   // You could extract more metadata here with ffmpeg or similar
                 }
               : null,
+            neighborhood: neighborhoodId || null,
           });
           await newVideo.save();
           res.json({
@@ -209,6 +212,7 @@ async function handleUpload(req, res) {
             fileType: fileType,
             strategy: strategy,
             optimizedFor: isVideo ? "streaming" : "quick load",
+            neighborhoodId: neighborhoodId || null,
           });
         }
       });
