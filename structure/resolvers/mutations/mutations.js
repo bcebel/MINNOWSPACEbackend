@@ -120,48 +120,44 @@ const resolvers = {
       return user;
     },
 
-    randomAffiliateLink: async (_, __, context) => {
-      try {
-        if (!context.user) throw new Error("Authentication required");
-
-        console.log("🎲 Fetching random affiliate link...");
-
-        // Get all users with affiliate links
-        const usersWithLinks = await User.find({
-          "affiliateLinks.0": { $exists: true },
-        }).select("affiliateLinks");
-
-        if (usersWithLinks.length === 0) return null;
-
-        // Flatten all links
-        const allLinks = [];
-        usersWithLinks.forEach((user) => {
-          user.affiliateLinks.forEach((link) => {
-            // 🔥 SIMPLIFIED: Just convert to plain object, no recursive fixing
-            const simpleLink = {
-              id: link._id ? link._id.toString() : link.id,
-              url: link.url,
-              title: link.title || "",
-              description: link.description || "",
-              clicks: link.clicks || 0,
-            };
-            allLinks.push(simpleLink);
+ // In resolvers.js - Update randomAffiliateLink
+randomAffiliateLink: async (_, __, context) => {
+  try {
+    // Get all users with affiliate links
+    const usersWithLinks = await User.find({
+      "affiliateLinks.0": { $exists: true }
+    }).select("affiliateLinks");
+    
+    if (usersWithLinks.length === 0) return null;
+    
+    // Flatten all links
+    const allLinks = [];
+    usersWithLinks.forEach((user) => {
+      user.affiliateLinks.forEach((link) => {
+        // Ensure link is properly formatted
+        if (link && link.url) {
+          allLinks.push({
+            id: link._id ? link._id.toString() : Math.random().toString(36),
+            url: link.url,
+            title: link.title || "",
+            description: link.description || "",
+            imageUrl: link.imageUrl || null,
+            clicks: link.clicks || 0
           });
-        });
-
-        if (allLinks.length === 0) return null;
-
-        // Pick random link
-        const randomLink =
-          allLinks[Math.floor(Math.random() * allLinks.length)];
-
-        console.log("✅ Random affiliate link found:", randomLink.title);
-        return randomLink;
-      } catch (error) {
-        console.error("❌ Error in randomAffiliateLink:", error);
-        throw error;
-      }
-    },
+        }
+      });
+    });
+    
+    if (allLinks.length === 0) return null;
+    
+    // Pick random link
+    const randomIndex = Math.floor(Math.random() * allLinks.length);
+    return allLinks[randomIndex];
+  } catch (error) {
+    console.error("Error in randomAffiliateLink:", error);
+    return null;
+  }
+},
 
     // Video queries
     videos: async () => await Video.find().populate("user"),

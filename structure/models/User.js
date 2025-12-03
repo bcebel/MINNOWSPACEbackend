@@ -38,6 +38,7 @@ const userSchema = new Schema(
         url: String,
         title: String,
         description: String,
+        imageUrl: String,
         clicks: { type: Number, default: 0 },
       },
     ],
