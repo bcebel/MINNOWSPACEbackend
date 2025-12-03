@@ -29,6 +29,12 @@ const videoSchema = new mongoose.Schema(
       resolution: String,
       hasFastStart: Boolean, // For MP4 moov atom position
     },
+    thumbnail: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Image",
+      default: null,
+    },
+    thumbnailUrl: String,
   },
   { timestamps: true }
 );

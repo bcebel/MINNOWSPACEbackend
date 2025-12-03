@@ -92,7 +92,8 @@ export default (app) => {
   );
 
 async function handleUpload(req, res) {
-  const { title, description, neighborhoodId } = req.body;
+  const { title, description, neighborhoodId, isThumbnail, originalFileName } =
+    req.body;
   const uid = req.user.userId;
 
   if (!uid) {
@@ -156,8 +157,32 @@ async function handleUpload(req, res) {
       client.seed(permanentFilePath, { announce }, async (torrentData) => {
         console.log("Torrent seeded successfully:", torrentData.magnetURI);
 
-        if (isImage) {
-          // Save as Image
+        // 🆕 CHECK IF THIS IS A THUMBNAIL
+        if (isThumbnail === "true" || isThumbnail === true) {
+          console.log("📸 Saving thumbnail for video:", originalFileName);
+
+          // Find the video this thumbnail belongs to
+          let relatedVideo = null;
+          if (originalFileName) {
+            // Try to find video by original filename (without -thumbnail suffix)
+            const baseFileName = originalFileName.replace("-thumbnail.jpg", "");
+            relatedVideo = await Video.findOne({
+              fileName: { $regex: baseFileName, $options: "i" },
+            });
+
+            if (!relatedVideo) {
+              // Try by exact match with .mov/.mp4 extensions
+              relatedVideo = await Video.findOne({
+                $or: [
+                  { fileName: baseFileName + ".mov" },
+                  { fileName: baseFileName + ".mp4" },
+                  { fileName: baseFileName },
+                ],
+              });
+            }
+          }
+
+          // Save as Thumbnail Image with video reference
           const newImage = new Image({
             title: title || req.file.originalname,
             description: description || "",
@@ -169,8 +194,51 @@ async function handleUpload(req, res) {
             cid,
             ipfsUrl,
             magnetLink: torrentData.magnetURI,
-            strategy: "rarest", // Images use rarest strategy
+            strategy: "rarest",
             neighborhood: neighborhoodId || null,
+            isThumbnail: true, // Mark as thumbnail
+            videoId: relatedVideo ? relatedVideo._id : null, // Link to video if found
+            originalVideoFileName: originalFileName, // Store reference
+          });
+
+          await newImage.save();
+
+          // 🆕 UPDATE THE VIDEO WITH THUMBNAIL REFERENCE
+          if (relatedVideo) {
+            await Video.findByIdAndUpdate(relatedVideo._id, {
+              thumbnail: newImage._id,
+              thumbnailUrl: ipfsUrl,
+            });
+            console.log(
+              "✅ Updated video with thumbnail:",
+              relatedVideo.fileName
+            );
+          }
+
+          res.json({
+            ipfsUrl,
+            magnetLink: torrentData.magnetURI,
+            fileType: "image",
+            isThumbnail: true,
+            videoId: relatedVideo ? relatedVideo._id : null,
+            neighborhoodId: neighborhoodId || null,
+          });
+        } else if (isImage) {
+          // Save as regular Image (not a thumbnail)
+          const newImage = new Image({
+            title: title || req.file.originalname,
+            description: description || "",
+            user: uid,
+            fileName: req.file.originalname,
+            fileSize: req.file.size,
+            fileType: "image",
+            mimetype: req.file.mimetype,
+            cid,
+            ipfsUrl,
+            magnetLink: torrentData.magnetURI,
+            strategy: "rarest",
+            neighborhood: neighborhoodId || null,
+            isThumbnail: false, // Not a thumbnail
           });
           await newImage.save();
           res.json({
@@ -188,19 +256,17 @@ async function handleUpload(req, res) {
             user: uid,
             fileName: req.file.originalname,
             fileSize: req.file.size,
-            fileType: fileType, // Use the determined file type
+            fileType: fileType,
             mimetype: req.file.mimetype,
             cid,
             ipfsUrl,
             magnetLink: torrentData.magnetURI,
-            strategy: strategy, // Set the optimal strategy
-            // Add optional video metadata
+            strategy: strategy,
             videoMetadata: isVideo
               ? {
                   hasFastStart: req.file.originalname
                     .toLowerCase()
                     .endsWith(".mp4"),
-                  // You could extract more metadata here with ffmpeg or similar
                 }
               : null,
             neighborhood: neighborhoodId || null,

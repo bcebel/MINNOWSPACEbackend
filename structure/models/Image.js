@@ -19,8 +19,16 @@ const imageSchema = new mongoose.Schema({
     type: String,
     enum: ["sequential", "rarest"],
     default: "rarest", // Images default to rarest
-  }
   },
-);
+  videoId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Video",
+    default: null,
+  },
+  isThumbnail: {
+    type: Boolean,
+    default: false,
+  },
+});
 
 export default mongoose.model("Image", imageSchema);
