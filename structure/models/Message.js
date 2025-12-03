@@ -13,6 +13,7 @@ const messageSchema = new mongoose.Schema(
     ipfsUrl: String,
     mimeType: String,
     ipfsHash: String,
+    thumbnailUrl: String,
     ipfsData: {
       cid: String,
       ipfsUrl: String,
