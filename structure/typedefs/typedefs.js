@@ -30,6 +30,7 @@ const typeDefs = gql`
     mimetype: String!
     cid: String!
     ipfsUrl: String!
+    thumbnailUrl: String
     magnetLink: String!
     strategy: String
     isPublic: Boolean!
@@ -181,6 +182,7 @@ const typeDefs = gql`
     ipfsUrl: String
     ipfsHash: String
     ipfsData: IPFSData
+    thumbnailUrl: String
     room: String!
     neighborhood: Neighborhood
     createdAt: String!
@@ -375,6 +377,7 @@ const typeDefs = gql`
       ipfsHash: String
       ipfsData: IPFSDataInput
       cid: String
+      thumbnailUrl: String
       ipfsUrl: String
       neighborhoodId: ID
     ): Message!

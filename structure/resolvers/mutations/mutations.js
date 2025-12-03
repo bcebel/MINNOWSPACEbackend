@@ -493,6 +493,7 @@ const resolvers = {
         fileName,
         fileType,
         fileSize,
+        thumbnailUrl,
         magnetLink,
         mimeType,
         neighborhoodId,
@@ -507,6 +508,7 @@ const resolvers = {
         imageUrl,
         videoUrl,
         neighborhoodId,
+        thumbnailUrl,
       });
 
       let neighborhood = null;
@@ -527,6 +529,7 @@ const resolvers = {
         magnetLink: magnetLink || null,
         fileName: fileName || null,
         fileType: fileType || null,
+        thumbnailUrl: thumbnailUrl || null,
         fileSize: fileSize || null,
         mimeType: mimeType || null,
         room: room || "neighborhood",
