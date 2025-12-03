@@ -39,6 +39,7 @@ const typeDefs = gql`
   type AffiliateLink {
     id: ID!
     url: String!
+    imageUrl: String!
     title: String
     description: String
     clicks: Int

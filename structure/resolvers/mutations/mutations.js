@@ -68,7 +68,7 @@ const fixIds = (obj) => {
   return obj;
 };
 
-const validateAffiliateHtml = (html) => {
+const validateAndExtractAffiliateHtml = (html) => {
   const allowedDomains = [
     "anrdoezrs.net",
     "tkqlhce.com",
@@ -100,7 +100,37 @@ const validateAffiliateHtml = (html) => {
     html.includes("<img src=") &&
     html.includes("</a>");
 
-  return hasCorrectUrlCount && hasValidStructure;
+  // If validation passes, extract the data
+  if (hasCorrectUrlCount && hasValidStructure) {
+    // Extract URLs
+    const hrefMatch = html.match(/href="([^"]*)"/);
+    const srcMatch = html.match(/src="([^"]*)"/);
+    const altMatch = html.match(/alt="([^"]*)"/);
+    const titleMatch = html.match(/title="([^"]*)"/);
+
+    // Extract text between > and < (link text)
+    const textMatch = html.match(/>([^<]+)</);
+    const linkText = textMatch ? textMatch[1].trim() : null;
+
+    return {
+      isValid: true,
+      data: {
+        url: hrefMatch ? hrefMatch[1] : approvedUrls[0],
+        imageUrl: srcMatch ? srcMatch[1] : approvedUrls[1] || null,
+        title: altMatch
+          ? altMatch[1]
+          : titleMatch
+          ? titleMatch[1]
+          : linkText || "Affiliate Link",
+        description: "",
+      },
+    };
+  }
+
+  return {
+    isValid: false,
+    error: "Invalid affiliate HTML format",
+  };
 };
 
 const resolvers = {
@@ -120,44 +150,44 @@ const resolvers = {
       return user;
     },
 
- // In resolvers.js - Update randomAffiliateLink
-randomAffiliateLink: async (_, __, context) => {
-  try {
-    // Get all users with affiliate links
-    const usersWithLinks = await User.find({
-      "affiliateLinks.0": { $exists: true }
-    }).select("affiliateLinks");
-    
-    if (usersWithLinks.length === 0) return null;
-    
-    // Flatten all links
-    const allLinks = [];
-    usersWithLinks.forEach((user) => {
-      user.affiliateLinks.forEach((link) => {
-        // Ensure link is properly formatted
-        if (link && link.url) {
-          allLinks.push({
-            id: link._id ? link._id.toString() : Math.random().toString(36),
-            url: link.url,
-            title: link.title || "",
-            description: link.description || "",
-            imageUrl: link.imageUrl || null,
-            clicks: link.clicks || 0
+    // In resolvers.js - Update randomAffiliateLink
+    randomAffiliateLink: async (_, __, context) => {
+      try {
+        // Get all users with affiliate links
+        const usersWithLinks = await User.find({
+          "affiliateLinks.0": { $exists: true },
+        }).select("affiliateLinks");
+
+        if (usersWithLinks.length === 0) return null;
+
+        // Flatten all links
+        const allLinks = [];
+        usersWithLinks.forEach((user) => {
+          user.affiliateLinks.forEach((link) => {
+            // Ensure link is properly formatted
+            if (link && link.url) {
+              allLinks.push({
+                id: link._id ? link._id.toString() : Math.random().toString(36),
+                url: link.url,
+                title: link.title || "",
+                description: link.description || "",
+                imageUrl: link.imageUrl || null,
+                clicks: link.clicks || 0,
+              });
+            }
           });
-        }
-      });
-    });
-    
-    if (allLinks.length === 0) return null;
-    
-    // Pick random link
-    const randomIndex = Math.floor(Math.random() * allLinks.length);
-    return allLinks[randomIndex];
-  } catch (error) {
-    console.error("Error in randomAffiliateLink:", error);
-    return null;
-  }
-},
+        });
+
+        if (allLinks.length === 0) return null;
+
+        // Pick random link
+        const randomIndex = Math.floor(Math.random() * allLinks.length);
+        return allLinks[randomIndex];
+      } catch (error) {
+        console.error("Error in randomAffiliateLink:", error);
+        return null;
+      }
+    },
 
     // Video queries
     videos: async () => await Video.find().populate("user"),
@@ -658,10 +688,8 @@ randomAffiliateLink: async (_, __, context) => {
           throw new Error("Authentication required");
         }
 
-        // Use the working line that was already working
         const user = await User.findById(context.user.userId);
         if (!user) throw new Error("User not found");
-        // ... (rest of updateProfile logic)
 
         // Update basic profile fields
         if (bio !== undefined) user.bio = bio;
@@ -669,20 +697,52 @@ randomAffiliateLink: async (_, __, context) => {
 
         // Add affiliate links if provided
         if (affiliateLinks && affiliateLinks.length > 0) {
-          console.log("📝 Adding affiliate links:", affiliateLinks);
+          console.log("📝 Processing affiliate links:", affiliateLinks);
 
-          // Clear existing links and add new ones (or append - your choice)
-          user.affiliateLinks = []; // Clear first, then add new ones
+          // Clear existing links and add new ones
+          user.affiliateLinks = [];
 
           for (const link of affiliateLinks) {
             if (link.url && link.url.trim()) {
-              const newLink = {
-                url: link.url,
-                title: link.title || "", // This includes the title now
-                description: "", // You said no description
-                clicks: 0,
-              };
-              user.affiliateLinks.push(newLink);
+              // Check if it's HTML that needs validation/extraction
+              if (link.url.includes('<a href="')) {
+                // Validate and extract from HTML
+                const result = validateAndExtractAffiliateHtml(link.url);
+
+                if (!result.isValid) {
+                  throw new Error(
+                    `Invalid affiliate link format: ${result.error}`
+                  );
+                }
+
+                // Use extracted data
+                const newLink = {
+                  url: result.data.url,
+                  title: result.data.title,
+                  description:
+                    link.description || result.data.description || "",
+                  imageUrl: result.data.imageUrl,
+                  clicks: 0,
+                };
+
+                user.affiliateLinks.push(newLink);
+                console.log(
+                  "✅ Validated and extracted affiliate link:",
+                  newLink
+                );
+              } else {
+                // It's already a clean URL, use as-is
+                const newLink = {
+                  url: link.url,
+                  title: link.title || "Affiliate Link",
+                  description: link.description || "",
+                  imageUrl: link.imageUrl || null, // Use provided imageUrl if available
+                  clicks: 0,
+                };
+
+                user.affiliateLinks.push(newLink);
+                console.log("✅ Added clean affiliate link:", newLink);
+              }
             }
           }
         }
