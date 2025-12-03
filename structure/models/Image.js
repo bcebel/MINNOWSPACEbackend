@@ -29,6 +29,7 @@ const imageSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  originalVideoFileName: String,
 });
 
 export default mongoose.model("Image", imageSchema);
