@@ -487,23 +487,23 @@ const resolvers = {
       })
         .populate("owner", "username profilePhoto")
         .populate("inviteLinks.createdBy", "username profilePhoto");
-      
+
       if (!neighborhood) {
         return {
           isValid: false,
           message: "Invalid invite link",
         };
       }
-      
-      const link = neighborhood.inviteLinks.find(link => link.code === code);
-      
+
+      const link = neighborhood.inviteLinks.find((link) => link.code === code);
+
       if (!link) {
         return {
           isValid: false,
           message: "Invalid invite link",
         };
       }
-      
+
       // Check if link is expired
       if (link.expiresAt && link.expiresAt < new Date()) {
         return {
@@ -511,7 +511,7 @@ const resolvers = {
           message: "This invite link has expired",
         };
       }
-      
+
       // Check if link has reached max uses
       if (link.maxUses > 0 && link.uses >= link.maxUses) {
         return {
@@ -519,7 +519,7 @@ const resolvers = {
           message: "This invite link has reached its maximum uses",
         };
       }
-      
+
       return {
         isValid: true,
         message: "Valid invite link",
@@ -537,33 +537,62 @@ const resolvers = {
         },
       };
     },
-    
+
     // Get invite links for a neighborhood
+    // In resolvers.js - Update the neighborhoodInviteLinks resolver with debugging
     neighborhoodInviteLinks: async (_, { neighborhoodId }, context) => {
-      if (!context.user) throw new Error("Authentication required");
-      
-      const neighborhood = await Neighborhood.findById(neighborhoodId)
-        .populate("inviteLinks.createdBy", "username profilePhoto");
-      
-      if (!neighborhood) throw new Error("Neighborhood not found");
-      
+      console.log("🔍 neighborhoodInviteLinks resolver called");
+      console.log("Neighborhood ID:", neighborhoodId);
+      console.log("User ID:", context.user?.userId);
+
+      if (!context.user) {
+        console.log("❌ No user in context");
+        throw new Error("Authentication required");
+      }
+
+      const neighborhood = await Neighborhood.findById(neighborhoodId).populate(
+        "inviteLinks.createdBy",
+        "username profilePhoto"
+      );
+
+      if (!neighborhood) {
+        console.log("❌ Neighborhood not found");
+        throw new Error("Neighborhood not found");
+      }
+
       // Check if user has permission to view links
       const userRole = neighborhood.members.find(
-        member => member.user.toString() === context.user.userId
+        (member) => member.user.toString() === context.user.userId
       )?.role;
-      
+
+      console.log("User role in neighborhood:", userRole);
+
       if (!["owner", "moderator"].includes(userRole)) {
+        console.log("❌ User doesn't have permission (not owner/moderator)");
         throw new Error("Only owners and moderators can view invite links");
       }
-      
-      return neighborhood.inviteLinks.map(link => ({
+
+      console.log(
+        "✅ User has permission, inviteLinks:",
+        neighborhood.inviteLinks?.length || 0
+      );
+      console.log(
+        "Invite links:",
+        JSON.stringify(neighborhood.inviteLinks, null, 2)
+      );
+
+      const result = neighborhood.inviteLinks.map((link) => ({
         ...link.toObject(),
         id: link._id.toString(),
-        url: `${process.env.APP_URL || 'https://yourapp.com'}/join/${link.code}`,
+        url: `${process.env.APP_URL || "https://yourapp.com"}/join/${
+          link.code
+        }`,
       }));
+
+      console.log("✅ Returning result:", result.length, "links");
+      return result;
     },
   },
-  
 
   Mutation: {
     sendMessage: async (
@@ -1169,34 +1198,38 @@ const resolvers = {
         .populate("joinRequests.user", "username profilePhoto");
     },
 
-    createInviteLink: async (_, { 
-      neighborhoodId, 
-      name = "Invite Link", 
-      maxUses = 0,
-      expiresInDays,
-      role = "member" 
-    }, context) => {
+    createInviteLink: async (
+      _,
+      {
+        neighborhoodId,
+        name = "Invite Link",
+        maxUses = 0,
+        expiresInDays,
+        role = "member",
+      },
+      context
+    ) => {
       if (!context.user) throw new Error("Authentication required");
-      
+
       const neighborhood = await Neighborhood.findById(neighborhoodId);
       if (!neighborhood) throw new Error("Neighborhood not found");
-      
+
       // Check if user has permission to create links
       const userRole = neighborhood.members.find(
-        member => member.user.toString() === context.user.userId
+        (member) => member.user.toString() === context.user.userId
       )?.role;
-      
+
       if (!["owner", "moderator"].includes(userRole)) {
         throw new Error("Only owners and moderators can create invite links");
       }
-      
+
       // Calculate expiration date if provided
       let expiresAt = null;
       if (expiresInDays) {
         expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + expiresInDays);
       }
-      
+
       // Create the link
       const link = await neighborhood.createInviteLink({
         createdBy: context.user.userId,
@@ -1205,107 +1238,117 @@ const resolvers = {
         expiresAt,
         role,
       });
-      
+
       // Populate and return
-      const savedNeighborhood = await Neighborhood.findById(neighborhood._id)
-        .populate("inviteLinks.createdBy", "username profilePhoto");
-      
+      const savedNeighborhood = await Neighborhood.findById(
+        neighborhood._id
+      ).populate("inviteLinks.createdBy", "username profilePhoto");
+
       const savedLink = savedNeighborhood.inviteLinks.id(link._id);
-      
+
       return {
         ...savedLink.toObject(),
         id: savedLink._id.toString(),
-        url: `${process.env.APP_URL || 'https://yourapp.com'}/join/${savedLink.code}`,
+        url: `${process.env.APP_URL || "https://yourapp.com"}/join/${
+          savedLink.code
+        }`,
       };
     },
-    
+
     // Update an invite link
-    updateInviteLink: async (_, { linkId, name, maxUses, expiresAt, isActive }, context) => {
+    updateInviteLink: async (
+      _,
+      { linkId, name, maxUses, expiresAt, isActive },
+      context
+    ) => {
       if (!context.user) throw new Error("Authentication required");
-      
+
       const neighborhood = await Neighborhood.findOne({
         "inviteLinks._id": linkId,
       });
-      
+
       if (!neighborhood) throw new Error("Invite link not found");
-      
+
       // Check if user has permission
       const userRole = neighborhood.members.find(
-        member => member.user.toString() === context.user.userId
+        (member) => member.user.toString() === context.user.userId
       )?.role;
-      
+
       if (!["owner", "moderator"].includes(userRole)) {
         throw new Error("Only owners and moderators can update invite links");
       }
-      
+
       const link = neighborhood.inviteLinks.id(linkId);
       if (!link) throw new Error("Invite link not found");
-      
+
       // Update fields
       if (name !== undefined) link.name = name;
       if (maxUses !== undefined) link.maxUses = maxUses;
       if (expiresAt !== undefined) link.expiresAt = expiresAt;
       if (isActive !== undefined) link.isActive = isActive;
-      
+
       await neighborhood.save();
-      
+
       // Populate and return
-      const savedNeighborhood = await Neighborhood.findById(neighborhood._id)
-        .populate("inviteLinks.createdBy", "username profilePhoto");
-      
+      const savedNeighborhood = await Neighborhood.findById(
+        neighborhood._id
+      ).populate("inviteLinks.createdBy", "username profilePhoto");
+
       const savedLink = savedNeighborhood.inviteLinks.id(linkId);
-      
+
       return {
         ...savedLink.toObject(),
         id: savedLink._id.toString(),
-        url: `${process.env.APP_URL || 'https://yourapp.com'}/join/${savedLink.code}`,
+        url: `${process.env.APP_URL || "https://yourapp.com"}/join/${
+          savedLink.code
+        }`,
       };
     },
-    
+
     // Delete an invite link
     deleteInviteLink: async (_, { linkId }, context) => {
       if (!context.user) throw new Error("Authentication required");
-      
+
       const neighborhood = await Neighborhood.findOne({
         "inviteLinks._id": linkId,
       });
-      
+
       if (!neighborhood) throw new Error("Invite link not found");
-      
+
       // Check if user has permission
       const userRole = neighborhood.members.find(
-        member => member.user.toString() === context.user.userId
+        (member) => member.user.toString() === context.user.userId
       )?.role;
-      
+
       if (!["owner", "moderator"].includes(userRole)) {
         throw new Error("Only owners and moderators can delete invite links");
       }
-      
+
       const link = neighborhood.inviteLinks.id(linkId);
       if (!link) throw new Error("Invite link not found");
-      
+
       link.remove();
       await neighborhood.save();
-      
+
       return true;
     },
-    
+
     // Public: Join a neighborhood via invite link (user must be authenticated)
     joinViaInviteLink: async (_, { code }, context) => {
       if (!context.user) {
         return {
           success: false,
-          message: "Authentication required. Please log in or create an account.",
+          message:
+            "Authentication required. Please log in or create an account.",
           error: "NOT_AUTHENTICATED",
         };
       }
-      
+
       const neighborhood = await Neighborhood.findOne({
         "inviteLinks.code": code,
         "inviteLinks.isActive": true,
-      })
-        .populate("owner", "username profilePhoto");
-      
+      }).populate("owner", "username profilePhoto");
+
       if (!neighborhood) {
         return {
           success: false,
@@ -1313,9 +1356,9 @@ const resolvers = {
           error: "INVALID_LINK",
         };
       }
-      
-      const link = neighborhood.inviteLinks.find(link => link.code === code);
-      
+
+      const link = neighborhood.inviteLinks.find((link) => link.code === code);
+
       if (!link) {
         return {
           success: false,
@@ -1323,7 +1366,7 @@ const resolvers = {
           error: "INVALID_LINK",
         };
       }
-      
+
       // Check if link is expired
       if (link.expiresAt && link.expiresAt < new Date()) {
         return {
@@ -1332,7 +1375,7 @@ const resolvers = {
           error: "LINK_EXPIRED",
         };
       }
-      
+
       // Check if link has reached max uses
       if (link.maxUses > 0 && link.uses >= link.maxUses) {
         return {
@@ -1341,12 +1384,12 @@ const resolvers = {
           error: "MAX_USES_REACHED",
         };
       }
-      
+
       // Check if user is already a member
       const isAlreadyMember = neighborhood.members.some(
-        member => member.user.toString() === context.user.userId
+        (member) => member.user.toString() === context.user.userId
       );
-      
+
       if (isAlreadyMember) {
         return {
           success: false,
@@ -1358,7 +1401,7 @@ const resolvers = {
           },
         };
       }
-      
+
       // Check if neighborhood has reached max members
       if (neighborhood.members.length >= neighborhood.maxMembers) {
         return {
@@ -1367,17 +1410,17 @@ const resolvers = {
           error: "NEIGHBORHOOD_FULL",
         };
       }
-      
+
       // Add user as member with specified role
       neighborhood.members.push({
         user: context.user.userId,
         role: link.role,
         joinedAt: new Date(),
       });
-      
+
       // Increment link uses
       link.uses += 1;
-      
+
       // Add to user's join history
       const user = await User.findById(context.user.userId);
       user.joinedViaLink.push({
@@ -1385,9 +1428,9 @@ const resolvers = {
         linkCode: code,
         joinedAt: new Date(),
       });
-      
+
       await Promise.all([neighborhood.save(), user.save()]);
-      
+
       return {
         success: true,
         message: `Successfully joined ${neighborhood.name}!`,
@@ -1396,7 +1439,7 @@ const resolvers = {
           .populate("members.user", "username profilePhoto"),
       };
     },
-    
+
     // Public: Register and join via link in one step
     registerAndJoinViaLink: async (_, { code, username, email, password }) => {
       // First, validate the invite link
@@ -1404,35 +1447,35 @@ const resolvers = {
         "inviteLinks.code": code,
         "inviteLinks.isActive": true,
       });
-      
+
       if (!neighborhood) {
         throw new Error("Invalid invite link");
       }
-      
-      const link = neighborhood.inviteLinks.find(link => link.code === code);
-      
+
+      const link = neighborhood.inviteLinks.find((link) => link.code === code);
+
       if (!link) {
         throw new Error("Invalid invite link");
       }
-      
+
       // Check link validity
       if (link.expiresAt && link.expiresAt < new Date()) {
         throw new Error("This invite link has expired");
       }
-      
+
       if (link.maxUses > 0 && link.uses >= link.maxUses) {
         throw new Error("This invite link has reached its maximum uses");
       }
-      
+
       // Check if email/username already exists
       const existingUser = await User.findOne({
         $or: [{ email }, { username }],
       });
-      
+
       if (existingUser) {
         throw new Error("User with this email or username already exists");
       }
-      
+
       // Create the user
       const user = new User({
         username,
@@ -1447,50 +1490,56 @@ const resolvers = {
         chats: [],
         posts: [],
         groups: [],
-        joinedViaLink: [{
-          neighborhood: neighborhood._id,
-          linkCode: code,
-          joinedAt: new Date(),
-        }],
+        joinedViaLink: [
+          {
+            neighborhood: neighborhood._id,
+            linkCode: code,
+            joinedAt: new Date(),
+          },
+        ],
       });
-      
+
       await user.save();
-      
+
       // Add user to neighborhood
       neighborhood.members.push({
         user: user._id,
         role: link.role,
         joinedAt: new Date(),
       });
-      
+
       // Increment link uses
       link.uses += 1;
-      
+
       await neighborhood.save();
-      
+
       // Generate auth token
       const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
         expiresIn: "24h",
       });
-      
+
       return {
         token,
         user,
       };
     },
   },
-  
+
   // Field resolvers
   InviteLink: {
     url: (parent) => {
-      return `${process.env.APP_URL || 'https://yourapp.com'}/join/${parent.code}`;
+      return `${process.env.APP_URL || "https://yourapp.com"}/join/${
+        parent.code
+      }`;
     },
     createdBy: async (parent, _, context) => {
       if (parent.createdBy) {
         return parent.createdBy;
       }
       // If not populated, fetch it
-      const user = await User.findById(parent.createdBy).select("username profilePhoto");
+      const user = await User.findById(parent.createdBy).select(
+        "username profilePhoto"
+      );
       return user;
     },
   },
