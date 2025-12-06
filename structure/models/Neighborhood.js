@@ -108,6 +108,23 @@ const NeighborhoodSchema = new mongoose.Schema(
         },
       },
     ],
+       rules: {
+      type: String,
+      default: "",
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    // Invite settings
+    allowMemberInvites: {
+      type: Boolean,
+      default: true,
+    },
+    maxMembers: {
+      type: Number,
+      default: 100,
+    },
   },
   {
     timestamps: true, // This adds createdAt and updatedAt automatically
