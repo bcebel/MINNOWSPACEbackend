@@ -16,6 +16,7 @@ const typeDefs = gql`
     groups: [Group!] # Groups the user is part of
     createdAt: String!
     updatedAt: String!
+    joinedViaLink: [JoinedViaLink!]
   }
 
   type Image {
@@ -58,6 +59,8 @@ const typeDefs = gql`
     createdAt: String!
     updatedAt: String!
     memberCount: Int!
+
+    inviteLinks: [InviteLink!]!
   }
 
   type NeighborhoodMember {
@@ -72,57 +75,6 @@ const typeDefs = gql`
     status: String!
   }
 
-  extend type Query {
-    neighborhoods: [Neighborhood]
-    neighborhood(id: ID!): Neighborhood
-    myNeighborhoods: [Neighborhood]
-    discoverNeighborhoods: [Neighborhood] # Public neighborhoods to discover
-    images: [Image!]!
-    image(id: ID!): Image
-    neighborhoodImages(neighborhoodId: ID!): [Image!]!
-    myImages: [Image!]!
-  }
-
-  extend type Mutation {
-    deletePost(postId: ID!): Boolean
-    deleteMessage(messageId: ID!): Boolean
-    createNeighborhood(
-      name: String!
-      description: String
-      type: String
-    ): Neighborhood
-    updateNeighborhood(
-      id: ID!
-      name: String
-      description: String
-      rules: String
-    ): Neighborhood
-    deleteNeighborhood(id: ID!): Boolean
-    attachMagnet(id: ID!, magnetLink: String!): Video
-    joinNeighborhood(neighborhoodId: ID!): Neighborhood
-    leaveNeighborhood(neighborhoodId: ID!): Boolean
-
-    # For neighborhood owners/moderators
-    approveJoinRequest(neighborhoodId: ID!, userId: ID!): Neighborhood
-    rejectJoinRequest(neighborhoodId: ID!, userId: ID!): Neighborhood
-    removeMember(neighborhoodId: ID!, userId: ID!): Neighborhood
-
-    # Invite system (optional for later)
-    inviteToNeighborhood(neighborhoodId: ID!, username: String!): Boolean
-
-    sendImage(
-      neighborhoodId: ID
-      title: String
-      description: String
-      fileName: String!
-      fileSize: Int!
-      fileType: String!
-      mimetype: String!
-      cid: String!
-      ipfsUrl: String!
-      magnetLink: String!
-    ): Image!
-  }
 
   type IPFSData {
     cid: String
@@ -300,6 +252,18 @@ const typeDefs = gql`
 
     getMyVideos: [Video]
     getUserVideos(userId: ID!): [Video]
+
+    neighborhoods: [Neighborhood]
+    neighborhood(id: ID!): Neighborhood
+    myNeighborhoods: [Neighborhood]
+    discoverNeighborhoods: [Neighborhood] # Public neighborhoods to discover
+    images: [Image!]!
+    image(id: ID!): Image
+    neighborhoodImages(neighborhoodId: ID!): [Image!]!
+    myImages: [Image!]!
+        validateInviteLink(code: String!): InviteLinkValidation!
+
+    neighborhoodInviteLinks(neighborhoodId: ID!): [InviteLink!]
   }
 
   type GalleryResponse {
@@ -321,6 +285,37 @@ const typeDefs = gql`
       password: String!
     ): AuthPayload!
     loginUser(username: String!, password: String!): AuthPayload!
+    # Create a new invite link
+    createInviteLink(
+      neighborhoodId: ID!
+      name: String
+      maxUses: Int
+      expiresInDays: Int
+      role: String
+    ): InviteLink!
+
+    # Update an invite link
+    updateInviteLink(
+      linkId: ID!
+      name: String
+      maxUses: Int
+      expiresAt: String
+      isActive: Boolean
+    ): InviteLink!
+
+    # Delete an invite link
+    deleteInviteLink(linkId: ID!): Boolean!
+
+    # Join a neighborhood via invite link (public mutation - no auth required)
+    joinViaInviteLink(code: String!): JoinViaLinkResult!
+
+    # Create account and join via link in one step
+    registerAndJoinViaLink(
+      code: String!
+      username: String!
+      email: String!
+      password: String!
+    ): AuthPayload!
 
     updateProfile(
       bio: String
@@ -383,7 +378,6 @@ const typeDefs = gql`
       neighborhoodId: ID
     ): Message!
 
-    deleteMessage(messageId: ID!): Boolean!
 
     # Post mutations
     createPost(content: String!, feedType: String!, groupId: ID): Post!
@@ -395,6 +389,45 @@ const typeDefs = gql`
     createGroup(name: String!, description: String!): Group!
     joinGroup(groupId: ID!): Group!
     leaveGroup(groupId: ID!): Group!
+
+        deletePost(postId: ID!): Boolean
+    deleteMessage(messageId: ID!): Boolean
+    createNeighborhood(
+      name: String!
+      description: String
+      type: String
+    ): Neighborhood
+    updateNeighborhood(
+      id: ID!
+      name: String
+      description: String
+      rules: String
+    ): Neighborhood
+    deleteNeighborhood(id: ID!): Boolean
+    attachMagnet(id: ID!, magnetLink: String!): Video
+    joinNeighborhood(neighborhoodId: ID!): Neighborhood
+    leaveNeighborhood(neighborhoodId: ID!): Boolean
+
+    # For neighborhood owners/moderators
+    approveJoinRequest(neighborhoodId: ID!, userId: ID!): Neighborhood
+    rejectJoinRequest(neighborhoodId: ID!, userId: ID!): Neighborhood
+    removeMember(neighborhoodId: ID!, userId: ID!): Neighborhood
+
+    # Invite system (optional for later)
+    inviteToNeighborhood(neighborhoodId: ID!, username: String!): Boolean
+
+    sendImage(
+      neighborhoodId: ID
+      title: String
+      description: String
+      fileName: String!
+      fileSize: Int!
+      fileType: String!
+      mimetype: String!
+      cid: String!
+      ipfsUrl: String!
+      magnetLink: String!
+    ): Image!
   }
 
   type AuthPayload {
@@ -423,27 +456,13 @@ const typeDefs = gql`
     error: String
   }
 
-  extend type Neighborhood {
-    inviteLinks: [InviteLink!]!
-  }
-
-  extend type User {
-    joinedViaLink: [JoinedViaLink!]
-  }
-
   type JoinedViaLink {
     neighborhood: Neighborhood!
     linkCode: String!
     joinedAt: String!
   }
 
-  extend type Query {
-    # Check if invite link is valid (public query - no auth required)
-    validateInviteLink(code: String!): InviteLinkValidation!
-
-    # Get my neighborhood's invite links (authenticated)
-    neighborhoodInviteLinks(neighborhoodId: ID!): [InviteLink!]
-  }
+ 
 
   type InviteLinkValidation {
     isValid: Boolean!
@@ -452,39 +471,6 @@ const typeDefs = gql`
     neighborhood: Neighborhood
   }
 
-  extend type Mutation {
-    # Create a new invite link
-    createInviteLink(
-      neighborhoodId: ID!
-      name: String
-      maxUses: Int
-      expiresInDays: Int
-      role: String
-    ): InviteLink!
-
-    # Update an invite link
-    updateInviteLink(
-      linkId: ID!
-      name: String
-      maxUses: Int
-      expiresAt: String
-      isActive: Boolean
-    ): InviteLink!
-
-    # Delete an invite link
-    deleteInviteLink(linkId: ID!): Boolean!
-
-    # Join a neighborhood via invite link (public mutation - no auth required)
-    joinViaInviteLink(code: String!): JoinViaLinkResult!
-
-    # Create account and join via link in one step
-    registerAndJoinViaLink(
-      code: String!
-      username: String!
-      email: String!
-      password: String!
-    ): AuthPayload!
-  }
 `;
 
 
