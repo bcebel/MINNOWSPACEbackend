@@ -540,6 +540,7 @@ const resolvers = {
 
     // Get invite links for a neighborhood
     // In resolvers.js - Update the neighborhoodInviteLinks resolver with debugging
+    // In resolvers.js - Update the neighborhoodInviteLinks resolver with debugging
     neighborhoodInviteLinks: async (_, { neighborhoodId }, context) => {
       console.log("🔍 neighborhoodInviteLinks resolver called");
       console.log("Neighborhood ID:", neighborhoodId);
