@@ -597,7 +597,7 @@ const resolvers = {
         const transformedLink = {
           ...link.toObject(),
           id: link._id.toString(),
-          url: `${process.env.APP_URL || "http://localhost:8081"}/join/${
+          url: `${process.env.APP_URL || "http://bubblebase.app"}/join/${
             link.code
           }`,
         };
@@ -1317,7 +1317,7 @@ const resolvers = {
             : null,
           role: savedLink.role || "member",
           isActive: savedLink.isActive !== false,
-          url: `${process.env.APP_URL || "http://localhost:8081"}/join/${
+          url: `${process.env.APP_URL || "http://bubblebas.app"}/join/${
             savedLink.code
           }`,
           createdAt: savedLink.createdAt
