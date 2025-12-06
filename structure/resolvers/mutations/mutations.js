@@ -1613,7 +1613,20 @@ const resolvers = {
       };
     },
   },
-
+  Neighborhood: {
+    // Add a computed field for memberCount
+    memberCount: (parent) => {
+      // If parent is a neighborhood from database
+      if (parent.members) {
+        return parent.members.length;
+      }
+      // If it's the transformed object from validateInviteLink
+      if (parent.memberCount !== undefined) {
+        return parent.memberCount;
+      }
+      return 0;
+    },
+  },
   // Field resolvers// In resolvers.js - Update the InviteLink field resolver
   InviteLink: {
     url: (parent) => {

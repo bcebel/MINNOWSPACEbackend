@@ -57,6 +57,7 @@ const typeDefs = gql`
     rules: String
     createdAt: String!
     updatedAt: String!
+    memberCount: Int!
   }
 
   type NeighborhoodMember {
@@ -400,90 +401,90 @@ const typeDefs = gql`
     token: String!
     user: User!
   }
-    
-type InviteLink {
-  id: ID!
-  code: String!
-  name: String!
-  createdBy: User!
-  maxUses: Int!
-  uses: Int!
-  expiresAt: String
-  role: String!
-  isActive: Boolean!
-  createdAt: String!
-  url: String! # Computed field
-}
 
-type JoinViaLinkResult {
-  success: Boolean!
-  message: String!
-  neighborhood: Neighborhood
-  error: String
-}
-
-extend type Neighborhood {
-  inviteLinks: [InviteLink!]!
-}
-
-extend type User {
-  joinedViaLink: [JoinedViaLink!]
-}
-
-type JoinedViaLink {
-  neighborhood: Neighborhood!
-  linkCode: String!
-  joinedAt: String!
-}
-
-extend type Query {
-  # Check if invite link is valid (public query - no auth required)
-  validateInviteLink(code: String!): InviteLinkValidation!
-  
-  # Get my neighborhood's invite links (authenticated)
-  neighborhoodInviteLinks(neighborhoodId: ID!): [InviteLink!]
-}
-
-type InviteLinkValidation {
-  isValid: Boolean!
-  message: String!
-  link: InviteLink
-  neighborhood: Neighborhood
-}
-
-extend type Mutation {
-  # Create a new invite link
-  createInviteLink(
-    neighborhoodId: ID!
-    name: String
-    maxUses: Int
-    expiresInDays: Int
-    role: String
-  ): InviteLink!
-  
-  # Update an invite link
-  updateInviteLink(
-    linkId: ID!
-    name: String
-    maxUses: Int
-    expiresAt: String
-    isActive: Boolean
-  ): InviteLink!
-  
-  # Delete an invite link
-  deleteInviteLink(linkId: ID!): Boolean!
-  
-  # Join a neighborhood via invite link (public mutation - no auth required)
-  joinViaInviteLink(code: String!): JoinViaLinkResult!
-  
-  # Create account and join via link in one step
-  registerAndJoinViaLink(
+  type InviteLink {
+    id: ID!
     code: String!
-    username: String!
-    email: String!
-    password: String!
-  ): AuthPayload!
-}
+    name: String!
+    createdBy: User!
+    maxUses: Int!
+    uses: Int!
+    expiresAt: String
+    role: String!
+    isActive: Boolean!
+    createdAt: String!
+    url: String! # Computed field
+  }
+
+  type JoinViaLinkResult {
+    success: Boolean!
+    message: String!
+    neighborhood: Neighborhood
+    error: String
+  }
+
+  extend type Neighborhood {
+    inviteLinks: [InviteLink!]!
+  }
+
+  extend type User {
+    joinedViaLink: [JoinedViaLink!]
+  }
+
+  type JoinedViaLink {
+    neighborhood: Neighborhood!
+    linkCode: String!
+    joinedAt: String!
+  }
+
+  extend type Query {
+    # Check if invite link is valid (public query - no auth required)
+    validateInviteLink(code: String!): InviteLinkValidation!
+
+    # Get my neighborhood's invite links (authenticated)
+    neighborhoodInviteLinks(neighborhoodId: ID!): [InviteLink!]
+  }
+
+  type InviteLinkValidation {
+    isValid: Boolean!
+    message: String!
+    link: InviteLink
+    neighborhood: Neighborhood
+  }
+
+  extend type Mutation {
+    # Create a new invite link
+    createInviteLink(
+      neighborhoodId: ID!
+      name: String
+      maxUses: Int
+      expiresInDays: Int
+      role: String
+    ): InviteLink!
+
+    # Update an invite link
+    updateInviteLink(
+      linkId: ID!
+      name: String
+      maxUses: Int
+      expiresAt: String
+      isActive: Boolean
+    ): InviteLink!
+
+    # Delete an invite link
+    deleteInviteLink(linkId: ID!): Boolean!
+
+    # Join a neighborhood via invite link (public mutation - no auth required)
+    joinViaInviteLink(code: String!): JoinViaLinkResult!
+
+    # Create account and join via link in one step
+    registerAndJoinViaLink(
+      code: String!
+      username: String!
+      email: String!
+      password: String!
+    ): AuthPayload!
+  }
 `;
 
 
