@@ -1,7 +1,9 @@
 import mongoose from "mongoose";
 import crypto from "crypto";
 
-const NeighborhoodSchema = new mongoose.Schema(
+const { Schema } = mongoose;
+
+const NeighborhoodSchema = new Schema(
   {
     name: {
       type: String,
@@ -64,7 +66,6 @@ const NeighborhoodSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
-
     inviteLinks: [
       {
         code: {
@@ -108,14 +109,6 @@ const NeighborhoodSchema = new mongoose.Schema(
         },
       },
     ],
-       rules: {
-      type: String,
-      default: "",
-    },
-    isActive: {
-      type: Boolean,
-      default: true,
-    },
     // Invite settings
     allowMemberInvites: {
       type: Boolean,
@@ -127,30 +120,30 @@ const NeighborhoodSchema = new mongoose.Schema(
     },
   },
   {
-    timestamps: true, // This adds createdAt and updatedAt automatically
+    timestamps: true,
   }
 );
 
-// Generate a unique invite code
-NeighborhoodSchema.statics.generateInviteCode = function() {
-  return crypto.randomBytes(8).toString('hex').toUpperCase();
+// Generate a unique invite code - FIXED: use this.constructor
+NeighborhoodSchema.statics.generateInviteCode = function () {
+  return crypto.randomBytes(8).toString("hex").toUpperCase();
 };
 
 // Check if invite link is valid
-NeighborhoodSchema.methods.isValidInviteLink = function(code) {
-  const link = this.inviteLinks.find(link => link.code === code);
-  
+NeighborhoodSchema.methods.isValidInviteLink = function (code) {
+  const link = this.inviteLinks.find((link) => link.code === code);
+
   if (!link || !link.isActive) return false;
-  
+
   if (link.maxUses > 0 && link.uses >= link.maxUses) return false;
-  
+
   if (link.expiresAt && link.expiresAt < new Date()) return false;
-  
+
   return true;
 };
 
-// Helper method to create a new invite link
-NeighborhoodSchema.methods.createInviteLink = async function(options) {
+// Helper method to create a new invite link - FIXED: use this.constructor
+NeighborhoodSchema.methods.createInviteLink = async function (options) {
   const {
     createdBy,
     name = "Invite Link",
@@ -158,20 +151,26 @@ NeighborhoodSchema.methods.createInviteLink = async function(options) {
     expiresAt = null,
     role = "member",
   } = options;
-  
-  const code = Neighborhood.generateInviteCode();
-  
-  this.inviteLinks.push({
+
+  // Use this.constructor to access the static method
+  const code = this.constructor.generateInviteCode();
+
+  const newLink = {
     code,
     name,
     createdBy,
     maxUses,
     expiresAt,
     role,
-  });
-  
+    isActive: true,
+    uses: 0,
+    createdAt: new Date(),
+  };
+
+  this.inviteLinks.push(newLink);
+
   await this.save();
-  
+
   return this.inviteLinks[this.inviteLinks.length - 1];
 };
 
