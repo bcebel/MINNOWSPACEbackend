@@ -1317,7 +1317,7 @@ const resolvers = {
             : null,
           role: savedLink.role || "member",
           isActive: savedLink.isActive !== false,
-          url: `${process.env.APP_URL || "http://bubblebas.app"}/join/${
+          url: `${process.env.APP_URL || "http://bubblebase.app"}/join/${
             savedLink.code
           }`,
           createdAt: savedLink.createdAt
