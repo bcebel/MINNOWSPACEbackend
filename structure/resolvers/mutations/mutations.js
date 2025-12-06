@@ -1202,6 +1202,7 @@ const resolvers = {
         .populate("joinRequests.user", "username profilePhoto");
     },
 
+    // In resolvers.js - Update the createInviteLink resolver
     createInviteLink: async (
       _,
       {
@@ -1213,50 +1214,92 @@ const resolvers = {
       },
       context
     ) => {
-      if (!context.user) throw new Error("Authentication required");
+      console.log("🚀 CREATE INVITE LINK RESOLVER");
 
-      const neighborhood = await Neighborhood.findById(neighborhoodId);
-      if (!neighborhood) throw new Error("Neighborhood not found");
+      try {
+        if (!context.user) throw new Error("Authentication required");
 
-      // Check if user has permission to create links
-      const userRole = neighborhood.members.find(
-        (member) => member.user.toString() === context.user.userId
-      )?.role;
+        const neighborhood = await Neighborhood.findById(neighborhoodId);
+        if (!neighborhood) throw new Error("Neighborhood not found");
 
-      if (!["owner", "moderator"].includes(userRole)) {
-        throw new Error("Only owners and moderators can create invite links");
+        // Check permissions
+        const userRole = neighborhood.members.find(
+          (member) => member.user.toString() === context.user.userId
+        )?.role;
+
+        if (!["owner", "moderator"].includes(userRole)) {
+          throw new Error("Only owners and moderators can create invite links");
+        }
+
+        // Handle expiresInDays
+        let expiresAt = null;
+        if (expiresInDays && expiresInDays > 0) {
+          expiresAt = new Date();
+          expiresAt.setDate(expiresAt.getDate() + expiresInDays);
+        }
+
+        // Create the link using the model method
+        const link = await neighborhood.createInviteLink({
+          createdBy: context.user.userId,
+          name,
+          maxUses,
+          expiresAt,
+          role,
+        });
+
+        console.log("✅ Link created, ID:", link._id);
+
+        // Get the neighborhood with populated data
+        const savedNeighborhood = await Neighborhood.findById(
+          neighborhood._id
+        ).populate({
+          path: "inviteLinks.createdBy",
+          select: "id username profilePhoto", // Make sure id is selected
+        });
+
+        const savedLink = savedNeighborhood.inviteLinks.id(link._id);
+
+        if (!savedLink) {
+          throw new Error("Failed to retrieve created invite link");
+        }
+
+        // Ensure all fields are properly formatted
+        const result = {
+          id: savedLink._id.toString(),
+          code: savedLink.code,
+          name: savedLink.name,
+          maxUses: savedLink.maxUses || 0,
+          uses: savedLink.uses || 0,
+          expiresAt: savedLink.expiresAt
+            ? savedLink.expiresAt.toISOString()
+            : null,
+          role: savedLink.role || "member",
+          isActive: savedLink.isActive !== false,
+          url: `${process.env.APP_URL || "http://localhost:8081"}/join/${
+            savedLink.code
+          }`,
+          createdAt: savedLink.createdAt
+            ? savedLink.createdAt.toISOString()
+            : new Date().toISOString(),
+          createdBy: savedLink.createdBy
+            ? {
+                id: savedLink.createdBy._id.toString(), // ✅ Ensure id is string
+                username: savedLink.createdBy.username,
+                profilePhoto: savedLink.createdBy.profilePhoto,
+              }
+            : {
+                id: context.user.userId,
+                username: "Unknown",
+                profilePhoto: null,
+              },
+        };
+
+        console.log("✅ Returning result with createdBy:", result.createdBy);
+        return result;
+      } catch (error) {
+        console.error("❌ Error in createInviteLink:", error);
+        throw new Error(`Failed to create invite link: ${error.message}`);
       }
-
-      // Calculate expiration date if provided
-      let expiresAt = null;
-      if (expiresInDays) {
-        expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + expiresInDays);
-      }
-
-      // Create the link
-      const link = await neighborhood.createInviteLink({
-        createdBy: context.user.userId,
-        name,
-        maxUses,
-        expiresAt,
-        role,
-      });
-
-      // Populate and return
-      const savedNeighborhood = await Neighborhood.findById(
-        neighborhood._id
-      ).populate("inviteLinks.createdBy", "username profilePhoto");
-
-      const savedLink = savedNeighborhood.inviteLinks.id(link._id);
-
-      return {
-        ...savedLink.toObject(),
-        id: savedLink._id.toString(),
-        url: `${process.env.APP_URL || "https://yourapp.com"}/join/${
-          savedLink.code
-        }`,
-      };
     },
 
     // Update an invite link
@@ -1529,22 +1572,37 @@ const resolvers = {
     },
   },
 
-  // Field resolvers
+  // Field resolvers// In resolvers.js - Update the InviteLink field resolver
   InviteLink: {
     url: (parent) => {
       return `${process.env.APP_URL || "https://yourapp.com"}/join/${
         parent.code
       }`;
     },
-    createdBy: async (parent, _, context) => {
-      if (parent.createdBy) {
+    createdBy: async (parent) => {
+      // If already populated, return it
+      if (parent.createdBy && parent.createdBy.id) {
         return parent.createdBy;
       }
-      // If not populated, fetch it
-      const user = await User.findById(parent.createdBy).select(
-        "username profilePhoto"
-      );
-      return user;
+
+      // If we have just the ID, fetch the user
+      if (parent.createdBy) {
+        const user = await User.findById(parent.createdBy).select(
+          "id username profilePhoto"
+        );
+        return {
+          id: user._id.toString(),
+          username: user.username,
+          profilePhoto: user.profilePhoto,
+        };
+      }
+
+      // Fallback
+      return {
+        id: "unknown",
+        username: "Unknown",
+        profilePhoto: null,
+      };
     },
   },
 };
