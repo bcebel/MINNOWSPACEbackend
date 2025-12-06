@@ -1,5 +1,6 @@
-import { Schema, model } from "mongoose";
+import mongoose from "mongoose";
 import bcrypt from "bcrypt";
+const { Schema } = mongoose;
 
 const userSchema = new Schema(
   {
@@ -42,7 +43,23 @@ const userSchema = new Schema(
         clicks: { type: Number, default: 0 },
       },
     ],
-    // ... keep the rest of your schema
+    joinedViaLink: {
+      type: [
+        {
+          neighborhood: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Neighborhood",
+          },
+          linkCode: String,
+          joinedAt: {
+            type: Date,
+            default: Date.now,
+          },
+        },
+      ],
+      default: [],
+    },
+
   },
   { timestamps: true }
 );
@@ -61,5 +78,5 @@ userSchema.methods.isCorrectPassword = async function (password) {
   return bcrypt.compare(password, this.password);
 };
 
-const User = model("User", userSchema);
+const User = mongoose.model("User", userSchema);
 export default User;
