@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import User from "../../models/User.js";
 import Chat from "../../models/Chat.js";
 import Post from "../../models/Post.js";
@@ -10,7 +11,6 @@ import Message from "../../models/Message.js";
 import Image from "../../models/Image.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import mongoose from "mongoose";
 import crypto from "crypto";
 
 // 🔥 NUCLEAR OPTION: Stop GraphQL ID conversion issues// 🔥 UPDATED FIXIDS FUNCTION - Handle dates and buffers
@@ -50,7 +50,10 @@ const fixIds = (obj) => {
     if (fixed.createdAt) {
       if (fixed.createdAt instanceof Date) {
         fixed.createdAt = fixed.createdAt.toISOString();
-      } else if (typeof fixed.createdAt === 'object' && Object.keys(fixed.createdAt).length === 0) {
+      } else if (
+        typeof fixed.createdAt === "object" &&
+        Object.keys(fixed.createdAt).length === 0
+      ) {
         // If it's an empty object, set to current date
         fixed.createdAt = new Date().toISOString();
       }
