@@ -544,10 +544,9 @@ const resolvers = {
     // Get invite links for a neighborhood
     // In resolvers.js - Update the neighborhoodInviteLinks resolver with debugging
     // In resolvers.js - Update the neighborhoodInviteLinks resolver with debugging
+    // In resolvers.js - Fix the neighborhoodInviteLinks resolver
     neighborhoodInviteLinks: async (_, { neighborhoodId }, context) => {
-      console.log("🔍 neighborhoodInviteLinks resolver called");
-      console.log("Neighborhood ID:", neighborhoodId);
-      console.log("User ID:", context.user?.userId);
+      console.log("🔍 neighborhoodInviteLinks resolver - DEBUG");
 
       if (!context.user) {
         console.log("❌ No user in context");
@@ -555,8 +554,19 @@ const resolvers = {
       }
 
       const neighborhood = await Neighborhood.findById(neighborhoodId).populate(
-        "inviteLinks.createdBy",
-        "username profilePhoto"
+        {
+          path: "inviteLinks.createdBy",
+          select: "_id username profilePhoto", // Make sure _id is selected
+          transform: (doc) => {
+            // Transform the populated document to match GraphQL schema
+            if (!doc) return null;
+            return {
+              id: doc._id.toString(), // ✅ Convert to string
+              username: doc.username,
+              profilePhoto: doc.profilePhoto,
+            };
+          },
+        }
       );
 
       if (!neighborhood) {
@@ -564,36 +574,68 @@ const resolvers = {
         throw new Error("Neighborhood not found");
       }
 
-      // Check if user has permission to view links
+      // Check permissions
       const userRole = neighborhood.members.find(
         (member) => member.user.toString() === context.user.userId
       )?.role;
 
-      console.log("User role in neighborhood:", userRole);
+      console.log("User role:", userRole);
 
       if (!["owner", "moderator"].includes(userRole)) {
-        console.log("❌ User doesn't have permission (not owner/moderator)");
+        console.log("❌ User doesn't have permission");
         throw new Error("Only owners and moderators can view invite links");
       }
 
-      console.log(
-        "✅ User has permission, inviteLinks:",
-        neighborhood.inviteLinks?.length || 0
-      );
-      console.log(
-        "Invite links:",
-        JSON.stringify(neighborhood.inviteLinks, null, 2)
-      );
+      console.log("Found invite links:", neighborhood.inviteLinks.length);
 
-      const result = neighborhood.inviteLinks.map((link) => ({
-        ...link.toObject(),
-        id: link._id.toString(),
-        url: `${process.env.APP_URL || "https://yourapp.com"}/join/${
-          link.code
-        }`,
-      }));
+      // Transform each link to ensure proper format
+      const result = neighborhood.inviteLinks.map((link) => {
+        console.log("Processing link:", link.code);
+        console.log("Link createdBy:", link.createdBy);
+        console.log("Link createdBy type:", typeof link.createdBy);
 
-      console.log("✅ Returning result:", result.length, "links");
+        const transformedLink = {
+          ...link.toObject(),
+          id: link._id.toString(),
+          url: `${process.env.APP_URL || "http://localhost:8081"}/join/${
+            link.code
+          }`,
+        };
+
+        // Ensure createdBy has proper id field
+        if (link.createdBy) {
+          if (typeof link.createdBy === "object") {
+            // If it's already an object from populate transform
+            transformedLink.createdBy = link.createdBy;
+          } else if (link.createdBy._id) {
+            // If it's a mongoose document
+            transformedLink.createdBy = {
+              id: link.createdBy._id.toString(),
+              username: link.createdBy.username,
+              profilePhoto: link.createdBy.profilePhoto,
+            };
+          } else {
+            // Fallback
+            transformedLink.createdBy = {
+              id: "unknown",
+              username: "Unknown",
+              profilePhoto: null,
+            };
+          }
+        } else {
+          // If no createdBy, provide fallback
+          transformedLink.createdBy = {
+            id: "unknown",
+            username: "Unknown",
+            profilePhoto: null,
+          };
+        }
+
+        console.log("Transformed createdBy:", transformedLink.createdBy);
+        return transformedLink;
+      });
+
+      console.log(`✅ Returning ${result.length} links`);
       return result;
     },
   },
