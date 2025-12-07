@@ -389,6 +389,72 @@ const io = new Server(server, {
 import authRoutes from "./routes/auth.js";
 app.use("/api", authRoutes);
 
+// Add this near your other API routes in server.js
+app.get("/api/neighborhoods/:id/gallery", authenticateToken, async (req, res) => {
+  try {
+    // 1. Set aggressive HTTP caching headers (1 hour)
+    res.set('Cache-Control', 'public, max-age=3600');
+
+    const neighborhoodId = req.params.id;
+
+    // 2. Fetch only essential metadata from your DB
+    // This query is fast and reduces load vs. fetching everything
+    const galleryData = await ModelSchema.Neighborhood.findOne(
+      { _id: neighborhoodId },
+      { videos: 1, images: 1, totalCount: 1, name: 1 }
+    ).lean(); // `.lean()` for faster JSON
+
+    if (!galleryData) {
+      return res.status(404).json({ error: "Neighborhood not found" });
+    }
+
+    // 3. Return a slim, cache-friendly payload
+    res.json({
+      neighborhoodName: galleryData.name,
+      totalCount: galleryData.totalCount || 0,
+      // Send just enough data for the frontend to build the list and pass to WebTorrentMedia
+      media: [
+        ...(galleryData.videos || []).map(v => ({
+          id: v._id || v.id,
+          title: v.title,
+          fileName: v.fileName,
+          fileType: 'video',
+          cid: v.cid,
+          magnetLink: v.magnetLink, // Crucial for P2P
+        })),
+        ...(galleryData.images || []).map(i => ({
+          id: i._id || i.id,
+          title: i.title,
+          fileName: i.fileName,
+          fileType: 'image',
+          cid: i.cid,
+          magnetLink: i.magnetLink, // Crucial for P2P
+        }))
+      ]
+    });
+
+  } catch (error) {
+    console.error("Gallery API error:", error);
+    res.status(500).json({ error: "Failed to fetch gallery data" });
+  }
+});
+app.get("/api/media/:cid", async (req, res) => {
+  // This can be public or authenticated
+  res.set("Cache-Control", "public, max-age=86400"); // Cache for 1 day
+  try {
+    const media = await Video.findOne({ cid: req.params.cid })
+      .select("fileName fileType cid magnetLink")
+      .lean();
+    if (media) {
+      res.json(media);
+    } else {
+      res.status(404).json({ error: "Not found" });
+    }
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // Get messages for a specific room
 app.get("/api/messages/:room", authenticateToken, async (req, res) => {
   try {
@@ -592,4 +658,4 @@ server.listen(PORT, () => {
   console.log(
     "https://studio.apollographql.com/graph/gigunit/variant/current/explorer"
   );
-});
+}); 
