@@ -440,7 +440,11 @@ app.get("/api/neighborhoods/:id/gallery", authenticateToken, async (req, res) =>
 });
 app.get("/api/media/:cid", async (req, res) => {
   // This can be public or authenticated
-  res.set("Cache-Control", "public, max-age=86400"); // Cache for 1 day
+ res.set({
+   "Cache-Control": "public, max-age=604800", // 7 days
+   "CDN-Cache-Control": "public, max-age=2592000", // 30 days for CDNs
+ });
+ // Cache for 1 day
   try {
     const media = await Video.findOne({ cid: req.params.cid })
       .select("fileName fileType cid magnetLink")
