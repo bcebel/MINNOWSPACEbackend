@@ -70,7 +70,9 @@ connectDB();
 import Minnow from "./structure/models/User.js";
 const User = Minnow;
 const Message = ModelSchema.Message;
-
+const getExpiresDate = (maxAgeSeconds) => {
+  return new Date(Date.now() + maxAgeSeconds * 1000).toUTCString();
+};
 // Middleware for Authentication
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
@@ -83,7 +85,78 @@ const authenticateToken = (req, res, next) => {
     next();
   });
 };
+app.get("/api/media/public/:cid", async (req, res) => {
+  const oneWeek = 604800; // 7 days (Browser cache)
+  const thirtyDays = 2592000; // 30 days (CDN cache)
 
+  try {
+    const media = await Video.findOne({ cid: req.params.cid })
+      .select("fileName fileType cid magnetLink")
+      .lean();
+
+    if (media) {
+      // Set aggressive caching headers for static, public data
+      res.set({
+        "Cache-Control": `public, max-age=${oneWeek}, must-revalidate`,
+        "CDN-Cache-Control": `public, max-age=${thirtyDays}`,
+        Expires: getExpiresDate(thirtyDays),
+        Vary: "Accept-Encoding",
+      });
+
+      // Note: We are NOT checking authentication here.
+      // This assumes the magnetLink/CID is non-sensitive information.
+      return res.json(media);
+    } else {
+      // Use a short cache for 404s to reduce repeated requests
+      res.set({ "Cache-Control": "public, max-age=60" });
+      return res.status(404).json({ error: "Media not found" });
+    }
+  } catch (error) {
+    console.error("Public media API error:", error);
+    res
+      .status(500)
+      .json({ error: "Server error fetching public media metadata" });
+  }
+});
+
+// -----------------------------------------------------
+// 🔐 REST API: PRIVATE/AUTHENTICATED MEDIA METADATA
+// -----------------------------------------------------
+
+app.get("/api/media/private/:cid", authenticateToken, async (req, res) => {
+  const oneWeek = 604800; // 7 days (Local device cache)
+
+  try {
+    const media = await Video.findOne({ cid: req.params.cid })
+      .select("fileName fileType cid magnetLink")
+      .lean();
+
+    if (media) {
+      // Check for content access logic here if needed (e.g., req.user is a member)
+      // For now, simple existence is enough since the route is behind auth.
+
+      // Set private caching headers
+      res.set({
+        // 'private' ensures only the end-user's browser/device caches the response.
+        "Cache-Control": `private, max-age=${oneWeek}, must-revalidate`,
+        "CDN-Cache-Control": `private, max-age=${oneWeek}`,
+        // 'Vary: Authorization' is CRITICAL to prevent caching issues between users
+        Vary: "Accept-Encoding, Authorization",
+        Expires: getExpiresDate(oneWeek),
+      });
+
+      return res.json(media);
+    } else {
+      res.set({ "Cache-Control": "no-cache" }); // Do not cache 404s for private content
+      return res.status(404).json({ error: "Media not found or unauthorized" });
+    }
+  } catch (error) {
+    console.error("Private media API error:", error);
+    res
+      .status(500)
+      .json({ error: "Server error fetching private media metadata" });
+  }
+});
 // ⭐⭐⭐ USE MEMORY STORAGE - FIXED ⭐⭐⭐
 const storage = multer.memoryStorage(); // This creates req.file.buffer
 
@@ -439,10 +512,15 @@ app.get("/api/neighborhoods/:id/gallery", authenticateToken, async (req, res) =>
   }
 });
 app.get("/api/media/:cid", async (req, res) => {
+  const oneWeek = 604800; // seconds
+  const thirtyDays = 2592000; // seconds
+  const expiresDate = new Date(Date.now() + thirtyDays * 1000).toUTCString();
   // This can be public or authenticated
  res.set({
-   "Cache-Control": "public, max-age=604800", // 7 days
-   "CDN-Cache-Control": "public, max-age=2592000", // 30 days for CDNs
+   "Cache-Control": `public, max-age=${oneWeek}`, // Browser cache for 7 days
+   "CDN-Cache-Control": `public, max-age=${thirtyDays}`, // CDN cache for 30 days
+   "Expires": "expiresDate", // Redundant but good for older systems
+   "Vary": "Accept-Encoding",
  });
  // Cache for 1 day
   try {

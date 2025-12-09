@@ -1,0 +1,6 @@
+Server running on http://localhost:3001
+GraphQL Server running at http://localhost:3001/graphql
+https://studio.apollographql.com/sandbox/explorer?_gl=1%2A1xbtmmh%2A_gcl_au%2AMjA3ODU5MDkyMi4xNzYyMjI1ODY0
+🚀 Apollo Studio Sandbox: https://studio.apollographql.com/sandbox/explorer/?endpoint=http%3A%2F%2Flocalhost%3A3001%2Fgraphql
+https://studio.apollographql.com/graph/gigunit/variant/current/explorer
+MongoDB connected successfully
