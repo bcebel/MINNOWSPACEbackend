@@ -90,7 +90,10 @@ app.get("/api/media/public/:cid", async (req, res) => {
   const thirtyDays = 2592000; // 30 days (CDN cache)
 
   try {
-    const media = await Video.findOne({ cid: req.params.cid })
+    const media = await Video.findOne({
+      cid: req.params.cid,
+      accessLevel: "public",
+    })
       .select("fileName fileType cid magnetLink")
       .lean();
 
