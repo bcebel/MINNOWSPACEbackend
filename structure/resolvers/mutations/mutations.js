@@ -195,8 +195,48 @@ const resolvers = {
 
     // Video queries
     videos: async () => await Video.find().populate("user"),
-    video: async (_, { id }) => await Video.findById(id).populate("user"),
+    video: async (parent, { id }, context) => {
+      // 1. Destructure necessary items from context
+      const { dataSources, token } = context;
 
+      // 2. Fetch minimal data from the database using the MongoDB _id (id)
+      // CRITICAL: We select the 'cid' field because the REST API requires it.
+      const mediaInfo = await Video.findById(id)
+        .select("accessLevel cid user")
+        .populate("user"); // Populate 'user' if required by the Video type
+
+      if (!mediaInfo) {
+        throw new Error("Video not found.");
+      }
+
+      // Extract fields needed for routing and data merging
+      const { accessLevel, cid, user } = mediaInfo;
+
+      // 3. Route the request based on access level (PUBLIC/PRIVATE)
+      let restMetadata;
+
+      if (accessLevel === "PUBLIC") {
+        // HITS the unauthenticated REST endpoint (/api/media/public/:cid)
+        restMetadata = await dataSources.mediaAPI.getPublicMetadata(cid);
+      } else if (accessLevel === "PRIVATE") {
+        if (!token) {
+          throw new Error("Authentication required for private media.");
+        }
+        // HITS the authenticated REST endpoint, token is used via willSendRequest hook
+        restMetadata = await dataSources.mediaAPI.getPrivateMetadata(
+          cid,
+          token
+        );
+      } else {
+        throw new Error("Invalid access level.");
+      }
+
+      // 4. Merge the data: REST for metadata, MongoDB for populated 'user' field
+      return {
+        ...restMetadata, // Includes fileName, magnetLink, etc., from the REST API
+        user: user, // Includes the populated user object from MongoDB
+      };
+    },
     // Stream queries
     streams: async () => await Stream.find().populate("user"),
     stream: async (_, { id }) => await Stream.findById(id).populate("user"),

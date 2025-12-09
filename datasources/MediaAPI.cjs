@@ -6,7 +6,7 @@ const { RESTDataSource } = require("@apollo/datasource-rest");
 class MediaAPI extends RESTDataSource {
   // Set the base URL to your server's endpoint prefix
   // Assuming your GraphQL and REST are on the same base server URL for simplicity
-  baseURL = "http://localhost:4000";
+  baseURL = "https://minnowspacebackend-e6635e46c3d0.herokuapp.com";
 
   // ... (all the methods remain the same) ...
   async getPublicMetadata(cid) {
