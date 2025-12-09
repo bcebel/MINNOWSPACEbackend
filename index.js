@@ -14,7 +14,7 @@ import resolvers from "./structure/resolvers/queries/queries.js";
 import connectDB from "./config/connection.js";
 import videoUploadHandler from "./videoUploadHandler.js";
 import Video from "./structure/models/Video.js";
-
+import MediaAPI from "./datasources/MediaAPI.cjs";
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -437,8 +437,12 @@ const apolloServer = new ApolloServer({
     return {
       user,
       io,
+      token: authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null,
     };
   },
+  dataSources: () => ({
+    mediaAPI: new MediaAPI(),
+  }),
 });
 
 await apolloServer.start();
