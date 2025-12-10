@@ -187,14 +187,7 @@ const resolvers = {
       if (!user) throw new Error("User not found");
       return user;
     },
-    publicVideos: async () => { return await
-                               Video.find({ isPublic: true })
-                               .populate('user','username profilePhoto').sort({ createdAt: -1 });
-                              },
-     publicImages: async () => { return await
-                               Image.find({ isPublic: true })
-                               .populate('user','username profilePhoto').sort({ createdAt: -1 });
-                              },
+
 
     myVideos: async (_, __, { user }) => {
   // Build query based on authentication
