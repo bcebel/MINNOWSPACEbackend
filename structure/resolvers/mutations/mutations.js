@@ -153,6 +153,24 @@ const resolvers = {
       if (!user) throw new Error("User not found");
       return user;
     },
+    publicVideos: async () => { return await
+                               Video.find({ isPublic: true })
+                               .populate('user','username profilePhoto').sort({ createdAt: -1 });
+                              },
+     publicImages: async () => { return await
+                               Image.find({ isPublic: true })
+                               .populate('user','username profilePhoto').sort({ createdAt: -1 });
+                              },
+
+    myVideos: async (_, __, {user})=>{
+      return await Video.find({ isPublic:true}).populate('user', 'username profilePhoto').sort({ createdAt: -1});}
+      return await Video.find({$or:[{isPublid:true},
+                                    {user:user.userId },
+                                    ]
+                              }).populate('user','username profilePhoto').populate('neighborhoold','name').sort({createdAt: -1 });
+},
+
+
 
     // In resolvers.js - Update randomAffiliateLink
     randomAffiliateLink: async (_, __, context) => {
@@ -681,6 +699,23 @@ const resolvers = {
   },
 
   Mutation: {
+    toggleVideoPrivacy: async (_,{videoId}},{user})=>{
+      if(!user)throw new Error('Authentication required');
+      const video=await Video.findbyId(videoId);
+      if(!video)throw new Error('Video not found');
+
+      if (video.user.toString() ! ==user.userId) {throw new Error('Not authorized');}
+      video.isPublic = ! video.isPublic;
+      await video.save();
+      return video:},
+      createVideo: async (_,{input}, {user})=> {
+if (!user) throw new Error('Authentication required');
+      const video = new Video({...input, user: user.userId, isPublic:input.isPublic || false });
+      await video.save();
+      return await video.populate('user neighborhood');
+    }
+    }
+};
     sendMessage: async (
       _,
       {
