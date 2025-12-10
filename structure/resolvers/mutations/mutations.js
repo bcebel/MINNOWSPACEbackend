@@ -139,6 +139,40 @@ const validateAndExtractAffiliateHtml = (html) => {
 
 const resolvers = {
   Query: {
+        // Get public media (no auth needed)
+    publicVideos: async () => {
+      return await Video.find({ isPublic: true })
+        .populate('user', 'username profilePhoto')
+        .sort({ createdAt: -1 });
+    },
+    
+    publicImages: async () => {
+      return await Image.find({ isPublic: true })
+        .populate('user', 'username profilePhoto')
+        .sort({ createdAt: -1 });
+    },
+    
+    // Get all media user can access (public + their private)
+    myVideos: async (_, __, { user }) => {
+      if (!user) {
+        // If no user, only return public videos
+        return await Video.find({ isPublic: true })
+          .populate('user', 'username profilePhoto')
+          .sort({ createdAt: -1 });
+      }
+      
+      // Return public videos OR videos user has access to
+      return await Video.find({
+        $or: [
+          { isPublic: true },
+          { user: user.userId },
+          // Add neighborhood access logic if needed
+        ]
+      })
+      .populate('user', 'username profilePhoto')
+      .populate('neighborhood', 'name')
+      .sort({ createdAt: -1 });
+    },
     // User queries
     images: async () => await Image.find().populate("user"),
     image: async (_, { id }) => await Image.findById(id).populate("user"),
@@ -699,23 +733,44 @@ const resolvers = {
   },
 
   Mutation: {
-    toggleVideoPrivacy: async (_,{videoId}},{user})=>{
-      if(!user)throw new Error('Authentication required');
-      const video=await Video.findbyId(videoId);
-      if(!video)throw new Error('Video not found');
-
-      if (video.user.toString() ! ==user.userId) {throw new Error('Not authorized');}
-      video.isPublic = ! video.isPublic;
+    
+    // Toggle video privacy
+    toggleVideoPrivacy: async (_, { videoId }, { user }) => {
+      if (!user) throw new Error('Authentication required');
+      
+      const video = await Video.findById(videoId);
+      
+      if (!video) throw new Error('Video not found');
+      
+      // Check ownership
+      if (video.user.toString() !== user.userId) {
+        throw new Error('Not authorized');
+      }
+      
+      // Simple toggle
+      video.isPublic = !video.isPublic;
       await video.save();
-      return video:},
-      createVideo: async (_,{input}, {user})=> {
-if (!user) throw new Error('Authentication required');
-      const video = new Video({...input, user: user.userId, isPublic:input.isPublic || false });
+      
+      return video;
+    },
+    
+    // Create video with isPublic flag
+    createVideo: async (_, { input }, { user }) => {
+      if (!user) throw new Error('Authentication required');
+      
+      const video = new Video({
+        ...input,
+        user: user.userId,
+        isPublic: input.isPublic || false  // Default to private
+      });
+      
       await video.save();
       return await video.populate('user neighborhood');
     }
-    }
+  }
 };
+
+      
     sendMessage: async (
       _,
       {
