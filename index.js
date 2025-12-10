@@ -90,30 +90,46 @@ app.get("/api/media/public/:cid", async (req, res) => {
   const thirtyDays = 2592000; // 30 days (CDN cache)
 
   try {
-    const media = await Video.findOne({
+    let media = await Video.findOne({
       cid: req.params.cid,
-      accessLevel: "public",
     })
-      .select("fileName fileType cid magnetLink")
       .lean();
+let mediaType = "video';
 
-    if (media) {
-      // Set aggressive caching headers for static, public data
-      res.set({
-        "Cache-Control": `public, max-age=${oneWeek}, must-revalidate`,
-        "CDN-Cache-Control": `public, max-age=${thirtyDays}`,
+    
+    if (!media) {
+media = await Image.findOne({ cid:
+  req.params.cid }}.lean();
+      mediaType='image';}
+
+    if(!media) {
+      res.set({"Cache-Control":"public, max-age=3600 });
+              return 
+      res.status(404).json({ error:"Media not found" });}
+
+    if (!media.isPublic){
+      res.set ({"Cache-Control":"no-cache"});
+      return
+      res.status(404).json({error:"Media not found"});
+
+      res.set ({
+"Cache-Control": `public, max-age=${oneWeek}, 
+immutable`, "CDN-Cache-Control": `public, max-age=${thirtyDays}`,
         Expires: getExpiresDate(thirtyDays),
         Vary: "Accept-Encoding",
       });
 
       // Note: We are NOT checking authentication here.
       // This assumes the magnetLink/CID is non-sensitive information.
-      return res.json(media);
-    } else {
-      // Use a short cache for 404s to reduce repeated requests
-      res.set({ "Cache-Control": "public, max-age=60" });
-      return res.status(404).json({ error: "Media not found" });
-    }
+      return res.json(
+
+fileName:media.fileName,
+        fileType: media.fileType,
+        cid: media.cid,
+        magnetLink: media.magnetLink,
+        isPublic: true,
+        mediaType: mediaType
+        });
   } catch (error) {
     console.error("Public media API error:", error);
     res
@@ -127,20 +143,34 @@ app.get("/api/media/public/:cid", async (req, res) => {
 // -----------------------------------------------------
 
 app.get("/api/media/private/:cid", authenticateToken, async (req, res) => {
-  const oneWeek = 604800; // 7 days (Local device cache)
+
 
   try {
-    const media = await Video.findOne({ cid: req.params.cid })
-      .select("fileName fileType cid magnetLink")
+    let media = await Video.findOne({ cid: req.params.cid })
       .lean();
 
-    if (media) {
-      // Check for content access logic here if needed (e.g., req.user is a member)
-      // For now, simple existence is enough since the route is behind auth.
+let mediaType='video';
 
-      // Set private caching headers
-      res.set({
-        // 'private' ensures only the end-user's browser/device caches the response.
+    if (!media) {
+      media = await
+      Image.findone({ cid: req.params.cid }).lean();
+      mediaType = 'image";
+    }
+
+    if (!media){
+      res.set({ "Cache-Control":"no-cache"});
+      return
+      res.status(404).jason({ error:"Media not found"});
+    }
+
+    const hasAccess =checkPrivateMediaAccess(media,req.user);
+    if (!hasAccess){res.set ({"Cache-Control:"no-cache"});
+                    return
+                    res.status(403).json({error:"Access denied"});
+
+                   }
+
+    res.set({
         "Cache-Control": `private, max-age=${oneWeek}, must-revalidate`,
         "CDN-Cache-Control": `private, max-age=${oneWeek}`,
         // 'Vary: Authorization' is CRITICAL to prevent caching issues between users
@@ -148,11 +178,15 @@ app.get("/api/media/private/:cid", authenticateToken, async (req, res) => {
         Expires: getExpiresDate(oneWeek),
       });
 
-      return res.json(media);
-    } else {
-      res.set({ "Cache-Control": "no-cache" }); // Do not cache 404s for private content
-      return res.status(404).json({ error: "Media not found or unauthorized" });
-    }
+      return res.json(
+
+fileName: media.fileName,
+        fileType:media.fileType,
+        cid:media.cid,
+        magnetLink: media.magnetLink,
+        isPublic: media.isPublic,
+        mediaType:mediaType});
+
   } catch (error) {
     console.error("Private media API error:", error);
     res
