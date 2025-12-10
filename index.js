@@ -276,10 +276,6 @@ app.get("/api/media/:cid", async (req, res) => {
   }
 });
 
-// Helper for expires header
-function getExpiresDate(seconds) {
-  return new Date(Date.now() + seconds * 1000).toUTCString();
-}
 // ⭐⭐⭐ USE MEMORY STORAGE - FIXED ⭐⭐⭐
 const storage = multer.memoryStorage(); // This creates req.file.buffer
 
