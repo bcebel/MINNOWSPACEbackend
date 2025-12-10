@@ -16,7 +16,7 @@ const migrateVideos = async () => {
       { $set: { accessLevel: "public" } }
     );
 
-    console.log(`Migrated ${result.nModified} videos.`);
+    console.log(`Migrated ${result.modifiedCount} videos.`);
   } catch (error) {
     console.error("Error migrating videos:", error);
   } finally {
