@@ -696,8 +696,6 @@ const resolvers = {
         magnetLink,
         mimeType,
         neighborhoodId,
-        accessLevel,
-        cid,
       },
       context
     ) => {
@@ -721,7 +719,7 @@ const resolvers = {
         if (!isMember) throw new Error("Not a member of this neighborhood");
       }
 
-      const messageData = {
+      const message = new Message({
         sender: context.user.userId,
         content,
         imageUrl: imageUrl || null,
@@ -736,48 +734,7 @@ const resolvers = {
         room: room || "neighborhood",
         neighborhood: neighborhoodId || null,
         createdAt: new Date(), // ✅ Explicitly set date
-      };
-
-      if ((imageUrl || videoUrl) && !cid) {
-        throw new Error("A cid must be provided for messages with media.");
-      }
-
-      if (videoUrl) {
-        const newVideo = new Video({
-          title: content,
-          description: "",
-          fileName: fileName,
-          fileSize: fileSize,
-          fileType: fileType,
-          cid: cid,
-          ipfsUrl: videoUrl,
-          magnetLink: magnetLink,
-          user: context.user.userId,
-          neighborhood: neighborhoodId,
-          accessLevel: accessLevel || "public",
-        });
-        await newVideo.save();
-        messageData.video = newVideo._id;
-      } else if (imageUrl) {
-        const newImage = new Image({
-          title: content,
-          description: "",
-          fileName: fileName,
-          fileSize: fileSize,
-          fileType: fileType,
-          mimetype: mimeType,
-          cid: cid,
-          ipfsUrl: imageUrl,
-          magnetLink: magnetLink,
-          user: context.user.userId,
-          neighborhood: neighborhoodId,
-          accessLevel: accessLevel || "public",
-        });
-        await newImage.save();
-        messageData.image = newImage._id;
-      }
-
-      const message = new Message(messageData);
+      });
 
       await message.save();
       console.log("✅ Backend: Message saved with ID:", message._id);
@@ -785,8 +742,6 @@ const resolvers = {
       // 🚨 SIMPLIFIED: Only populate sender, don't populate neighborhood
       const populatedMessage = await Message.findById(message._id)
         .populate("sender", "username profilePhoto")
-        .populate("image")
-        .populate("video")
         .exec();
 
       console.log("🚨 Raw populated message:", populatedMessage);

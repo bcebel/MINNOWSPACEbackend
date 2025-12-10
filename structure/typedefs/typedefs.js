@@ -34,7 +34,7 @@ const typeDefs = gql`
     thumbnailUrl: String
     magnetLink: String!
     strategy: String
-    accessLevel: String!
+    isPublic: Boolean!
     createdAt: String!
   }
 
@@ -125,8 +125,6 @@ const typeDefs = gql`
     content: String!
     imageUrl: String
     videoUrl: String
-    image: Image
-    video: Video
     fileUrl: String
     fileName: String
     fileType: String
@@ -187,7 +185,6 @@ const typeDefs = gql`
     user: User!
     strategy: String
     neighborhood: Neighborhood
-    accessLevel: String!
     createdAt: String!
   }
 
@@ -379,8 +376,6 @@ const typeDefs = gql`
       thumbnailUrl: String
       ipfsUrl: String
       neighborhoodId: ID
-      accessLevel: String
-      cid: String
     ): Message!
 
 
@@ -420,6 +415,19 @@ const typeDefs = gql`
 
     # Invite system (optional for later)
     inviteToNeighborhood(neighborhoodId: ID!, username: String!): Boolean
+
+    sendImage(
+      neighborhoodId: ID
+      title: String
+      description: String
+      fileName: String!
+      fileSize: Int!
+      fileType: String!
+      mimetype: String!
+      cid: String!
+      ipfsUrl: String!
+      magnetLink: String!
+    ): Image!
   }
 
   type AuthPayload {

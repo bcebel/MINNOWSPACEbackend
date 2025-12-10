@@ -6,8 +6,6 @@ const messageSchema = new mongoose.Schema(
     content: String,
     imageUrl: String,
     videoUrl: String,
-    image: { type: mongoose.Schema.Types.ObjectId, ref: "Image" },
-    video: { type: mongoose.Schema.Types.ObjectId, ref: "Video" },
     fileUrl: String,
     fileName: String,
     fileType: String,

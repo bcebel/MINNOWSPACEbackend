@@ -6,9 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node index.js",
-    "seed": "node seed.js",
-    "migrate:images": "node migrate_images.js",
-    "migrate:videos": "node migrate_videos.js"
+    "seed": "node seed.js"
   },
   "keywords": [],
   "author": "",
