@@ -1,6 +1,11 @@
 import { gql } from "apollo-server-express";
 
 const typeDefs = gql`
+  enum AccessLevel {
+    public
+    private
+  }
+
   type User {
     id: ID!
     username: String!
@@ -34,7 +39,7 @@ const typeDefs = gql`
     thumbnailUrl: String
     magnetLink: String!
     strategy: String
-    isPublic: Boolean!
+    accessLevel: AccessLevel
     createdAt: String!
   }
 
@@ -184,6 +189,7 @@ const typeDefs = gql`
     magnetLink: String!
     user: User!
     strategy: String
+    accessLevel: AccessLevel
     neighborhood: Neighborhood
     createdAt: String!
   }
@@ -339,6 +345,7 @@ const typeDefs = gql`
       description: String!
       youtubeVideoId: String!
       thumbnail: String!
+      accessLevel: AccessLevel
     ): Video!
 
     # Stream mutations
@@ -427,6 +434,7 @@ const typeDefs = gql`
       cid: String!
       ipfsUrl: String!
       magnetLink: String!
+      accessLevel: AccessLevel
     ): Image!
   }
 

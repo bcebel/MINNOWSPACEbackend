@@ -22,6 +22,11 @@ const videoSchema = new mongoose.Schema(
       enum: ["sequential", "rarest"],
       default: "sequential", // Default for videos
     },
+    accessLevel: {
+      type: String,
+      enum: ["public", "private"],
+      default: "private",
+    },
     videoMetadata: {
       duration: Number,
       bitrate: Number,

@@ -835,6 +835,25 @@ const resolvers = {
         throw new Error(`Failed to delete post: ${error.message}`);
       }
     },
+    addVideo: async (
+      _,
+      { title, description, youtubeVideoId, thumbnail, accessLevel },
+      context
+    ) => {
+      if (!context.user) throw new Error("Authentication required");
+
+      const video = new Video({
+        user: context.user.userId,
+        title,
+        description,
+        youtubeVideoId,
+        thumbnail,
+        accessLevel: accessLevel || "private",
+      });
+
+      await video.save();
+      return video;
+    },
     addAffiliateLink: async (_, { url, title, description }, context) => {
       // ... (existing addAffiliateLink logic is correct, assuming context.user.id is used there)
       try {
@@ -1651,6 +1670,43 @@ const resolvers = {
         token,
         user,
       };
+    },
+    sendImage: async (
+      _,
+      {
+        neighborhoodId,
+        title,
+        description,
+        fileName,
+        fileSize,
+        fileType,
+        mimetype,
+        cid,
+        ipfsUrl,
+        magnetLink,
+        accessLevel,
+      },
+      context
+    ) => {
+      if (!context.user) throw new Error("Authentication required");
+
+      const image = new Image({
+        user: context.user.userId,
+        neighborhood: neighborhoodId,
+        title,
+        description,
+        fileName,
+        fileSize,
+        fileType,
+        mimetype,
+        cid,
+        ipfsUrl,
+        magnetLink,
+        accessLevel: accessLevel || "private",
+      });
+
+      await image.save();
+      return image;
     },
   },
   Neighborhood: {
