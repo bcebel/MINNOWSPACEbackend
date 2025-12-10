@@ -27,7 +27,7 @@ const corsOptions = {
   origin:
     process.env.NODE_ENV === "production"
       ? [
-
+"https://minnowspacebackend-e6635e46c3d0.herokuapp.com/",
           "https://bubblebase.app",
           "https://gigunit.com",
           "https://gigunit.vercel.app",
