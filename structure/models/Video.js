@@ -13,11 +13,6 @@ const videoSchema = new mongoose.Schema(
     cid: { type: String, required: true }, // IPFS Content Identifier (CID)
     ipfsUrl: { type: String, required: true }, // IPFS gateway URL
     magnetLink: { type: String, required: true }, // Magnet link for torrent
-    accessLevel: {
-      type: String,
-      enum: ["public", "private"],
-      default: "public",
-    },
     neighborhood: { type: mongoose.Schema.Types.ObjectId, ref: "Neighborhood" },
     thumbnailUrl: String,
     createdAt: { type: Date, default: Date.now }, // Timestamp of upload

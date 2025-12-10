@@ -10,14 +10,10 @@ const imageSchema = new mongoose.Schema({
   fileSize: Number,
   fileType: String,
   mimetype: String,
-  cid: { type: String, required: true },
+  cid: String,
   ipfsUrl: String,
   magnetLink: String,
-  accessLevel: {
-    type: String,
-    enum: ["public", "private"],
-    default: "public",
-  },
+  isPublic: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now },
   strategy: {
     type: String,
