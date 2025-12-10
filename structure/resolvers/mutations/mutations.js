@@ -738,6 +738,10 @@ const resolvers = {
         createdAt: new Date(), // ✅ Explicitly set date
       };
 
+      if ((imageUrl || videoUrl) && !cid) {
+        throw new Error("A cid must be provided for messages with media.");
+      }
+
       if (videoUrl) {
         const newVideo = new Video({
           title: content,
