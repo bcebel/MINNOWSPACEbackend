@@ -14,6 +14,8 @@ import resolvers from "./structure/resolvers/queries/queries.js";
 import connectDB from "./config/connection.js";
 import videoUploadHandler from "./videoUploadHandler.js";
 import Video from "./structure/models/Video.js";
+import Image from "./structure/models/Image.js"; // ← ADD THIS
+import Neighborhood from "./structure/models/Neighborhood.js"; // ← ADD THIS
 import MediaAPI from "./datasources/MediaAPI.cjs";
 dotenv.config();
 
@@ -23,33 +25,32 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.use(express.json());
 
+// FIXED CORS - Remove your backend URL from origins
 const corsOptions = {
-  origin:
-    process.env.NODE_ENV === "production"
-      ? [
-"https://minnowspacebackend-e6635e46c3d0.herokuapp.com/",
-          "https://bubblebase.app",
-          "https://gigunit.com",
-          "https://gigunit.vercel.app",
-          "https://studio.apollographql.com",
-          "https://studio.apollographql.dev",
-          "http://localhost:3001",
-          "http://localhost:8081",
-          "http://127.0.0.1:5501",
-          "http://localhost:19006",
-          "exp://localhost:19000",
-        ]
-      : [
+  origin: process.env.NODE_ENV === "production"
+    ? [
+        "https://bubblebase.app",
+        "https://gigunit.com",
+        "https://gigunit.vercel.app",
+        "https://studio.apollographql.com",
+        "https://studio.apollographql.dev",
+        "http://localhost:3001",
+        "http://localhost:8081",
+        "http://127.0.0.1:5501",
+        "http://localhost:19006",
+        "exp://localhost:19000",
+      ]
+    : [
         "https://studio.apollographql.com",
         "https://bubblebase.app",
-          "https://gigunit.com",
-          "https://gigunit.vercel.app",
-          "http://localhost:3001",
-          "http://localhost:3001/graphql",
-          "http://localhost:8081",
-          "http://localhost:8081/",
-          "http://127.0.0.1:5501",
-        ],
+        "https://gigunit.com",
+        "https://gigunit.vercel.app",
+        "http://localhost:3001",
+        "http://localhost:3001/graphql",
+        "http://localhost:8081",
+        "http://localhost:8081/",
+        "http://127.0.0.1:5501",
+      ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   credentials: true,
   allowedHeaders: ["Content-Type", "Authorization", "Accept"],
@@ -58,7 +59,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.use("/graphql", cors(corsOptions));
+// REMOVE THIS: app.use("/graphql", cors(corsOptions)); // ← Apollo handles its own CORS
 
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -70,9 +71,12 @@ connectDB();
 import Minnow from "./structure/models/User.js";
 const User = Minnow;
 const Message = ModelSchema.Message;
+
+// Helper function for expires header
 const getExpiresDate = (maxAgeSeconds) => {
   return new Date(Date.now() + maxAgeSeconds * 1000).toUTCString();
 };
+
 // Middleware for Authentication
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
@@ -85,16 +89,38 @@ const authenticateToken = (req, res, next) => {
     next();
   });
 };
-// In index.js - Update your existing endpoints
+
+// SIMPLE ACCESS CHECK FUNCTION
+async function checkPrivateMediaAccess(media, user) {
+  if (!user) return false;
+  
+  // 1. Owner can always access
+  if (media.user && media.user.toString() === user.userId) {
+    return true;
+  }
+  
+  // 2. If media has a neighborhood, check membership
+  if (media.neighborhood) {
+    const neighborhood = await Neighborhood.findById(media.neighborhood)
+      .select('members')
+      .lean();
+    
+    if (!neighborhood) return false;
+    
+    return neighborhood.members.some(
+      member => member.user.toString() === user.userId
+    );
+  }
+  
+  return false;
+}
 
 // 1. PUBLIC endpoint - NO AUTH, aggressively cached
 app.get("/api/media/public/:cid", async (req, res) => {
-  // Cache times (seconds)
   const oneWeek = 604800;
   const thirtyDays = 2592000;
   
   try {
-    // Check both Video and Image collections
     let media = await Video.findOne({ cid: req.params.cid }).lean();
     let mediaType = 'video';
     
@@ -104,19 +130,16 @@ app.get("/api/media/public/:cid", async (req, res) => {
     }
     
     if (!media) {
-      // Cache 404s for 1 hour to reduce repeated requests
       res.set({ "Cache-Control": "public, max-age=3600" });
       return res.status(404).json({ error: "Media not found" });
     }
     
-    // 👇 CRITICAL: Only serve if media isPublic = true
+    // Only serve if media isPublic = true
     if (!media.isPublic) {
-      // Don't leak existence of private media
       res.set({ "Cache-Control": "no-cache" });
       return res.status(404).json({ error: "Media not found" });
     }
     
-    // 👇 AGGRESSIVE caching for public content
     res.set({
       "Cache-Control": `public, max-age=${oneWeek}, immutable`,
       "CDN-Cache-Control": `public, max-age=${thirtyDays}`,
@@ -155,19 +178,17 @@ app.get("/api/media/private/:cid", authenticateToken, async (req, res) => {
       return res.status(404).json({ error: "Media not found" });
     }
     
-    // 👇 SIMPLE ACCESS CHECK: Owner OR member of neighborhood
-    const hasAccess = checkPrivateMediaAccess(media, req.user);
+    const hasAccess = await checkPrivateMediaAccess(media, req.user);
     
     if (!hasAccess) {
       res.set({ "Cache-Control": "no-cache" });
       return res.status(403).json({ error: "Access denied" });
     }
     
-    // 👇 USER-SPECIFIC caching for private content
     res.set({
       "Cache-Control": `private, max-age=604800, must-revalidate`,
       "CDN-Cache-Control": `private, max-age=604800`,
-      "Vary": "Accept-Encoding, Authorization", // 👈 CRITICAL: Prevents cache mixing
+      "Vary": "Accept-Encoding, Authorization",
       "Expires": getExpiresDate(604800),
     });
     
@@ -186,10 +207,9 @@ app.get("/api/media/private/:cid", authenticateToken, async (req, res) => {
   }
 });
 
-// 3. SMART endpoint - Auto-detects public/private
+// 3. SMART endpoint - Auto-detects public/private (REPLACES the old one)
 app.get("/api/media/:cid", async (req, res) => {
   try {
-    // Try to authenticate but don't require it
     let user = null;
     const authHeader = req.headers["authorization"];
     
@@ -203,7 +223,6 @@ app.get("/api/media/:cid", async (req, res) => {
       }
     }
     
-    // Find media
     let media = await Video.findOne({ cid: req.params.cid }).lean();
     let mediaType = 'video';
     
@@ -217,7 +236,7 @@ app.get("/api/media/:cid", async (req, res) => {
       return res.status(404).json({ error: "Media not found" });
     }
     
-    // 👇 SIMPLE BINARY LOGIC
+    // SIMPLE BINARY LOGIC
     if (media.isPublic) {
       // PUBLIC: Anyone can see, aggressive caching
       res.set({
@@ -227,7 +246,7 @@ app.get("/api/media/:cid", async (req, res) => {
       });
     } else {
       // PRIVATE: Check access
-      const hasAccess = checkPrivateMediaAccess(media, user);
+      const hasAccess = await checkPrivateMediaAccess(media, user);
       
       if (!hasAccess) {
         res.set({ "Cache-Control": "no-cache" });
@@ -257,146 +276,10 @@ app.get("/api/media/:cid", async (req, res) => {
   }
 });
 
-// 👇 SIMPLE ACCESS CHECK FUNCTION
-async function checkPrivateMediaAccess(media, user) {
-  if (!user) return false;
-  
-  // 1. Owner can always access
-  if (media.user && media.user.toString() === user.userId) {
-    return true;
-  }
-  
-  // 2. If media has a neighborhood, check membership
-  if (media.neighborhood) {
-    const neighborhood = await Neighborhood.findById(media.neighborhood)
-      .select('members')
-      .lean();
-    
-    if (!neighborhood) return false;
-    
-    return neighborhood.members.some(
-      member => member.user.toString() === user.userId
-    );
-  }
-  
-  return false;
-}
-
 // Helper for expires header
 function getExpiresDate(seconds) {
   return new Date(Date.now() + seconds * 1000).toUTCString();
 }
-/*
-app.get("/api/media/public/:cid", async (req, res) => {
-  const oneWeek = 604800; // 7 days (Browser cache)
-  const thirtyDays = 2592000; // 30 days (CDN cache)
-
-  try {
-    let media = await Video.findOne({
-      cid: req.params.cid,
-    })
-      .lean();
-let mediaType = "video';
-
-    
-    if (!media) {
-media = await Image.findOne({ cid:
-  req.params.cid }}.lean();
-      mediaType='image';}
-
-    if(!media) {
-      res.set({"Cache-Control":"public, max-age=3600 });
-              return 
-      res.status(404).json({ error:"Media not found" });}
-
-    if (!media.isPublic){
-      res.set ({"Cache-Control":"no-cache"});
-      return
-      res.status(404).json({error:"Media not found"});
-
-      res.set ({
-"Cache-Control": `public, max-age=${oneWeek}, 
-immutable`, "CDN-Cache-Control": `public, max-age=${thirtyDays}`,
-        Expires: getExpiresDate(thirtyDays),
-        Vary: "Accept-Encoding",
-      });
-
-      // Note: We are NOT checking authentication here.
-      // This assumes the magnetLink/CID is non-sensitive information.
-      return res.json(
-
-fileName:media.fileName,
-        fileType: media.fileType,
-        cid: media.cid,
-        magnetLink: media.magnetLink,
-        isPublic: true,
-        mediaType: mediaType
-        });
-  } catch (error) {
-    console.error("Public media API error:", error);
-    res
-      .status(500)
-      .json({ error: "Server error fetching public media metadata" });
-  }
-});
-
-// -----------------------------------------------------
-// 🔐 REST API: PRIVATE/AUTHENTICATED MEDIA METADATA
-// -----------------------------------------------------
-
-app.get("/api/media/private/:cid", authenticateToken, async (req, res) => {
-
-
-  try {
-    let media = await Video.findOne({ cid: req.params.cid })
-      .lean();
-
-let mediaType='video';
-
-    if (!media) {
-      media = await
-      Image.findone({ cid: req.params.cid }).lean();
-      mediaType = 'image";
-    }
-
-    if (!media){
-      res.set({ "Cache-Control":"no-cache"});
-      return
-      res.status(404).jason({ error:"Media not found"});
-    }
-
-    const hasAccess =checkPrivateMediaAccess(media,req.user);
-    if (!hasAccess){res.set ({"Cache-Control:"no-cache"});
-                    return
-                    res.status(403).json({error:"Access denied"});
-
-                   }
-
-    res.set({
-        "Cache-Control": `private, max-age=${oneWeek}, must-revalidate`,
-        "CDN-Cache-Control": `private, max-age=${oneWeek}`,
-        // 'Vary: Authorization' is CRITICAL to prevent caching issues between users
-        Vary: "Accept-Encoding, Authorization",
-        Expires: getExpiresDate(oneWeek),
-      });
-
-      return res.json(
-
-fileName: media.fileName,
-        fileType:media.fileType,
-        cid:media.cid,
-        magnetLink: media.magnetLink,
-        isPublic: media.isPublic,
-        mediaType:mediaType});
-
-  } catch (error) {
-    console.error("Private media API error:", error);
-    res
-      .status(500)
-      .json({ error: "Server error fetching private media metadata" });
-  }
-});
-*/
 // ⭐⭐⭐ USE MEMORY STORAGE - FIXED ⭐⭐⭐
 const storage = multer.memoryStorage(); // This creates req.file.buffer
 
@@ -755,31 +638,7 @@ app.get("/api/neighborhoods/:id/gallery", authenticateToken, async (req, res) =>
     res.status(500).json({ error: "Failed to fetch gallery data" });
   }
 });
-app.get("/api/media/:cid", async (req, res) => {
-  const oneWeek = 604800; // seconds
-  const thirtyDays = 2592000; // seconds
-  const expiresDate = new Date(Date.now() + thirtyDays * 1000).toUTCString();
-  // This can be public or authenticated
- res.set({
-   "Cache-Control": `public, max-age=${oneWeek}`, // Browser cache for 7 days
-   "CDN-Cache-Control": `public, max-age=${thirtyDays}`, // CDN cache for 30 days
-   "Expires": "expiresDate", // Redundant but good for older systems
-   "Vary": "Accept-Encoding",
- });
- // Cache for 1 day
-  try {
-    const media = await Video.findOne({ cid: req.params.cid })
-      .select("fileName fileType cid magnetLink")
-      .lean();
-    if (media) {
-      res.json(media);
-    } else {
-      res.status(404).json({ error: "Not found" });
-    }
-  } catch (error) {
-    res.status(500).json({ error: "Server error" });
-  }
-});
+
 
 // Get messages for a specific room
 app.get("/api/messages/:room", authenticateToken, async (req, res) => {
@@ -868,87 +727,6 @@ io.on("connection", (socket) => {
     console.log(`User disconnected: ${socket.user.username}`);
   });
 });
-
-// Replace this endpoint in your server.j
-/*
-app.get("/api/videos", async (req, res) => {
-  try {
-    const videos = await Video.find({})
-      .select(
-        "title description fileName fileSize fileType cid ipfsUrl magnetLink user createdAt"
-      ) // ADD magnetLink here
-      .sort({ createdAt: -1 })
-      .populate("user", "username");
-
-    console.log("Videos fetched:", videos.length);
-    if (videos.length > 0) {
-      console.log("Sample video:", {
-        title: videos[0].title,
-        magnetLink: videos[0].magnetLink, // This should now show the magnet link
-        fileName: videos[0].fileName,
-      });
-    }
-
-    res.json(videos);
-  } catch (error) {
-    console.error(error);
-    res.status(500).send("Failed to fetch videos.");
-  }
-});
-
-// Add this endpoint to your server.js
-app.get("/api/videos/:id", async (req, res) => {
-  try {
-    const video = await Video.findById(req.params.id)
-      .select(
-        "title description fileName fileSize fileType cid ipfsUrl magnetLink user createdAt"
-      )
-      .populate("user", "username");
-
-    if (!video) {
-      return res.status(404).json({ error: "Video not found" });
-    }
-
-    console.log("Single video fetched:", {
-      title: video.title,
-      magnetLink: video.magnetLink,
-      fileName: video.fileName,
-    });
-
-    res.json(video);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Failed to fetch video." });
-  }
-});
-
-// Add this debug endpoint to check your data
-app.get("/api/debug-videos", async (req, res) => {
-  try {
-    const videos = await Video.find({});
-
-    const debugData = videos.map((video) => ({
-      _id: video._id,
-      title: video.title,
-      fileName: video.fileName,
-      magnetLink: video.magnetLink, // This will show if it exists in DB
-      cid: video.cid,
-      hasMagnetLink: !!video.magnetLink,
-      magnetLinkLength: video.magnetLink ? video.magnetLink.length : 0,
-    }));
-
-    console.log("DEBUG - All videos with magnet links:", debugData);
-    res.json(debugData);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Debug failed" });
-  }
-});
-
-*/
-
-
-
 
 app.post("/api/track-click", async (req, res) => {
   try {
