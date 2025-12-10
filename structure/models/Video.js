@@ -34,6 +34,10 @@ const videoSchema = new mongoose.Schema(
       ref: "Image",
       default: null,
     },
+    isPublic: {
+      type: Boolean,
+      default: false
+    },
     thumbnailUrl: String,
   },
   { timestamps: true }
