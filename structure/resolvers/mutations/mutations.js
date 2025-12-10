@@ -771,8 +771,7 @@ const resolvers = {
       await video.save();
       return await video.populate('user neighborhood');
     }
-  }
-
+  
 
       
     sendMessage: async (
