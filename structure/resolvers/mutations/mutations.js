@@ -159,7 +159,7 @@ const resolvers = {
         return await Video.find({ isPublic: true })
           .populate('user', 'username profilePhoto')
           .sort({ createdAt: -1 });
-      },
+      }
       
       // Return public videos OR videos user has access to
       return await Video.find({
