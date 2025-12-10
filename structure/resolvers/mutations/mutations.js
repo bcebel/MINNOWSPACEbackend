@@ -196,12 +196,16 @@ const resolvers = {
                                .populate('user','username profilePhoto').sort({ createdAt: -1 });
                               },
 
-    myVideos: async (_, __, {user})=>{
-      return await Video.find({ isPublic:true}).populate('user', 'username profilePhoto').sort({ createdAt: -1});}
-      return await Video.find({$or:[{isPublid:true},
-                                    {user:user.userId },
-                                    ]
-                              }).populate('user','username profilePhoto').populate('neighborhoold','name').sort({createdAt: -1 });
+    myVideos: async (_, __, { user }) => {
+  // Build query based on authentication
+  const query = user 
+    ? { $or: [{ isPublic: true }, { user: user.userId }] }
+    : { isPublic: true };
+    
+  return await Video.find(query)
+    .populate('user', 'username profilePhoto')
+    .populate('neighborhood', 'name description')
+    .sort({ createdAt: -1 });
 },
 
 
