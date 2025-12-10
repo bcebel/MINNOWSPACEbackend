@@ -185,6 +185,7 @@ const typeDefs = gql`
     user: User!
     strategy: String
     neighborhood: Neighborhood
+    isPublic: Boolean!
     createdAt: String!
   }
 
@@ -249,6 +250,10 @@ const typeDefs = gql`
 
     neighborhoodMessages(neighborhoodId: ID!): [Message]
     neighborhoodVideos(neighborhoodId: ID!): [Video]
+
+publicVideos: [Video]
+publicImages: [Image]
+myVideos: [Video]
 
     getMyVideos: [Video]
     getUserVideos(userId: ID!): [Video]
