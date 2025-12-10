@@ -15,6 +15,10 @@ const imageSchema = new mongoose.Schema({
   magnetLink: String,
   isPublic: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now },
+  isPublic: {
+    type: Boolean,
+    default: false
+  },
   strategy: {
     type: String,
     enum: ["sequential", "rarest"],
