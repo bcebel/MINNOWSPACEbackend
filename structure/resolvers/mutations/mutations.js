@@ -772,7 +772,7 @@ const resolvers = {
       return await video.populate('user neighborhood');
     }
   }
-};
+
 
       
     sendMessage: async (
