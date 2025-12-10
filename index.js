@@ -85,6 +85,8 @@ const authenticateToken = (req, res, next) => {
     next();
   });
 };
+
+/*
 app.get("/api/media/public/:cid", async (req, res) => {
   const oneWeek = 604800; // 7 days (Browser cache)
   const thirtyDays = 2592000; // 30 days (CDN cache)
@@ -194,6 +196,7 @@ fileName: media.fileName,
       .json({ error: "Server error fetching private media metadata" });
   }
 });
+*/
 // ⭐⭐⭐ USE MEMORY STORAGE - FIXED ⭐⭐⭐
 const storage = multer.memoryStorage(); // This creates req.file.buffer
 
