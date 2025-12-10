@@ -85,7 +85,207 @@ const authenticateToken = (req, res, next) => {
     next();
   });
 };
+// In index.js - Update your existing endpoints
 
+// 1. PUBLIC endpoint - NO AUTH, aggressively cached
+app.get("/api/media/public/:cid", async (req, res) => {
+  // Cache times (seconds)
+  const oneWeek = 604800;
+  const thirtyDays = 2592000;
+  
+  try {
+    // Check both Video and Image collections
+    let media = await Video.findOne({ cid: req.params.cid }).lean();
+    let mediaType = 'video';
+    
+    if (!media) {
+      media = await Image.findOne({ cid: req.params.cid }).lean();
+      mediaType = 'image';
+    }
+    
+    if (!media) {
+      // Cache 404s for 1 hour to reduce repeated requests
+      res.set({ "Cache-Control": "public, max-age=3600" });
+      return res.status(404).json({ error: "Media not found" });
+    }
+    
+    // 👇 CRITICAL: Only serve if media isPublic = true
+    if (!media.isPublic) {
+      // Don't leak existence of private media
+      res.set({ "Cache-Control": "no-cache" });
+      return res.status(404).json({ error: "Media not found" });
+    }
+    
+    // 👇 AGGRESSIVE caching for public content
+    res.set({
+      "Cache-Control": `public, max-age=${oneWeek}, immutable`,
+      "CDN-Cache-Control": `public, max-age=${thirtyDays}`,
+      "Expires": getExpiresDate(thirtyDays),
+      "Vary": "Accept-Encoding",
+    });
+    
+    return res.json({
+      fileName: media.fileName,
+      fileType: media.fileType,
+      cid: media.cid,
+      magnetLink: media.magnetLink,
+      isPublic: true,
+      mediaType: mediaType
+    });
+    
+  } catch (error) {
+    console.error("Public media API error:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// 2. PRIVATE endpoint - REQUIRES AUTH, user-specific cache
+app.get("/api/media/private/:cid", authenticateToken, async (req, res) => {
+  try {
+    let media = await Video.findOne({ cid: req.params.cid }).lean();
+    let mediaType = 'video';
+    
+    if (!media) {
+      media = await Image.findOne({ cid: req.params.cid }).lean();
+      mediaType = 'image';
+    }
+    
+    if (!media) {
+      res.set({ "Cache-Control": "no-cache" });
+      return res.status(404).json({ error: "Media not found" });
+    }
+    
+    // 👇 SIMPLE ACCESS CHECK: Owner OR member of neighborhood
+    const hasAccess = checkPrivateMediaAccess(media, req.user);
+    
+    if (!hasAccess) {
+      res.set({ "Cache-Control": "no-cache" });
+      return res.status(403).json({ error: "Access denied" });
+    }
+    
+    // 👇 USER-SPECIFIC caching for private content
+    res.set({
+      "Cache-Control": `private, max-age=604800, must-revalidate`,
+      "CDN-Cache-Control": `private, max-age=604800`,
+      "Vary": "Accept-Encoding, Authorization", // 👈 CRITICAL: Prevents cache mixing
+      "Expires": getExpiresDate(604800),
+    });
+    
+    return res.json({
+      fileName: media.fileName,
+      fileType: media.fileType,
+      cid: media.cid,
+      magnetLink: media.magnetLink,
+      isPublic: media.isPublic,
+      mediaType: mediaType
+    });
+    
+  } catch (error) {
+    console.error("Private media API error:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// 3. SMART endpoint - Auto-detects public/private
+app.get("/api/media/:cid", async (req, res) => {
+  try {
+    // Try to authenticate but don't require it
+    let user = null;
+    const authHeader = req.headers["authorization"];
+    
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      try {
+        const token = authHeader.substring(7);
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        user = { userId: decoded.userId };
+      } catch (error) {
+        // Invalid token, treat as anonymous
+      }
+    }
+    
+    // Find media
+    let media = await Video.findOne({ cid: req.params.cid }).lean();
+    let mediaType = 'video';
+    
+    if (!media) {
+      media = await Image.findOne({ cid: req.params.cid }).lean();
+      mediaType = 'image';
+    }
+    
+    if (!media) {
+      res.set({ "Cache-Control": "public, max-age=3600" });
+      return res.status(404).json({ error: "Media not found" });
+    }
+    
+    // 👇 SIMPLE BINARY LOGIC
+    if (media.isPublic) {
+      // PUBLIC: Anyone can see, aggressive caching
+      res.set({
+        "Cache-Control": `public, max-age=604800, immutable`,
+        "CDN-Cache-Control": `public, max-age=2592000`,
+        "Vary": "Accept-Encoding",
+      });
+    } else {
+      // PRIVATE: Check access
+      const hasAccess = checkPrivateMediaAccess(media, user);
+      
+      if (!hasAccess) {
+        res.set({ "Cache-Control": "no-cache" });
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Private content, user-specific cache
+      res.set({
+        "Cache-Control": `private, max-age=604800, must-revalidate`,
+        "CDN-Cache-Control": `private, max-age=604800`,
+        "Vary": "Accept-Encoding, Authorization",
+      });
+    }
+    
+    return res.json({
+      fileName: media.fileName,
+      fileType: media.fileType,
+      cid: media.cid,
+      magnetLink: media.magnetLink,
+      isPublic: media.isPublic,
+      mediaType: mediaType
+    });
+    
+  } catch (error) {
+    console.error("Media API error:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// 👇 SIMPLE ACCESS CHECK FUNCTION
+async function checkPrivateMediaAccess(media, user) {
+  if (!user) return false;
+  
+  // 1. Owner can always access
+  if (media.user && media.user.toString() === user.userId) {
+    return true;
+  }
+  
+  // 2. If media has a neighborhood, check membership
+  if (media.neighborhood) {
+    const neighborhood = await Neighborhood.findById(media.neighborhood)
+      .select('members')
+      .lean();
+    
+    if (!neighborhood) return false;
+    
+    return neighborhood.members.some(
+      member => member.user.toString() === user.userId
+    );
+  }
+  
+  return false;
+}
+
+// Helper for expires header
+function getExpiresDate(seconds) {
+  return new Date(Date.now() + seconds * 1000).toUTCString();
+}
 /*
 app.get("/api/media/public/:cid", async (req, res) => {
   const oneWeek = 604800; // 7 days (Browser cache)
