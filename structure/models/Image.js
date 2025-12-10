@@ -13,7 +13,11 @@ const imageSchema = new mongoose.Schema({
   cid: String,
   ipfsUrl: String,
   magnetLink: String,
-  isPublic: { type: Boolean, default: true },
+  accessLevel: {
+    type: String,
+    enum: ["public", "private"],
+    default: "public",
+  },
   createdAt: { type: Date, default: Date.now },
   strategy: {
     type: String,
