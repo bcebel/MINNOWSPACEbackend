@@ -298,6 +298,8 @@ myVideos: [Video]
       expiresInDays: Int
       role: String
     ): InviteLink!
+toggleVideoPrivacy(videoId: ID!);Video
+createVideo(input:VideoInput!);Video
 
     # Update an invite link
     updateInviteLink(
@@ -439,6 +441,18 @@ myVideos: [Video]
     token: String!
     user: User!
   }
+
+input VideoInput {
+title: String
+description: String
+fileName: String!
+fileSize: Int
+fileType:String!
+cid: String!
+magnetLink: String
+isPublic: Boolean
+neighborhoodId: ID
+}
 
   type InviteLink {
     id: ID!
