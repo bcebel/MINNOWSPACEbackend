@@ -12,6 +12,7 @@ const messageSchema = new mongoose.Schema(
     fileSize: Number,
     ipfsUrl: String,
     mimeType: String,
+    isPublic: Boolean,
     ipfsHash: String,
     thumbnailUrl: String,
     ipfsData: {
