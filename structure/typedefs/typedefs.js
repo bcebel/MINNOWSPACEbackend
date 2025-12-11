@@ -298,8 +298,8 @@ myVideos: [Video]
       expiresInDays: Int
       role: String
     ): InviteLink!
-toggleVideoPrivacy(videoId: ID!);Video
-createVideo(input:VideoInput!);Video
+toggleVideoPrivacy(videoId: ID!):Video
+createVideo(input:VideoInput!):Video
 
     # Update an invite link
     updateInviteLink(
