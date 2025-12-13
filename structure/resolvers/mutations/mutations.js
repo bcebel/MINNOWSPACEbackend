@@ -81,115 +81,116 @@ const validateAndExtractAffiliateHtml = (html) => {
 
 const resolvers = {
   Query: {
-
-getMyAllNeighborhoodsGallery: async (_, __, { user, models }) => {
-    if (!user) {
-      throw new Error("Authentication required");
-    }
-
-    try {
-      console.log("Fetching all neighborhoods gallery for user:", user.id);
-      
-      // OPTION 1: If you have a myNeighborhoods query, use it
-      // Get user's neighborhoods
-      const userNeighborhoods = await models.Neighborhood.find({
-        $or: [
-          { owner: user.id }, // User is owner
-          { members: { $elemMatch: { user: user.id } } } // User is a member
-        ]
-      }).select('_id');
-      
-      const neighborhoodIds = userNeighborhoods.map(n => n._id);
-      
-      console.log("User's neighborhood IDs:", neighborhoodIds);
-      
-      // OPTION 2: Alternative if you have a different schema
-      // Get neighborhoods where user is owner or member
-      // This depends on your actual schema structure
-      
-      // If no neighborhoods found, return empty
-      if (neighborhoodIds.length === 0) {
-        return {
-          videos: [],
-          images: [],
-          totalCount: 0
-        };
+    getMyAllNeighborhoodsGallery: async (_, __, { user, models }) => {
+      if (!user) {
+        throw new Error("Authentication required");
       }
 
-      // Get videos from user's neighborhoods
-      const videos = await models.Video.find({
-        $or: [
-          { neighborhoodId: { $in: neighborhoodIds } },
-          { user: user.id } // Include user's own videos regardless of neighborhood
-        ]
-      })
-      .populate('user', 'username profilePhoto')
-      .populate('neighborhood', 'id name description')
-      .sort({ createdAt: -1 });
+      try {
+        console.log("Fetching all neighborhoods gallery for user:", user.id);
 
-      // Get images from user's neighborhoods
-      const images = await models.Image.find({
-        $or: [
-          { neighborhoodId: { $in: neighborhoodIds } },
-          { user: user.id } // Include user's own images regardless of neighborhood
-        ]
-      })
-      .populate('user', 'username profilePhoto')
-      .populate('neighborhood', 'id name description')
-      .sort({ createdAt: -1 });
+        // OPTION 1: If you have a myNeighborhoods query, use it
+        // Get user's neighborhoods
+        const userNeighborhoods = await models.Neighborhood.find({
+          $or: [
+            { owner: user.id }, // User is owner
+            { members: { $elemMatch: { user: user.id } } }, // User is a member
+          ],
+        }).select("_id");
 
-      console.log(`Found ${videos.length} videos and ${images.length} images`);
+        const neighborhoodIds = userNeighborhoods.map((n) => n._id);
 
-      return {
-        videos,
-        images,
-        totalCount: videos.length + images.length
-      };
-      
-    } catch (error) {
-      console.error("Error in getMyAllNeighborhoodsGallery:", error);
-      throw new Error("Failed to fetch gallery data: " + error.message);
-    }
-  },
+        console.log("User's neighborhood IDs:", neighborhoodIds);
 
+        // OPTION 2: Alternative if you have a different schema
+        // Get neighborhoods where user is owner or member
+        // This depends on your actual schema structure
 
-        // Get public media (no auth needed)
+        // If no neighborhoods found, return empty
+        if (neighborhoodIds.length === 0) {
+          return {
+            videos: [],
+            images: [],
+            totalCount: 0,
+          };
+        }
+
+        // Get videos from user's neighborhoods
+        const videos = await models.Video.find({
+          $or: [
+            { neighborhoodId: { $in: neighborhoodIds } },
+            { user: user.id }, // Include user's own videos regardless of neighborhood
+          ],
+        })
+          .populate("user", "username profilePhoto")
+          .populate("neighborhood", "id name description")
+          .sort({ createdAt: -1 });
+
+        // Get images from user's neighborhoods
+        const images = await models.Image.find({
+          $or: [
+            { neighborhoodId: { $in: neighborhoodIds } },
+            { user: user.id }, // Include user's own images regardless of neighborhood
+          ],
+        })
+          .populate("user", "username profilePhoto")
+          .populate("neighborhood", "id name description")
+          .sort({ createdAt: -1 });
+
+        console.log(
+          `Found ${videos.length} videos and ${images.length} images`
+        );
+
+        return {
+          videos,
+          images,
+          totalCount: videos.length + images.length,
+        };
+      } catch (error) {
+        console.error("Error in getMyAllNeighborhoodsGallery:", error);
+        throw new Error("Failed to fetch gallery data: " + error.message);
+      }
+    },
+
+    // Get public media (no auth needed)
     publicVideos: async () => {
       return await Video.find({ isPublic: true })
-        .populate('user', 'username profilePhoto')
+        .populate("user", "username profilePhoto")
         .sort({ createdAt: -1 });
     },
-    
+
     publicImages: async () => {
       return await Image.find({ isPublic: true })
-        .populate('user', 'username profilePhoto')
+        .populate("user", "username profilePhoto")
         .sort({ createdAt: -1 });
     },
-    
+
     // Get all media user can access (public + their private)
     myVideos: async (_, __, { user }) => {
       if (!user) {
         // If no user, only return public videos
         return await Video.find({ isPublic: true })
-          .populate('user', 'username profilePhoto')
+          .populate("user", "username profilePhoto")
           .sort({ createdAt: -1 });
       }
-      
+
       // Return public videos OR videos user has access to
       return await Video.find({
         $or: [
           { isPublic: true },
           { user: user.userId },
           // Add neighborhood access logic if needed
-        ]
+        ],
       })
-      .populate('user', 'username profilePhoto')
-      .populate('neighborhood', 'name')
-      .sort({ createdAt: -1 });
+        .populate("user", "username profilePhoto")
+        .populate("neighborhood", "name")
+        .sort({ createdAt: -1 });
     },
     // User queries
-    images: async () => await Image.find().populate("user"),
-    image: async (_, { id }) => await Image.findById(id).populate("user"),
+    images: async () =>
+      await Image.find().populate("user").populate("neighborhood"),
+    image: async (_, { id }) =>
+      await Image.findById(id).populate("user").populate("neighborhood"),
     users: async () => await User.find(),
     user: async (_, { id }) => await User.findById(id),
     me: async (_, __, context) => {
@@ -202,20 +203,17 @@ getMyAllNeighborhoodsGallery: async (_, __, { user, models }) => {
       return user;
     },
 
-
     myVideos: async (_, __, { user }) => {
-  // Build query based on authentication
-  const query = user 
-    ? { $or: [{ isPublic: true }, { user: user.userId }] }
-    : { isPublic: true };
-    
-  return await Video.find(query)
-    .populate('user', 'username profilePhoto')
-    .populate('neighborhood', 'name description')
-    .sort({ createdAt: -1 });
-},
+      // Build query based on authentication
+      const query = user
+        ? { $or: [{ isPublic: true }, { user: user.userId }] }
+        : { isPublic: true };
 
-
+      return await Video.find(query)
+        .populate("user", "username profilePhoto")
+        .populate("neighborhood", "name description")
+        .sort({ createdAt: -1 });
+    },
 
     // In resolvers.js - Update randomAffiliateLink
     randomAffiliateLink: async (_, __, context) => {
@@ -744,43 +742,40 @@ getMyAllNeighborhoodsGallery: async (_, __, { user, models }) => {
   },
 
   Mutation: {
-    
     // Toggle video privacy
     toggleVideoPrivacy: async (_, { videoId }, { user }) => {
-      if (!user) throw new Error('Authentication required');
-      
+      if (!user) throw new Error("Authentication required");
+
       const video = await Video.findById(videoId);
-      
-      if (!video) throw new Error('Video not found');
-      
+
+      if (!video) throw new Error("Video not found");
+
       // Check ownership
       if (video.user.toString() !== user.userId) {
-        throw new Error('Not authorized');
+        throw new Error("Not authorized");
       }
-      
+
       // Simple toggle
       video.isPublic = !video.isPublic;
       await video.save();
-      
+
       return video;
     },
-    
+
     // Create video with isPublic flag
     createVideo: async (_, { input }, { user }) => {
-      if (!user) throw new Error('Authentication required');
-      
+      if (!user) throw new Error("Authentication required");
+
       const video = new Video({
         ...input,
         user: user.userId,
-        isPublic: input.isPublic || false  // Default to private
+        isPublic: input.isPublic || false, // Default to private
       });
-      
-      await video.save();
-      return await video.populate('user neighborhood');
-    },
-  
 
-      
+      await video.save();
+      return await video.populate("user neighborhood");
+    },
+
     sendMessage: async (
       _,
       {
