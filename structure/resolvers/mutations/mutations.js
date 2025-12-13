@@ -140,34 +140,76 @@ const validateAndExtractAffiliateHtml = (html) => {
 const resolvers = {
   Query: {
 
-      getMyAllNeighborhoodsGallery: async (_, __, { user, models }) => {
+getMyAllNeighborhoodsGallery: async (_, __, { user, models }) => {
     if (!user) {
       throw new Error("Authentication required");
     }
 
-    // Get all neighborhoods the user is a member of
-    const userNeighborhoods = await models.NeighborhoodMember.find({
-      userId: user.id
-    });
-    
-    const neighborhoodIds = userNeighborhoods.map(member => member.neighborhoodId);
+    try {
+      console.log("Fetching all neighborhoods gallery for user:", user.id);
+      
+      // OPTION 1: If you have a myNeighborhoods query, use it
+      // Get user's neighborhoods
+      const userNeighborhoods = await models.Neighborhood.find({
+        $or: [
+          { owner: user.id }, // User is owner
+          { members: { $elemMatch: { user: user.id } } } // User is a member
+        ]
+      }).select('_id');
+      
+      const neighborhoodIds = userNeighborhoods.map(n => n._id);
+      
+      console.log("User's neighborhood IDs:", neighborhoodIds);
+      
+      // OPTION 2: Alternative if you have a different schema
+      // Get neighborhoods where user is owner or member
+      // This depends on your actual schema structure
+      
+      // If no neighborhoods found, return empty
+      if (neighborhoodIds.length === 0) {
+        return {
+          videos: [],
+          images: [],
+          totalCount: 0
+        };
+      }
 
-    // Get videos from all neighborhoods
-    const videos = await models.Video.find({
-      neighborhoodId: { $in: neighborhoodIds }
-    }).populate('user').populate('neighborhood');
+      // Get videos from user's neighborhoods
+      const videos = await models.Video.find({
+        $or: [
+          { neighborhoodId: { $in: neighborhoodIds } },
+          { user: user.id } // Include user's own videos regardless of neighborhood
+        ]
+      })
+      .populate('user', 'username profilePhoto')
+      .populate('neighborhood', 'id name description')
+      .sort({ createdAt: -1 });
 
-    // Get images from all neighborhoods
-    const images = await models.Image.find({
-      neighborhoodId: { $in: neighborhoodIds }
-    }).populate('user').populate('neighborhood');
+      // Get images from user's neighborhoods
+      const images = await models.Image.find({
+        $or: [
+          { neighborhoodId: { $in: neighborhoodIds } },
+          { user: user.id } // Include user's own images regardless of neighborhood
+        ]
+      })
+      .populate('user', 'username profilePhoto')
+      .populate('neighborhood', 'id name description')
+      .sort({ createdAt: -1 });
 
-    return {
-      videos,
-      images,
-      totalCount: videos.length + images.length
-    };
+      console.log(`Found ${videos.length} videos and ${images.length} images`);
+
+      return {
+        videos,
+        images,
+        totalCount: videos.length + images.length
+      };
+      
+    } catch (error) {
+      console.error("Error in getMyAllNeighborhoodsGallery:", error);
+      throw new Error("Failed to fetch gallery data: " + error.message);
+    }
   },
+
 
         // Get public media (no auth needed)
     publicVideos: async () => {
