@@ -139,6 +139,36 @@ const validateAndExtractAffiliateHtml = (html) => {
 
 const resolvers = {
   Query: {
+
+      getMyAllNeighborhoodsGallery: async (_, __, { user, models }) => {
+    if (!user) {
+      throw new Error("Authentication required");
+    }
+
+    // Get all neighborhoods the user is a member of
+    const userNeighborhoods = await models.NeighborhoodMember.find({
+      userId: user.id
+    });
+    
+    const neighborhoodIds = userNeighborhoods.map(member => member.neighborhoodId);
+
+    // Get videos from all neighborhoods
+    const videos = await models.Video.find({
+      neighborhoodId: { $in: neighborhoodIds }
+    }).populate('user').populate('neighborhood');
+
+    // Get images from all neighborhoods
+    const images = await models.Image.find({
+      neighborhoodId: { $in: neighborhoodIds }
+    }).populate('user').populate('neighborhood');
+
+    return {
+      videos,
+      images,
+      totalCount: videos.length + images.length
+    };
+  },
+
         // Get public media (no auth needed)
     publicVideos: async () => {
       return await Video.find({ isPublic: true })

@@ -75,7 +75,6 @@ const typeDefs = gql`
     status: String!
   }
 
-
   type IPFSData {
     cid: String
     ipfsUrl: String
@@ -208,6 +207,8 @@ const typeDefs = gql`
   }
 
   type Query {
+    getMyAllNeighborhoodsGallery: GalleryResponse
+    
     # User queries
     users: [User!]
     user(id: ID!): User
@@ -251,9 +252,9 @@ const typeDefs = gql`
     neighborhoodMessages(neighborhoodId: ID!): [Message]
     neighborhoodVideos(neighborhoodId: ID!): [Video]
 
-publicVideos: [Video]
-publicImages: [Image]
-myVideos: [Video]
+    publicVideos: [Video]
+    publicImages: [Image]
+    myVideos: [Video]
 
     getMyVideos: [Video]
     getUserVideos(userId: ID!): [Video]
@@ -266,7 +267,7 @@ myVideos: [Video]
     image(id: ID!): Image
     neighborhoodImages(neighborhoodId: ID!): [Image!]!
     myImages: [Image!]!
-        validateInviteLink(code: String!): InviteLinkValidation!
+    validateInviteLink(code: String!): InviteLinkValidation!
 
     neighborhoodInviteLinks(neighborhoodId: ID!): [InviteLink!]
   }
@@ -298,8 +299,8 @@ myVideos: [Video]
       expiresInDays: Int
       role: String
     ): InviteLink!
-toggleVideoPrivacy(videoId: ID!):Video
-createVideo(input:VideoInput!):Video
+    toggleVideoPrivacy(videoId: ID!): Video
+    createVideo(input: VideoInput!): Video
 
     # Update an invite link
     updateInviteLink(
@@ -385,7 +386,6 @@ createVideo(input:VideoInput!):Video
       neighborhoodId: ID
     ): Message!
 
-
     # Post mutations
     createPost(content: String!, feedType: String!, groupId: ID): Post!
     likePost(postId: ID!): Post!
@@ -397,7 +397,7 @@ createVideo(input:VideoInput!):Video
     joinGroup(groupId: ID!): Group!
     leaveGroup(groupId: ID!): Group!
 
-        deletePost(postId: ID!): Boolean
+    deletePost(postId: ID!): Boolean
     deleteMessage(messageId: ID!): Boolean
     createNeighborhood(
       name: String!
@@ -442,17 +442,17 @@ createVideo(input:VideoInput!):Video
     user: User!
   }
 
-input VideoInput {
-title: String
-description: String
-fileName: String!
-fileSize: Int
-fileType:String!
-cid: String!
-magnetLink: String
-isPublic: Boolean
-neighborhoodId: ID
-}
+  input VideoInput {
+    title: String
+    description: String
+    fileName: String!
+    fileSize: Int
+    fileType: String!
+    cid: String!
+    magnetLink: String
+    isPublic: Boolean
+    neighborhoodId: ID
+  }
 
   type InviteLink {
     id: ID!
@@ -481,15 +481,12 @@ neighborhoodId: ID
     joinedAt: String!
   }
 
- 
-
   type InviteLinkValidation {
     isValid: Boolean!
     message: String!
     link: InviteLink
     neighborhood: Neighborhood
   }
-
 `;
 
 
