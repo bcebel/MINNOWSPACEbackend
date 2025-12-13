@@ -175,7 +175,7 @@ const typeDefs = gql`
     title: String!
     description: String!
     youtubeVideoId: String!
-    thumbnail: String!
+    thumbnail: String
     fileName: String!
     fileSize: Int!
     fileType: String!
@@ -345,7 +345,7 @@ createVideo(input:VideoInput!):Video
       title: String!
       description: String!
       youtubeVideoId: String!
-      thumbnail: String!
+      thumbnail: String
     ): Video!
 
     # Stream mutations
