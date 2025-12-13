@@ -9,8 +9,11 @@ import Video from "./Video.js";
 import Stream from "./Stream.js";
 import Ad from "./Ad.js";
 import Neighborhood from "./Neighborhood.js";
+import Image from "./Image.js";
 export default  {
   User,
+  Group,
+  Image,
   Chat,
   Message,
   Post,

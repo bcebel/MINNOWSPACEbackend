@@ -59,12 +59,26 @@ const userSchema = new Schema(
       ],
       default: [],
     },
-
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    // 🔑 CRITICAL FIX: Add serialization options for GraphQL compatibility
+    toJSON: {
+      virtuals: true,
+      transform: function (doc, ret) {
+        // Ensure the root ID is a string
+        ret.id = ret._id.toString();
+        // Clean up internal fields
+        delete ret._id;
+        delete ret.__v;
+        return ret; // Return the cleaned object
+      },
+    },
+    toObject: { virtuals: true },
+  }
 );
 
-// Pre-save middleware to hash password
+// Pre-save middleware to hash password (This is correct)
 userSchema.pre("save", async function (next) {
   if (this.isNew || this.isModified("password")) {
     const saltRounds = 10;
@@ -73,7 +87,7 @@ userSchema.pre("save", async function (next) {
   next();
 });
 
-// Password comparison method
+// Password comparison method (This is correct)
 userSchema.methods.isCorrectPassword = async function (password) {
   return bcrypt.compare(password, this.password);
 };

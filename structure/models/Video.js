@@ -2,47 +2,61 @@ import mongoose from "mongoose";
 
 const videoSchema = new mongoose.Schema(
   {
-    title: { type: String, required: true }, // Title of the video
-    description: { type: String }, // Optional description
-    youtubeVideoId: { type: String }, // Optional YouTube video ID (if applicable)
-    thumbnail: { type: String }, // Thumbnail URL (optional)
-    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, // User who uploaded the video
-    fileName: { type: String, required: true }, // Original name of the uploaded file
-    fileSize: { type: Number, required: true }, // Size of the file in bytes
-    fileType: { type: String, required: true }, // MIME type of the file (e.g., "video/mp4")
-    cid: { type: String, required: true }, // IPFS Content Identifier (CID)
-    ipfsUrl: { type: String, required: true }, // IPFS gateway URL
-    magnetLink: { type: String, required: true }, // Magnet link for torrent
+    title: { type: String, required: true },
+    description: { type: String },
+    youtubeVideoId: { type: String },
+    // NOTE: You have 'thumbnail' defined twice. I'm keeping the ref: "Image" one.
+    // Ensure you only have one definition in your actual code.
+    thumbnail: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Image",
+      default: null,
+    },
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    fileName: { type: String, required: true },
+    fileSize: { type: Number, required: true },
+    fileType: { type: String, required: true },
+    cid: { type: String, required: true },
+    ipfsUrl: { type: String, required: true },
+    magnetLink: { type: String, required: true },
     neighborhood: { type: mongoose.Schema.Types.ObjectId, ref: "Neighborhood" },
     thumbnailUrl: String,
-    createdAt: { type: Date, default: Date.now }, // Timestamp of upload
-    updatedAt: { type: Date, default: Date.now }, // Timestamp of last update
     strategy: {
       type: String,
       enum: ["sequential", "rarest"],
-      default: "sequential", // Default for videos
+      default: "sequential",
     },
     videoMetadata: {
       duration: Number,
       bitrate: Number,
       codec: String,
       resolution: String,
-      hasFastStart: Boolean, // For MP4 moov atom position
-    },
-    thumbnail: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Image",
-      default: null,
+      hasFastStart: Boolean,
     },
     isPublic: {
       type: Boolean,
-      default: false
+      default: false,
     },
-    thumbnailUrl: String,
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    // 🔑 CRITICAL FIX: Add serialization options for GraphQL compatibility
+    toJSON: {
+      virtuals: true,
+      transform: function (doc, ret) {
+        // Ensure the root ID is a string
+        ret.id = ret._id.toString();
+        // Clean up internal fields
+        delete ret._id;
+        delete ret.__v;
+        return ret; // Return the cleaned object
+      },
+    },
+    toObject: { virtuals: true },
+  }
 );
-// Middleware to update `updatedAt` on save
+
+// Middleware to update `updatedAt` on save (This is correct)
 videoSchema.pre("save", function (next) {
   this.updatedAt = new Date();
   next();

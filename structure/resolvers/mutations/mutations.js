@@ -13,64 +13,6 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 
-// 🔥 NUCLEAR OPTION: Stop GraphQL ID conversion issues// 🔥 UPDATED FIXIDS FUNCTION - Handle dates and buffers
-const fixIds = (obj) => {
-  if (!obj) return obj;
-
-  // If it's an array, fix each item
-  if (Array.isArray(obj)) {
-    return obj.map(fixIds);
-  }
-
-  // If it's a Date object, convert to ISO string
-  if (obj instanceof Date) {
-    return obj.toISOString();
-  }
-
-  // If it's a MongoDB ObjectId buffer, convert to string
-  if (obj && obj.buffer && Buffer.isBuffer(obj.buffer)) {
-    return obj.toString();
-  }
-
-  // If it's an object, fix its IDs
-  if (typeof obj === "object" && obj !== null) {
-    const fixed = { ...obj };
-
-    // Convert _id to id and ensure it's a string
-    if (fixed._id) {
-      if (fixed._id.buffer && Buffer.isBuffer(fixed._id.buffer)) {
-        // Handle ObjectId buffer
-        fixed.id = fixed._id.toString();
-      } else {
-        fixed.id = fixed._id.toString();
-      }
-    }
-
-    // Handle createdAt and other date fields
-    if (fixed.createdAt) {
-      if (fixed.createdAt instanceof Date) {
-        fixed.createdAt = fixed.createdAt.toISOString();
-      } else if (
-        typeof fixed.createdAt === "object" &&
-        Object.keys(fixed.createdAt).length === 0
-      ) {
-        // If it's an empty object, set to current date
-        fixed.createdAt = new Date().toISOString();
-      }
-    }
-
-    // Fix any nested objects
-    Object.keys(fixed).forEach((key) => {
-      if (typeof fixed[key] === "object" && fixed[key] !== null) {
-        fixed[key] = fixIds(fixed[key]);
-      }
-    });
-
-    return fixed;
-  }
-
-  return obj;
-};
 
 const validateAndExtractAffiliateHtml = (html) => {
   const allowedDomains = [

@@ -29,25 +29,26 @@ const messageSchema = new mongoose.Schema(
     createdAt: { type: Date, default: Date.now },
   },
   {
-    // Add these options to fix ID issues
-    toJSON: { virtuals: true },
+    // The preferred place to define all serialization options
+    toJSON: {
+      virtuals: true,
+      transform: function (doc, ret) {
+        // 🔑 THE FIX: Explicitly call .toString() on _id
+        ret.id = ret._id.toString();
+        // Remove the MongoDB internal fields
+        delete ret._id;
+        delete ret.__v;
+        // The result will be a plain JS object with 'id' as a string
+      },
+    },
     toObject: { virtuals: true },
   }
 );
 
-// Add virtual id field that returns _id as string
-messageSchema.virtual("id").get(function () {
-  return this._id.toHexString();
-});
+// 🛑 REMOVE the redundant messageSchema.set("toJSON", ...) block that was causing the conflict
 
-// Ensure virtual fields are serialized
-messageSchema.set("toJSON", {
-  virtuals: true,
-  transform: function (doc, ret) {
-    ret.id = ret._id;
-    delete ret._id;
-    delete ret.__v;
-  },
-});
+// Optional: You can keep the manual virtual if you like, but it's redundant.
+// If you remove the manual virtual, Mongoose still creates one based on your toJSON settings.
+// For simplicity, let's remove the manual virtual and the conflicting .set block.
 
 export default mongoose.model("Message", messageSchema);
