@@ -389,16 +389,28 @@ const resolvers = {
     neighborhoodMessages: async (_, { neighborhoodId }, context) => {
       if (!context.user) throw new Error("Authentication required");
 
+      // 🔑 CRITICAL FIX: Add this check to prevent Mongoose from failing on bad IDs
+      if (!neighborhoodId || !mongoose.Types.ObjectId.isValid(neighborhoodId)) {
+        console.error("Invalid neighborhoodId provided:", neighborhoodId);
+        // Return null or empty array gracefully instead of throwing a generic server error
+        return [];
+      }
+
       // Check if user is member of this neighborhood
       const neighborhood = await Neighborhood.findById(neighborhoodId);
-      if (!neighborhood) throw new Error("Neighborhood not found");
+
+      // Keep this check, but ensure it runs AFTER the ID validation
+      if (!neighborhood) {
+        // We should throw a specific error for debugging, but for robust API,
+        // we can return empty if we can't find it.
+        throw new Error(`Neighborhood ID ${neighborhoodId} not found.`);
+      }
 
       const isMember = neighborhood.members.some(
         (member) => member.user.toString() === context.user.userId
       );
 
       if (!isMember) throw new Error("Not a member of this neighborhood");
-
       // Message.find() always returns an array, so no need for || []
       return await Message.find({ neighborhood: neighborhoodId })
         .populate("sender", "username profilePhoto")
@@ -840,8 +852,8 @@ const resolvers = {
         .exec();
 
       console.log("🚨 Raw populated message:", populatedMessage);
-      
-      const result =populatedMessage.toObject();
+
+      const result = populatedMessage.toObject();
 
       console.log("🚨 Fixed result:", result);
 
