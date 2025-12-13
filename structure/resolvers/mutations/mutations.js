@@ -840,9 +840,8 @@ const resolvers = {
         .exec();
 
       console.log("🚨 Raw populated message:", populatedMessage);
-
-      // 🔥 Apply the updated fixIds function
-      const result = fixIds(populatedMessage.toObject());
+      
+      const result =populatedMessage.toObject();
 
       console.log("🚨 Fixed result:", result);
 
