@@ -986,84 +986,72 @@ const resolvers = {
     // ... your other mutations
 
     // In your resolvers.js - GO BACK TO WHAT WAS WORKING
+    // --- ADD THIS INSIDE THE Mutation: { ... } BLOCK ---
+
     updateProfile: async (
       _,
       { bio, profilePhoto, affiliateLinks },
       context
     ) => {
-      try {
-        if (!context.user) {
-          throw new Error("Authentication required");
-        }
+      if (!context.user) throw new Error("Authentication required");
 
-        const user = await User.findById(context.user.userId);
-        if (!user) throw new Error("User not found");
+      const userId = context.user.userId;
+      const updates = {};
 
-        // Update basic profile fields
-        if (bio !== undefined) user.bio = bio;
-        if (profilePhoto !== undefined) user.profilePhoto = profilePhoto;
+      if (bio !== undefined) updates.bio = bio;
+      if (profilePhoto !== undefined) updates.profilePhoto = profilePhoto;
 
-        // Add affiliate links if provided
-        if (affiliateLinks && affiliateLinks.length > 0) {
-          console.log("📝 Processing affiliate links:", affiliateLinks);
+      // 🔑 CRITICAL FIX: Process Affiliate Links
+      if (affiliateLinks && affiliateLinks.length > 0) {
+        const validatedLinks = [];
 
-          // Clear existing links and add new ones
-          user.affiliateLinks = [];
+        for (const link of affiliateLinks) {
+          // link.url contains the raw HTML snippet sent from the client
+          const validationResult = validateAndExtractAffiliateHtml(link.url);
 
-          for (const link of affiliateLinks) {
-            if (link.url && link.url.trim()) {
-              // Check if it's HTML that needs validation/extraction
-              if (link.url.includes('<a href="')) {
-                // Validate and extract from HTML
-                const result = validateAndExtractAffiliateHtml(link.url);
+          if (validationResult.isValid) {
+            // ✅ SUCCESS: Structure the data to save to MongoDB
+            validatedLinks.push({
+              // Save the original raw snippet (we'll save this in a new DB field)
+              rawHtml: link.url,
 
-                if (!result.isValid) {
-                  throw new Error(
-                    `Invalid affiliate link format: ${result.error}`
-                  );
-                }
-
-                // Use extracted data
-                const newLink = {
-                  url: result.data.url,
-                  title: result.data.title,
-                  description:
-                    link.description || result.data.description || "",
-                  imageUrl: result.data.imageUrl,
-                  clicks: 0,
-                };
-
-                user.affiliateLinks.push(newLink);
-                console.log(
-                  "✅ Validated and extracted affiliate link:",
-                  newLink
-                );
-              } else {
-                // It's already a clean URL, use as-is
-                const newLink = {
-                  url: link.url,
-                  title: link.title || "Affiliate Link",
-                  description: link.description || "",
-                  imageUrl: link.imageUrl || null, // Use provided imageUrl if available
-                  clicks: 0,
-                };
-
-                user.affiliateLinks.push(newLink);
-                console.log("✅ Added clean affiliate link:", newLink);
-              }
-            }
+              // Save the extracted, clean fields:
+              url: validationResult.data.url,
+              imageUrl: validationResult.data.imageUrl, // <--- THIS SAVES THE IMAGE URL NOW!
+              title: validationResult.data.title,
+              description: validationResult.data.description || "",
+              clicks: 0, // Initialize clicks if this is a new link
+            });
+          } else {
+            console.warn(
+              `Skipping invalid link for user ${userId}: ${validationResult.error}`
+            );
+            // You might choose to throw an error here instead of just warning:
+            // throw new Error(validationResult.error);
           }
         }
 
-        await user.save();
-        console.log("✅ Profile updated with affiliate links");
-        return user;
-      } catch (error) {
-        console.error("❌ Error updating profile:", error);
-        throw new Error(`Error updating profile: ${error.message}`);
+        // Assign the processed and validated link array for the update
+        updates.affiliateLinks = validatedLinks;
+      } else if (affiliateLinks && affiliateLinks.length === 0) {
+        // If the client sends an empty array, clear the links
+        updates.affiliateLinks = [];
       }
-    },
 
+      // Perform the update
+      const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        { $set: updates },
+        { new: true } // Return the updated document
+      );
+
+      if (!updatedUser) {
+        throw new Error("User not found or update failed.");
+      }
+
+      // Return the updated user object with populated affiliate links
+      return updatedUser;
+    },
     // ⬅️ STANDALONE MUTATION: Extracted attachMagnet from removeMember
     attachMagnet: async (_, { id, magnetLink }, { user }) => {
       try {
