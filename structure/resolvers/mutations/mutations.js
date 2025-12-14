@@ -1001,55 +1001,54 @@ const resolvers = {
       if (bio !== undefined) updates.bio = bio;
       if (profilePhoto !== undefined) updates.profilePhoto = profilePhoto;
 
-      // 🔑 CRITICAL FIX: Process Affiliate Links
+      // --- Affiliate Link Processing ---
       if (affiliateLinks && affiliateLinks.length > 0) {
         const validatedLinks = [];
 
         for (const link of affiliateLinks) {
-          // link.url contains the raw HTML snippet sent from the client
+          // link.url holds the raw HTML snippet sent from the client
           const validationResult = validateAndExtractAffiliateHtml(link.url);
 
           if (validationResult.isValid) {
             // ✅ SUCCESS: Structure the data to save to MongoDB
             validatedLinks.push({
-              // Save the original raw snippet (we'll save this in a new DB field)
-              rawHtml: link.url,
-
-              // Save the extracted, clean fields:
+              // 1. The Extracted Destination URL (href)
               url: validationResult.data.url,
-              imageUrl: validationResult.data.imageUrl, // <--- THIS SAVES THE IMAGE URL NOW!
+
+              // 2. The Extracted Image URL (src)
+              imageUrl: validationResult.data.imageUrl,
+
+              // 3. The Extracted Title
               title: validationResult.data.title,
-              description: validationResult.data.description || "",
-              clicks: 0, // Initialize clicks if this is a new link
+
+              // 🔑 CRITICAL FIX: Save the original RAW HTML snippet into the available 'description' field
+              description: link.url,
+
+              clicks: 0,
             });
           } else {
             console.warn(
               `Skipping invalid link for user ${userId}: ${validationResult.error}`
             );
-            // You might choose to throw an error here instead of just warning:
-            // throw new Error(validationResult.error);
           }
         }
 
-        // Assign the processed and validated link array for the update
         updates.affiliateLinks = validatedLinks;
       } else if (affiliateLinks && affiliateLinks.length === 0) {
-        // If the client sends an empty array, clear the links
         updates.affiliateLinks = [];
       }
 
-      // Perform the update
+      // --- Database Update ---
       const updatedUser = await User.findByIdAndUpdate(
         userId,
         { $set: updates },
-        { new: true } // Return the updated document
+        { new: true }
       );
 
       if (!updatedUser) {
         throw new Error("User not found or update failed.");
       }
 
-      // Return the updated user object with populated affiliate links
       return updatedUser;
     },
     // ⬅️ STANDALONE MUTATION: Extracted attachMagnet from removeMember
