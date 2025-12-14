@@ -983,10 +983,6 @@ const resolvers = {
         throw new Error(`Error adding affiliate link: ${error.message}`);
       }
     },
-    // ... your other mutations
-
-    // In your resolvers.js - GO BACK TO WHAT WAS WORKING
-    // --- ADD THIS INSIDE THE Mutation: { ... } BLOCK ---
 
     updateProfile: async (
       _,
@@ -1051,6 +1047,9 @@ const resolvers = {
 
       return updatedUser;
     },
+
+
+
     // ⬅️ STANDALONE MUTATION: Extracted attachMagnet from removeMember
     attachMagnet: async (_, { id, magnetLink }, { user }) => {
       try {
