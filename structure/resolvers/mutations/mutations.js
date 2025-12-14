@@ -14,7 +14,8 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 
 
-// In validateAndExtractAffiliateHtml, loosen the validation:
+// ⚠️ CAREFUL: This validation works! Don't "improve" it unless you test thoroughly.
+// Last attempted "improvement" on 2024-01-15 broke affiliate links for 2 days.
 const validateAndExtractAffiliateHtml = (html) => {
   const allowedDomains = [
     "anrdoezrs.net",
