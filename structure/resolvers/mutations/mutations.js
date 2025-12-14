@@ -14,6 +14,7 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 
 
+// In validateAndExtractAffiliateHtml, loosen the validation:
 const validateAndExtractAffiliateHtml = (html) => {
   const allowedDomains = [
     "anrdoezrs.net",
@@ -27,55 +28,52 @@ const validateAndExtractAffiliateHtml = (html) => {
 
   const domainPattern = allowedDomains.join("|");
 
-  // Find ALL URLs
-  const urlRegex = /https?:\/\/[^\s"']+/gi;
-  const allUrls = html.match(urlRegex) || [];
-
-  // Check each URL against approved domains
-  const approvedUrls = allUrls.filter((url) =>
-    url.match(new RegExp(`https://www\\.(${domainPattern})/`, "i"))
-  );
-
-  // Must have exactly 2 approved URLs and no other URLs
-  const hasCorrectUrlCount = approvedUrls.length === 2 && allUrls.length === 2;
-
-  // Additionally validate basic HTML structure
-  const hasValidStructure =
-    html.includes("<a href=") &&
-    html.includes('target="_top"') &&
-    html.includes("<img src=") &&
-    html.includes("</a>");
-
-  // If validation passes, extract the data
-  if (hasCorrectUrlCount && hasValidStructure) {
-    // Extract URLs
-    const hrefMatch = html.match(/href="([^"]*)"/);
-    const srcMatch = html.match(/src="([^"]*)"/);
-    const altMatch = html.match(/alt="([^"]*)"/);
-    const titleMatch = html.match(/title="([^"]*)"/);
-
-    // Extract text between > and < (link text)
-    const textMatch = html.match(/>([^<]+)</);
-    const linkText = textMatch ? textMatch[1].trim() : null;
-
+  // Find the MAIN URL (href)
+  const hrefMatch = html.match(/href="([^"]*)"/i);
+  if (!hrefMatch) {
     return {
-      isValid: true,
-      data: {
-        url: hrefMatch ? hrefMatch[1] : approvedUrls[0],
-        imageUrl: srcMatch ? srcMatch[1] : approvedUrls[1] || null,
-        title: altMatch
-          ? altMatch[1]
-          : titleMatch
-          ? titleMatch[1]
-          : linkText || "Affiliate Link",
-        description: "",
-      },
+      isValid: false,
+      error: "No href attribute found",
     };
   }
 
+  const hrefUrl = hrefMatch[1];
+  
+  // Check if it's from an approved domain
+  const isApproved = hrefUrl.match(new RegExp(`https?://[^/]*\\.(${domainPattern})/`, "i"));
+  
+  if (!isApproved) {
+    return {
+      isValid: false,
+      error: "URL not from approved affiliate network",
+    };
+  }
+
+  // Extract image URL if present
+  const srcMatch = html.match(/src="([^"]*)"/i);
+  const imageUrl = srcMatch ? srcMatch[1] : null;
+
+  // Extract title from alt, title attribute, or link text
+  const altMatch = html.match(/alt="([^"]*)"/i);
+  const titleMatch = html.match(/title="([^"]*)"/i);
+  const textMatch = html.match(/<a[^>]*>(.*?)<\/a>/i);
+  
+  let title = "Affiliate Link";
+  if (altMatch) title = altMatch[1];
+  else if (titleMatch) title = titleMatch[1];
+  else if (textMatch) {
+    const text = textMatch[1].replace(/<[^>]*>/g, '').trim();
+    if (text) title = text;
+  }
+
   return {
-    isValid: false,
-    error: "Invalid affiliate HTML format",
+    isValid: true,
+    data: {
+      url: hrefUrl,
+      imageUrl: imageUrl,
+      title: title,
+      description: html, // Store the raw HTML
+    },
   };
 };
 
