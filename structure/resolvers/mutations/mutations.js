@@ -844,6 +844,9 @@ const resolvers = {
         mimeType: mimeType || null,
         room: room || "neighborhood",
         neighborhood: neighborhoodId || null,
+        sessionId: sessionId || null,
+        chunkIndex: chunkIndex || null,
+        totalChunks: totalChunks || null,
         createdAt: new Date(), // ✅ Explicitly set date
       });
 
