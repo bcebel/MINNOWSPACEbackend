@@ -115,6 +115,9 @@ const typeDefs = gql`
     mimeType: String
     ipfsHash: String
     ipfsData: IPFSDataInput
+    sessionId: String
+    chunkIndex: Int
+    totalChunks: Int
     neighborhoodId: ID
   }
 
@@ -137,6 +140,9 @@ const typeDefs = gql`
     thumbnailUrl: String
     room: String!
     neighborhood: Neighborhood
+    sessionId: String
+    chunkIndex: Int
+    totalChunks: Int
     createdAt: String!
   }
 
@@ -208,7 +214,7 @@ const typeDefs = gql`
 
   type Query {
     getMyAllNeighborhoodsGallery: GalleryResponse
-    
+
     # User queries
     users: [User!]
     user(id: ID!): User

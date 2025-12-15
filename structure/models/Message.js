@@ -15,6 +15,21 @@ const messageSchema = new mongoose.Schema(
     isPublic: Boolean,
     ipfsHash: String,
     thumbnailUrl: String,
+    sessionId: {
+      type: String,
+      // Optional, as only live stream and chunk messages use it
+      required: false,
+      index: true, // Indexing this will help greatly with chat queries
+    },
+    chunkIndex: {
+      type: Number,
+      required: false,
+      min: 0,
+    },
+    totalChunks: {
+      type: Number,
+      required: false,
+    },
     ipfsData: {
       cid: String,
       ipfsUrl: String,

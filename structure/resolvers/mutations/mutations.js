@@ -14,8 +14,7 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 
 
-// ⚠️ CAREFUL: This validation works! Don't "improve" it unless you test thoroughly.
-// Last attempted "improvement" on 2024-01-15 broke affiliate links for 2 days.
+// In validateAndExtractAffiliateHtml, loosen the validation:
 const validateAndExtractAffiliateHtml = (html) => {
   const allowedDomains = [
     "anrdoezrs.net",
@@ -802,6 +801,9 @@ const resolvers = {
         magnetLink,
         mimeType,
         neighborhoodId,
+        sessionId,
+        chunkIndex,
+        totalChunks,
       },
       context
     ) => {
@@ -814,6 +816,9 @@ const resolvers = {
         videoUrl,
         neighborhoodId,
         thumbnailUrl,
+        sessionId,
+        chunkIndex,
+        totalChunks,
       });
 
       let neighborhood = null;
@@ -831,9 +836,9 @@ const resolvers = {
         imageUrl: imageUrl || null,
         videoUrl: videoUrl || null,
         fileUrl: fileUrl || null,
-        magnetLink: magnetLink || null,
+        magnetLink: magnetLink,
         fileName: fileName || null,
-        fileType: fileType || null,
+        fileType: fileType,
         thumbnailUrl: thumbnailUrl || null,
         fileSize: fileSize || null,
         mimeType: mimeType || null,
@@ -1046,8 +1051,6 @@ const resolvers = {
 
       return updatedUser;
     },
-
-
 
     // ⬅️ STANDALONE MUTATION: Extracted attachMagnet from removeMember
     attachMagnet: async (_, { id, magnetLink }, { user }) => {
