@@ -389,6 +389,9 @@ const typeDefs = gql`
       cid: String
       thumbnailUrl: String
       ipfsUrl: String
+      sessionId: String
+      chunkIndex: Int
+      totalChunks: Int
       neighborhoodId: ID
     ): Message!
 
