@@ -213,6 +213,7 @@ const typeDefs = gql`
   }
 
   type Query {
+    streamChunks(sessionId: String!): [Message]
     getMyAllNeighborhoodsGallery: GalleryResponse
 
     # User queries

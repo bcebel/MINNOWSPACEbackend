@@ -79,6 +79,14 @@ const validateAndExtractAffiliateHtml = (html) => {
 
 const resolvers = {
   Query: {
+
+    streamChunks: async (parent, { sessionId }) => {
+  return await Message.find({ 
+    sessionId: sessionId,
+    fileType: "video_chunk" 
+  }).sort({ chunkIndex: 1 }); // Crucial: ensure correct order
+},
+    
     getMyAllNeighborhoodsGallery: async (_, __, { user, models }) => {
       if (!user) {
         throw new Error("Authentication required");
@@ -308,6 +316,7 @@ const resolvers = {
     chats: async () => await Chat.find().populate("participants"),
     chat: async (_, { id }) => await Chat.findById(id).populate("participants"),
 
+    
     // Message queries
     messages: async (_, { room }, context) => {
       if (!context.user) throw new Error("Authentication required");
@@ -752,6 +761,7 @@ const resolvers = {
   },
 
   Mutation: {
+    
     // Toggle video privacy
     toggleVideoPrivacy: async (_, { videoId }, { user }) => {
       if (!user) throw new Error("Authentication required");
@@ -771,6 +781,8 @@ const resolvers = {
 
       return video;
     },
+
+    
 
     // Create video with isPublic flag
     createVideo: async (_, { input }, { user }) => {
