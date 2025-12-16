@@ -196,12 +196,27 @@ const typeDefs = gql`
 
   type Stream {
     id: ID!
-    title: String!
-    description: String!
-    youtubeStreamId: String!
-    isLive: Boolean!
-    user: User!
-    createdAt: String!
+    sessionId: String!
+    startedBy: User!
+    neighborhood: Neighborhood!
+    title: String
+    chunks: [StreamChunk!]!
+    thumbnailUrl: String
+  }
+
+  type StreamChunk {
+    id: ID!
+    # Playback essentials
+    chunkIndex: Int!
+    magnetLink: String!
+    fileName: String!
+    # Useful metadata
+    fileSize: Int
+    duration: Float
+    trackerUrls: [String!]
+  }
+  type Query {
+    streamBySessionId(sessionId: String!): Stream
   }
 
   type Ad {
@@ -498,6 +513,5 @@ const typeDefs = gql`
     neighborhood: Neighborhood
   }
 `;
-
 
 export default typeDefs;

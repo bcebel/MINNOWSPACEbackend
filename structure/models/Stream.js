@@ -1,15 +1,27 @@
 import mongoose from "mongoose";
 
+
 const streamSchema = new mongoose.Schema(
   {
-    title: { type: String, required: true },
-    description: { type: String },
-    youtubeStreamId: { type: String, required: true },
-    isLive: { type: Boolean, default: false },
-    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    createdAt: { type: Date, default: Date.now },
+    sessionId: { type: String, unique: true, required: true, index: true }, // The unique session key
+    startedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    }, // Was 'sender'
+    neighborhood: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Neighborhood",
+      required: true,
+    },
+    title: String, // Could be derived from the first chunk's "content" field
+    createdAt: { type: Date, default: Date.now }, // Stream start time
+    endedAt: Date, // To mark when the stream finished
+    // status: { type: String, enum: ['live', 'ended'], default: 'live' } // Optional
   },
   {
+    timestamps: true, // The preferred place to define all serialization options
+
     // The preferred place to define all serialization options
     toJSON: {
       virtuals: true,
