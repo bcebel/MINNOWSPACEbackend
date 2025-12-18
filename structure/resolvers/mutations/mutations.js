@@ -842,26 +842,25 @@ const resolvers = {
         if (!isMember) throw new Error("Not a member of this neighborhood");
       }
 
-      const message = new Message({
-        sender: context.user.userId,
-        content,
-        imageUrl: imageUrl || null,
-        videoUrl: videoUrl || null,
-        fileUrl: fileUrl || null,
-        magnetLink: magnetLink,
-        fileName: fileName || null,
-        fileType: fileType,
-        thumbnailUrl: thumbnailUrl || null,
-        fileSize: fileSize || null,
-        mimeType: mimeType || null,
-        room: room || "neighborhood",
-        neighborhood: neighborhoodId || null,
-        sessionId: sessionId || null,
-        chunkIndex: chunkIndex || null,
-        totalChunks: totalChunks || null,
-        createdAt: new Date(), // ✅ Explicitly set date
-      });
-
+            const message = new Message({
+              sender: context.user.userId,
+              content,
+              imageUrl: imageUrl || null,
+              videoUrl: videoUrl || null,
+              fileUrl: fileUrl || null,
+              magnetLink: magnetLink,
+              fileName: fileName || null,
+              fileType: fileType,
+              thumbnailUrl: thumbnailUrl || null,
+              fileSize: fileSize || null,
+              mimeType: mimeType || null,
+              room: room || "neighborhood",
+              neighborhood: neighborhoodId || null,
+              sessionId: sessionId || null,
+              chunkIndex: typeof chunkIndex === "number" ? chunkIndex : undefined,
+              totalChunks: typeof totalChunks === "number" ? totalChunks : undefined,
+              createdAt: new Date(), // ✅ Explicitly set date
+            });
       await message.save();
       console.log("✅ Backend: Message saved with ID:", message._id);
 
