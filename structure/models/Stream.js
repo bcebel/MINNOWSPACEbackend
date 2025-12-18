@@ -17,12 +17,19 @@ const streamSchema = new mongoose.Schema(
     title: String, // Could be derived from the first chunk's "content" field
     createdAt: { type: Date, default: Date.now }, // Stream start time
     endedAt: Date, // To mark when the stream finished
-    // status: { type: String, enum: ['live', 'ended'], default: 'live' } // Optional
+    totalChunks: {
+      type: Number,
+      required: false, // Not required initially, but should be set eventually
+      min: 0,
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'live', 'ended', 'processing', 'completed', 'failed'],
+      default: 'pending',
+    },
   },
   {
-    timestamps: true, // The preferred place to define all serialization options
-
-    // The preferred place to define all serialization options
+    timestamps: true,
     toJSON: {
       virtuals: true,
       transform: function (doc, ret) {
