@@ -882,6 +882,14 @@ const resolvers = {
         context.io.to(emitRoom).emit("message", result);
       }
 
+      // Publish to livestreamChunkAdded subscription if it's a video chunk
+      if (result.fileType === "video_chunk" && result.sessionId) {
+        context.pubsub.publish(
+          `LIVESTREAM_CHUNK_ADDED_${result.sessionId}`,
+          { livestreamChunkAdded: result }
+        );
+      }
+
       return result;
     },
 

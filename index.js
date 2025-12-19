@@ -8,6 +8,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { Server } from "socket.io";
 import { ApolloServer, gql } from "apollo-server-express";
+import { PubSub } from "graphql-subscriptions"; // Import PubSub
 import typeDefs from "./structure/typedefs/typedefs.js";
 import ModelSchema from "./structure/models/index.js";
 import resolvers from "./structure/resolvers/queries/queries.js";
@@ -24,6 +25,8 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(express.json());
+
+const pubsub = new PubSub(); // Instantiate PubSub
 
 // FIXED CORS - Remove your backend URL from origins
 const corsOptions = {
@@ -556,6 +559,7 @@ const apolloServer = new ApolloServer({
     return {
       user,
       io,
+      pubsub, // Pass pubsub to the context
       token: authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null,
     };
   },
