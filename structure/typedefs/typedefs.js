@@ -303,6 +303,7 @@ const typeDefs = gql`
   type Subscription {
     messageAdded(room: String!): Message
     postAdded(feedType: String, groupId: ID): Post
+    livestreamChunkAdded(sessionId: String!): Message
   }
 
   type Mutation {
