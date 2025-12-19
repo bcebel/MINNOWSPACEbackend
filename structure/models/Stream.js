@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 
 
+
 const streamSchema = new mongoose.Schema(
   {
     sessionId: { type: String, unique: true, required: true, index: true }, // The unique session key
