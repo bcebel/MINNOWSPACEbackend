@@ -798,6 +798,36 @@ const resolvers = {
       return await video.populate("user neighborhood");
     },
 
+    createStream: async (_, { title, neighborhoodId }, context) => {
+      if (!context.user) throw new Error("Authentication required");
+
+      // Ensure the neighborhood exists and the user is a member
+      const neighborhood = await Neighborhood.findById(neighborhoodId);
+      if (!neighborhood) throw new Error("Neighborhood not found");
+      const isMember = neighborhood.members.some(
+        (member) => member.user.toString() === context.user.userId
+      );
+      if (!isMember) throw new Error("You must be a member to stream here.");
+
+      // Create the new Stream object
+      const newStream = new Stream({
+        title,
+        startedBy: context.user.userId, // Corrected from 'user'
+        neighborhood: neighborhoodId,
+        sessionId: `live_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        status: 'live', // Corrected from 'isActive: true'
+        createdAt: new Date(),
+      });
+
+      await newStream.save();
+      
+      console.log("✅ New stream created:", newStream);
+
+      // Return the newly created stream
+      // Corrected populate('user') to populate('startedBy')
+      return await Stream.findById(newStream._id).populate('startedBy').populate('neighborhood');
+    },
+
     sendMessage: async (
       _,
       {

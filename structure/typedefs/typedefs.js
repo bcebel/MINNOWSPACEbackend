@@ -378,6 +378,7 @@ const typeDefs = gql`
       youtubeStreamId: String!
       isLive: Boolean!
     ): Stream!
+    createStream(title: String!, neighborhoodId: ID!): Stream
 
     # Ad mutations
     addAd(affiliateLink: String!): Ad!
