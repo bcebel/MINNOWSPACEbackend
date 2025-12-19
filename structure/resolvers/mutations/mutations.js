@@ -305,8 +305,8 @@ const resolvers = {
       };
     },
     // Stream queries
-    streams: async () => await Stream.find().populate("user"),
-    stream: async (_, { id }) => await Stream.findById(id).populate("user"),
+    streams: async () => await Stream.find().populate("startedBy").populate("neighborhood"),
+    stream: async (_, { id }) => await Stream.findById(id).populate("startedBy").populate("neighborhood"),
 
     // Ad queries
     ads: async () => await Ad.find().populate("user"),
