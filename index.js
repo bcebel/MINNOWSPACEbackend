@@ -122,8 +122,6 @@ await apolloServer.start();
 
 app.use(
   "/graphql",
-  cors(),
-  express.json(),
   expressMiddleware(apolloServer, {
     context: async ({ req }) => {
       const { cache } = apolloServer;
