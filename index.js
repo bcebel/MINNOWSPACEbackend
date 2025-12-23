@@ -148,11 +148,14 @@ app.use(
   })
 );
 
-
-// ... (Keep all your other app setup and routes like socket.io, etc.) ...
-// Socket.IO Server (for other real-time features)
+// ✅ Correct Socket.IO CORS configuration
 const io = new Server(httpServer, {
-  cors: corsOptions,
+  cors: {
+    origin: corsOptions.origin,  // This is your array of allowed origins
+    credentials: corsOptions.credentials,
+    allowedHeaders: corsOptions.allowedHeaders,
+    methods: corsOptions.methods
+  },
   pingInterval: 20000,
   pingTimeout: 5000,
   transports: ['websocket', 'polling'],
