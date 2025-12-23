@@ -149,18 +149,19 @@ app.use(
   })
 );
 
-// ✅ Correct Socket.IO CORS configuration
-const io = new Server(httpServer, {
+
+// In your backend server file
+const io = new Server({
+  path: '/socket.io-chat/', // Custom path distinct from /graphql
   cors: {
-    origin: corsOptions.origin,  // This is your array of allowed origins
-    credentials: corsOptions.credentials,
-    allowedHeaders: corsOptions.allowedHeaders,
-    methods: corsOptions.methods
+    origin: corsOptions.origin,
+    credentials: true,
   },
-  pingInterval: 20000,
-  pingTimeout: 5000,
   transports: ['websocket', 'polling'],
 });
+
+// Attach it to your HTTP server
+io.attach(httpServer);
 
 
 // ... (The rest of your file remains here) ...
