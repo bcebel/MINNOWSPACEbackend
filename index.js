@@ -93,6 +93,7 @@ const resolvers = {
 
 const schema = makeExecutableSchema({ typeDefs, resolvers });
 
+
 // WebSocket server for subscriptions
 const wsServer = new WebSocketServer({
   server: httpServer,
@@ -151,17 +152,15 @@ app.use(
 
 
 // In your backend server file
-const io = new Server({
-  path: '/socket.io-chat/', // Custom path distinct from /graphql
+const io = new Server(httpServer, {
+  path: "/socket.io-chat/", // ✅ MUST match the client's 'path' option
   cors: {
     origin: corsOptions.origin,
     credentials: true,
   },
-  transports: ['websocket', 'polling'],
+  transports: ["websocket", "polling"],
 });
 
-// Attach it to your HTTP server
-io.attach(httpServer);
 
 
 // ... (The rest of your file remains here) ...
