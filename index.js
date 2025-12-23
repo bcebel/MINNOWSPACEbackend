@@ -38,7 +38,7 @@ const pubsub = new PubSub();
 
 const corsOptions = {
   origin: process.env.NODE_ENV === "production"
-    ? [
+    ? [ "https://shiny-space-memory-w6g6755pp5jhgv69-8081.app.github.dev",
         "https://bubblebase.app",
         "https://gigunit.com",
         "https://gigunit.vercel.app",
@@ -51,6 +51,7 @@ const corsOptions = {
         "exp://localhost:19000",
       ]
     : [
+      "https://shiny-space-memory-w6g6755pp5jhgv69-8081.app.github.dev",
         "https://studio.apollographql.com",
         "https://bubblebase.app",
         "https://gigunit.com",
