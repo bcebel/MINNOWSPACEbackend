@@ -26,7 +26,6 @@ const FILEBASE_BUCKET_NAME = process.env.FILEBASE_BUCKET_NAME;
 const PINATA_JWT = process.env.PINATA_JWT;
 const PINATA_GATEWAY = process.env.PINATA_GATEWAY;
 const PUBLIC_GATEWAYS = [
-  `https://${PINATA_GATEWAY}/ipfs/`, // gateway.pinata.cloud
   "https://ipfs.io/ipfs/",
   "https://cloudflare-ipfs.com/ipfs/",
   "https://gateway.pinata.cloud/ipfs/", // extra Pinata public as backup
