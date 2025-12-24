@@ -125,8 +125,7 @@ async function handleUpload(req, res) {
     };
 
     await s3.send(new PutObjectCommand(params));
-const ipfsUrl = `https://${PINATA_GATEWAY}/ipfs/${cid}`;
-
+const ipfsUrl = `https://ipfs.filebase.io/ipfs/${cid}`;
     // Determine file type
     const fileType = getFileType(req.file.mimetype, req.file.originalname);
     const isImage = fileType === "image";
