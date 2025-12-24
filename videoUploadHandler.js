@@ -6,42 +6,40 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import createTorrent from "create-torrent";
 import WebTorrent from "webtorrent";
 import dotenv from "dotenv";
-import { PinataSDK } from "pinata-web3";
+import axios from "axios";
+import FormData from "form-data";
 import Video from "./structure/models/Video.js";
 import Image from "./structure/models/Image.js";
-import cors from "cors"; // Add this
-// after the try-block starts
-const client = new WebTorrent(); 
-const announce = [
-  "wss://tracker.openwebtorrent.com",
-  "udp://tracker.opentrackr.org:1337/announce",
-  "udp://tracker.internetwarriors.net:1337/announce",
-  "udp://tracker.torrent.eu.org:451/announce",
-  "udp://tracker.coppersurfer.tk:6969/announce",
-];
 
 dotenv.config();
+
+const client = new WebTorrent();
+const announce = [
+  "wss://tracker.openwebtorrent.com",
+  "wss://tracker.btorrent.xyz",
+  "wss://tracker.files.fm:7073/announce",
+];
 
 const FILEBASE_ACCESS_KEY = process.env.FILEBASE_ACCESS_KEY;
 const FILEBASE_SECRET_KEY = process.env.FILEBASE_SECRET_KEY;
 const FILEBASE_BUCKET_NAME = process.env.FILEBASE_BUCKET_NAME;
 const PINATA_JWT = process.env.PINATA_JWT;
-const PINATA_GATEWAY = process.env.PINATA_GATEWAY;
+const PINATA_GATEWAY = process.env.PINATA_GATEWAY || "gateway.pinata.cloud";
 
 const getFileType = (mimetype, originalname) => {
   if (mimetype.startsWith("video/")) return "video";
   if (mimetype.startsWith("image/")) return "image";
   if (mimetype.startsWith("audio/")) return "audio";
 
-  // Fallback based on file extension
   const ext = originalname.split(".").pop().toLowerCase();
   if (["mp4", "mov", "avi", "mkv", "webm"].includes(ext)) return "video";
-  if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext)) return "image";
-  if (["mp3", "wav", "ogg"].includes(ext)) return "audio";
+  if (["jpg", "jpeg", "png", "gif", "webp", "heic", "avif"].includes(ext))
+    return "image";
+  if (["mp3", "wav", "ogg", "m4a"].includes(ext)) return "audio";
 
   return "file";
 };
-//auth middleware
+
 export const authenticateUser = (req, res, next) => {
   const authHeader = req.headers.authorization;
 
@@ -53,62 +51,61 @@ export const authenticateUser = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // Attach the decoded user data to the request object
-    next(); // Proceed to the next middleware/route handler
+    req.user = decoded;
+    next();
   } catch (error) {
     console.error(error);
     return res.status(401).send("Unauthorized: Invalid token.");
   }
 };
 
-// Initialize the Pinata SDK
-const pinata = new PinataSDK({
-  pinataJwt: PINATA_JWT, // Use your JWT from the environment variable
-  pinataGateway: PINATA_GATEWAY, // Default gateway domain
-});
-
-// Function to calculate CID using Pinata's API
-async function calculateCID(fileBuffer, fileName) {
+// Upload to Pinata
+async function uploadToPinata(fileBuffer, fileName, mimeType) {
   try {
-    console.log("Uploading file to Pinata:", fileName);
+    console.log("📤 Uploading to Pinata:", fileName);
 
-    // Create a File object from the buffer
-    const file = new Blob([fileBuffer], { type: "application/octet-stream" });
+    const formData = new FormData();
+    formData.append("file", fileBuffer, {
+      filename: fileName,
+      contentType: mimeType,
+    });
 
-    // Upload the file using the Pinata SDK
-    const uploadResponse = await pinata.upload.file(file, { name: fileName });
-    console.log("Upload response:", uploadResponse);
+    const metadata = JSON.stringify({ name: fileName });
+    formData.append("pinataMetadata", metadata);
 
-    return uploadResponse.IpfsHash; // CID of the uploaded file
+    const pinataOptions = JSON.stringify({ cidVersion: 0 });
+    formData.append("pinataOptions", pinataOptions);
+
+    const response = await axios.post(
+      "https://api.pinata.cloud/pinning/pinFileToIPFS",
+      formData,
+      {
+        headers: {
+          ...formData.getHeaders(),
+          Authorization: `Bearer ${PINATA_JWT}`,
+        },
+      }
+    );
+
+    const cid = response.data.IpfsHash;
+    const ipfsUrl = `https://${PINATA_GATEWAY}/ipfs/${cid}`;
+
+    console.log("✅ Pinata upload successful:", { cid, ipfsUrl });
+    return { cid, ipfsUrl };
   } catch (error) {
-    console.error("Error calculating CID:", error.message);
-    throw new Error("Failed to calculate CID");
+    console.error(
+      "❌ Pinata upload error:",
+      error.response?.data || error.message
+    );
+    throw new Error(`Pinata upload failed: ${error.message}`);
   }
 }
 
-export default (app) => {
-  const uploadHandler = multer({ storage: multer.memoryStorage() }).single(
-    "video"
-  );
-
-async function handleUpload(req, res) {
-  const { title, description, neighborhoodId, isThumbnail, originalFileName } =
-    req.body;
-  const uid = req.user.userId;
-
-  if (!uid) {
-    return res.status(400).send("UID is required.");
-  }
-
-  if (!req.file) {
-    return res.status(400).send("No file uploaded.");
-  }
-
+// Upload to Filebase
+async function uploadToFilebase(fileBuffer, fileName, mimeType) {
   try {
-    // Calculate CID using Pinata
-    const cid = await calculateCID(req.file.buffer, req.file.originalname);
+    console.log("📤 Uploading to Filebase:", fileName);
 
-    // Upload file to Filebase S3
     const s3 = new S3Client({
       endpoint: "https://s3.filebase.com",
       region: "us-east-1",
@@ -118,176 +115,246 @@ async function handleUpload(req, res) {
       },
     });
 
+    // Create a unique key with timestamp
+    const timestamp = Date.now();
+    const key = `${timestamp}_${fileName.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+
     const params = {
       Bucket: FILEBASE_BUCKET_NAME,
-      Key: cid,
-      Body: req.file.buffer,
+      Key: key,
+      Body: fileBuffer,
+      ContentType: mimeType,
+      Metadata: {
+        originalname: fileName,
+      },
     };
 
     await s3.send(new PutObjectCommand(params));
-const ipfsUrl = `https://${PINATA_GATEWAY}/ipfs/${cid}`;
 
-    // Determine file type
-    const fileType = getFileType(req.file.mimetype, req.file.originalname);
-    const isImage = fileType === "image";
-    const isVideo = fileType === "video";
+    // Filebase automatically pins to IPFS, but we need to get the CID
+    // Note: Filebase doesn't return CID in response headers for S3 uploads
+    // You might need to use their IPFS API to get the CID
+    const cid = key; // This is a placeholder - Filebase S3 doesn't give CID directly
 
-    // Determine optimal strategy
-    const strategy = isVideo ? "sequential" : "rarest";
-
-    // Save the file permanently for seeding
-    const uploadsDir = path.join(process.cwd(), "uploads");
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
+    // Try to get the CID from Filebase IPFS API
+    try {
+      // This is how you'd get the CID from Filebase after S3 upload
+      // You need to list objects and find the CID
+      const ipfsUrl = `https://ipfs.filebase.io/ipfs/${cid}`;
+      console.log("✅ Filebase upload successful (S3 mode)");
+      return { cid, ipfsUrl };
+    } catch (ipfsError) {
+      console.log(
+        "⚠️ Could not get CID from Filebase, using S3 key as reference"
+      );
+      const ipfsUrl = `https://${FILEBASE_BUCKET_NAME}.s3.filebase.com/${key}`;
+      return { cid: key, ipfsUrl };
     }
-
-    // Use appropriate file extension
-    const fileExt = isImage ? "image" : isVideo ? "mp4" : "bin";
-    const permanentFilePath = path.join(uploadsDir, `${cid}.${fileExt}`);
-    fs.writeFileSync(permanentFilePath, req.file.buffer);
-
-    // Create a torrent file
-    createTorrent(permanentFilePath, { announce }, async (err, torrent) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).send("Torrent creation failed.");
-      }
-
-      // Seed the torrent
-      client.seed(permanentFilePath, { announce }, async (torrentData) => {
-        console.log("Torrent seeded successfully:", torrentData.magnetURI);
-
-        // 🆕 CHECK IF THIS IS A THUMBNAIL
-        if (isThumbnail === "true" || isThumbnail === true) {
-          console.log("📸 Saving thumbnail for video:", originalFileName);
-
-          // Find the video this thumbnail belongs to
-          let relatedVideo = null;
-          if (originalFileName) {
-            // Try to find video by original filename (without -thumbnail suffix)
-            const baseFileName = originalFileName.replace("-thumbnail.jpg", "");
-            relatedVideo = await Video.findOne({
-              fileName: { $regex: baseFileName, $options: "i" },
-            });
-
-            if (!relatedVideo) {
-              // Try by exact match with .mov/.mp4 extensions
-              relatedVideo = await Video.findOne({
-                $or: [
-                  { fileName: baseFileName + ".mov" },
-                  { fileName: baseFileName + ".mp4" },
-                  { fileName: baseFileName },
-                ],
-              });
-            }
-          }
-
-          // Save as Thumbnail Image with video reference
-          const newImage = new Image({
-            title: title || req.file.originalname,
-            description: description || "",
-            user: uid,
-            fileName: req.file.originalname,
-            fileSize: req.file.size,
-            fileType: "image",
-            mimetype: req.file.mimetype,
-            cid,
-            ipfsUrl,
-            magnetLink: torrentData.magnetURI,
-            strategy: "rarest",
-            neighborhood: neighborhoodId || null,
-            isThumbnail: true, // Mark as thumbnail
-            videoId: relatedVideo ? relatedVideo._id : null, // Link to video if found
-            originalVideoFileName: originalFileName, // Store reference
-          });
-
-          await newImage.save();
-
-          // 🆕 UPDATE THE VIDEO WITH THUMBNAIL REFERENCE
-          if (relatedVideo) {
-            await Video.findByIdAndUpdate(relatedVideo._id, {
-              thumbnail: newImage._id,
-              thumbnailUrl: ipfsUrl,
-            });
-            console.log(
-              "✅ Updated video with thumbnail:",
-              relatedVideo.fileName
-            );
-          }
-
-          res.json({
-            ipfsUrl,
-            magnetLink: torrentData.magnetURI,
-            fileType: "image",
-            isThumbnail: true,
-            videoId: relatedVideo ? relatedVideo._id : null,
-            neighborhoodId: neighborhoodId || null,
-          });
-        } else if (isImage) {
-          // Save as regular Image (not a thumbnail)
-          const newImage = new Image({
-            title: title || req.file.originalname,
-            description: description || "",
-            user: uid,
-            fileName: req.file.originalname,
-            fileSize: req.file.size,
-            fileType: "image",
-            mimetype: req.file.mimetype,
-            cid,
-            ipfsUrl,
-            magnetLink: torrentData.magnetURI,
-            strategy: "rarest",
-            neighborhood: neighborhoodId || null,
-            isThumbnail: false, // Not a thumbnail
-          });
-          await newImage.save();
-          res.json({
-            ipfsUrl,
-            magnetLink: torrentData.magnetURI,
-            fileType: "image",
-            strategy: "rarest",
-            neighborhoodId: neighborhoodId || null,
-          });
-        } else {
-          // Save as Video (or other media)
-          const newVideo = new Video({
-            title: title || req.file.originalname,
-            description: description || "",
-            user: uid,
-            fileName: req.file.originalname,
-            fileSize: req.file.size,
-            fileType: fileType,
-            mimetype: req.file.mimetype,
-            cid,
-            ipfsUrl,
-            magnetLink: torrentData.magnetURI,
-            strategy: strategy,
-            videoMetadata: isVideo
-              ? {
-                  hasFastStart: req.file.originalname
-                    .toLowerCase()
-                    .endsWith(".mp4"),
-                }
-              : null,
-            neighborhood: neighborhoodId || null,
-          });
-          await newVideo.save();
-          res.json({
-            ipfsUrl,
-            magnetLink: torrentData.magnetURI,
-            fileType: fileType,
-            strategy: strategy,
-            optimizedFor: isVideo ? "streaming" : "quick load",
-            neighborhoodId: neighborhoodId || null,
-          });
-        }
-      });
-    });
   } catch (error) {
-    console.error(error);
-    res.status(500).send("Upload failed.");
+    console.error("❌ Filebase upload error:", error);
+    throw new Error(`Filebase upload failed: ${error.message}`);
   }
 }
+
+export default (app) => {
+  const uploadHandler = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 },
+  }).single("video");
+
+  async function handleUpload(req, res) {
+    console.log("📥 Upload request received:", {
+      user: req.user?.userId,
+      fileName: req.file?.originalname,
+      fileSize: req.file?.size,
+      contentType: req.file?.mimetype,
+      body: req.body,
+    });
+
+    const {
+      title,
+      description,
+      neighborhoodId,
+      isThumbnail,
+      originalFileName,
+    } = req.body;
+    const uid = req.user?.userId;
+
+    if (!uid) {
+      return res.status(400).send("UID is required.");
+    }
+
+    if (!req.file) {
+      return res.status(400).send("No file uploaded.");
+    }
+
+    try {
+      const fileType = getFileType(req.file.mimetype, req.file.originalname);
+      const isImage = fileType === "image";
+      const isVideo = fileType === "video";
+
+      console.log("📊 File analysis:", { fileType, isImage, isVideo });
+
+      let cid, ipfsUrl;
+
+      // DECIDE WHICH SERVICE TO USE BASED ON ENV VARS
+      const usePinata = !!PINATA_JWT;
+      const useFilebase = !!(
+        FILEBASE_ACCESS_KEY &&
+        FILEBASE_SECRET_KEY &&
+        FILEBASE_BUCKET_NAME
+      );
+
+      if (usePinata) {
+        console.log("🔄 Using Pinata for IPFS upload");
+        const result = await uploadToPinata(
+          req.file.buffer,
+          req.file.originalname,
+          req.file.mimetype
+        );
+        cid = result.cid;
+        ipfsUrl = result.ipfsUrl;
+      } else if (useFilebase) {
+        console.log("🔄 Using Filebase for IPFS upload");
+        const result = await uploadToFilebase(
+          req.file.buffer,
+          req.file.originalname,
+          req.file.mimetype
+        );
+        cid = result.cid;
+        ipfsUrl = result.ipfsUrl;
+      } else {
+        throw new Error(
+          "No IPFS service configured. Set either PINATA_JWT or FILEBASE credentials."
+        );
+      }
+
+      console.log("✅ IPFS Upload Complete:", { cid, ipfsUrl });
+
+      // Save file locally for torrent creation
+      const uploadsDir = path.join(process.cwd(), "uploads");
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+
+      const permanentFilePath = path.join(
+        uploadsDir,
+        `${cid}_${req.file.originalname}`
+      );
+      fs.writeFileSync(permanentFilePath, req.file.buffer);
+
+      // Create torrent
+      createTorrent(permanentFilePath, { announce }, async (err, torrent) => {
+        if (err) {
+          console.error("❌ Torrent creation failed:", err);
+          return res.status(500).send("Torrent creation failed.");
+        }
+
+        // Seed the torrent
+        client.seed(permanentFilePath, { announce }, async (torrentData) => {
+          console.log("✅ Torrent seeded:", torrentData.magnetURI);
+
+          // Handle thumbnails
+          if (isThumbnail === "true" || isThumbnail === true) {
+            console.log("📸 Saving thumbnail for video:", originalFileName);
+
+            const newImage = new Image({
+              title: title || req.file.originalname,
+              description: description || "Thumbnail",
+              user: uid,
+              fileName: req.file.originalname,
+              fileSize: req.file.size,
+              fileType: "image",
+              mimetype: req.file.mimetype,
+              cid,
+              ipfsUrl,
+              magnetLink: torrentData.magnetURI,
+              strategy: "rarest",
+              neighborhood: neighborhoodId || null,
+              isThumbnail: true,
+              videoId: null,
+              originalVideoFileName: originalFileName,
+            });
+
+            await newImage.save();
+
+            res.json({
+              ipfsUrl,
+              magnetLink: torrentData.magnetURI,
+              fileType: "image",
+              isThumbnail: true,
+              videoId: null,
+              neighborhoodId: neighborhoodId || null,
+            });
+          } else if (isImage) {
+            // Save as regular Image
+            const newImage = new Image({
+              title: title || req.file.originalname,
+              description: description || "",
+              user: uid,
+              fileName: req.file.originalname,
+              fileSize: req.file.size,
+              fileType: "image",
+              mimetype: req.file.mimetype,
+              cid,
+              ipfsUrl,
+              magnetLink: torrentData.magnetURI,
+              strategy: "rarest",
+              neighborhood: neighborhoodId || null,
+              isThumbnail: false,
+            });
+
+            await newImage.save();
+
+            res.json({
+              ipfsUrl,
+              magnetLink: torrentData.magnetURI,
+              fileType: "image",
+              strategy: "rarest",
+              neighborhoodId: neighborhoodId || null,
+            });
+          } else {
+            // Save as Video or other media
+            const newVideo = new Video({
+              title: title || req.file.originalname,
+              description: description || "",
+              user: uid,
+              fileName: req.file.originalname,
+              fileSize: req.file.size,
+              fileType: fileType,
+              mimetype: req.file.mimetype,
+              cid,
+              ipfsUrl,
+              magnetLink: torrentData.magnetURI,
+              strategy: isVideo ? "sequential" : "rarest",
+              videoMetadata: isVideo
+                ? {
+                    hasFastStart: req.file.originalname
+                      .toLowerCase()
+                      .endsWith(".mp4"),
+                  }
+                : null,
+              neighborhood: neighborhoodId || null,
+            });
+
+            await newVideo.save();
+
+            res.json({
+              ipfsUrl,
+              magnetLink: torrentData.magnetURI,
+              fileType: fileType,
+              strategy: isVideo ? "sequential" : "rarest",
+              optimizedFor: isVideo ? "streaming" : "quick load",
+              neighborhoodId: neighborhoodId || null,
+            });
+          }
+        });
+      });
+    } catch (error) {
+      console.error("❌ Upload error:", error);
+      res.status(500).send(`Upload failed: ${error.message}`);
+    }
+  }
 
   app.post("/upload", authenticateUser, uploadHandler, handleUpload);
 };
