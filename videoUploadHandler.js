@@ -24,7 +24,13 @@ const FILEBASE_ACCESS_KEY = process.env.FILEBASE_ACCESS_KEY;
 const FILEBASE_SECRET_KEY = process.env.FILEBASE_SECRET_KEY;
 const FILEBASE_BUCKET_NAME = process.env.FILEBASE_BUCKET_NAME;
 const PINATA_JWT = process.env.PINATA_JWT;
-const PINATA_GATEWAY = process.env.PINATA_GATEWAY || "gateway.pinata.cloud";
+const PINATA_GATEWAY = process.env.PINATA_GATEWAY;
+const PUBLIC_GATEWAYS = [
+  `https://${PINATA_GATEWAY}/ipfs/`, // gateway.pinata.cloud
+  "https://ipfs.io/ipfs/",
+  "https://cloudflare-ipfs.com/ipfs/",
+  "https://gateway.pinata.cloud/ipfs/", // extra Pinata public as backup
+];
 
 const getFileType = (mimetype, originalname) => {
   if (mimetype.startsWith("video/")) return "video";
@@ -244,112 +250,125 @@ export default (app) => {
       fs.writeFileSync(permanentFilePath, req.file.buffer);
 
       // Create torrent
-      createTorrent(permanentFilePath, { announce }, async (err, torrent) => {
-        if (err) {
-          console.error("❌ Torrent creation failed:", err);
-          return res.status(500).send("Torrent creation failed.");
-        }
+ const webseedUrls = [
+   `https://${PINATA_GATEWAY}/ipfs/${cid}`, // Primary - fastest for you
+   ...PUBLIC_GATEWAYS.map((gw) => `${gw}${cid}`), // Secondary backups for racing/caching
+ ];
 
-        // Seed the torrent
-        client.seed(permanentFilePath, { announce }, async (torrentData) => {
-          console.log("✅ Torrent seeded:", torrentData.magnetURI);
+ createTorrent(
+   permanentFilePath,
+   {
+     announce, // your existing trackers
+     urlList: webseedUrls, // ← THIS IS THE KEY ADDITION
+     private: false, // optional but recommended for public content
+   },
+   async (err, torrent) => {
+     if (err) {
+       console.error("❌ Torrent creation failed:", err);
+       return res.status(500).send("Torrent creation failed.");
+     }
 
-          // Handle thumbnails
-          if (isThumbnail === "true" || isThumbnail === true) {
-            console.log("📸 Saving thumbnail for video:", originalFileName);
+     // Seed the torrent
+     client.seed(permanentFilePath, { announce }, async (torrentData) => {
+       console.log("✅ Torrent seeded:", torrentData.magnetURI);
 
-            const newImage = new Image({
-              title: title || req.file.originalname,
-              description: description || "Thumbnail",
-              user: uid,
-              fileName: req.file.originalname,
-              fileSize: req.file.size,
-              fileType: "image",
-              mimetype: req.file.mimetype,
-              cid,
-              ipfsUrl,
-              magnetLink: torrentData.magnetURI,
-              strategy: "rarest",
-              neighborhood: neighborhoodId || null,
-              isThumbnail: true,
-              videoId: null,
-              originalVideoFileName: originalFileName,
-            });
+       // Handle thumbnails
+       if (isThumbnail === "true" || isThumbnail === true) {
+         console.log("📸 Saving thumbnail for video:", originalFileName);
 
-            await newImage.save();
+         const newImage = new Image({
+           title: title || req.file.originalname,
+           description: description || "Thumbnail",
+           user: uid,
+           fileName: req.file.originalname,
+           fileSize: req.file.size,
+           fileType: "image",
+           mimetype: req.file.mimetype,
+           cid,
+           ipfsUrl,
+           magnetLink: torrentData.magnetURI,
+           strategy: "rarest",
+           neighborhood: neighborhoodId || null,
+           isThumbnail: true,
+           videoId: null,
+           originalVideoFileName: originalFileName,
+         });
 
-            res.json({
-              ipfsUrl,
-              magnetLink: torrentData.magnetURI,
-              fileType: "image",
-              isThumbnail: true,
-              videoId: null,
-              neighborhoodId: neighborhoodId || null,
-            });
-          } else if (isImage) {
-            // Save as regular Image
-            const newImage = new Image({
-              title: title || req.file.originalname,
-              description: description || "",
-              user: uid,
-              fileName: req.file.originalname,
-              fileSize: req.file.size,
-              fileType: "image",
-              mimetype: req.file.mimetype,
-              cid,
-              ipfsUrl,
-              magnetLink: torrentData.magnetURI,
-              strategy: "rarest",
-              neighborhood: neighborhoodId || null,
-              isThumbnail: false,
-            });
+         await newImage.save();
 
-            await newImage.save();
+         res.json({
+           ipfsUrl,
+           magnetLink: torrentData.magnetURI,
+           fileType: "image",
+           isThumbnail: true,
+           videoId: null,
+           neighborhoodId: neighborhoodId || null,
+         });
+       } else if (isImage) {
+         // Save as regular Image
+         const newImage = new Image({
+           title: title || req.file.originalname,
+           description: description || "",
+           user: uid,
+           fileName: req.file.originalname,
+           fileSize: req.file.size,
+           fileType: "image",
+           mimetype: req.file.mimetype,
+           cid,
+           ipfsUrl,
+           magnetLink: torrentData.magnetURI,
+           strategy: "rarest",
+           neighborhood: neighborhoodId || null,
+           isThumbnail: false,
+         });
 
-            res.json({
-              ipfsUrl,
-              magnetLink: torrentData.magnetURI,
-              fileType: "image",
-              strategy: "rarest",
-              neighborhoodId: neighborhoodId || null,
-            });
-          } else {
-            // Save as Video or other media
-            const newVideo = new Video({
-              title: title || req.file.originalname,
-              description: description || "",
-              user: uid,
-              fileName: req.file.originalname,
-              fileSize: req.file.size,
-              fileType: fileType,
-              mimetype: req.file.mimetype,
-              cid,
-              ipfsUrl,
-              magnetLink: torrentData.magnetURI,
-              strategy: isVideo ? "sequential" : "rarest",
-              videoMetadata: isVideo
-                ? {
-                    hasFastStart: req.file.originalname
-                      .toLowerCase()
-                      .endsWith(".mp4"),
-                  }
-                : null,
-              neighborhood: neighborhoodId || null,
-            });
+         await newImage.save();
 
-            await newVideo.save();
+         res.json({
+           ipfsUrl,
+           magnetLink: torrentData.magnetURI,
+           fileType: "image",
+           strategy: "rarest",
+           neighborhoodId: neighborhoodId || null,
+         });
+       } else {
+         // Save as Video or other media
+         const newVideo = new Video({
+           title: title || req.file.originalname,
+           description: description || "",
+           user: uid,
+           fileName: req.file.originalname,
+           fileSize: req.file.size,
+           fileType: fileType,
+           mimetype: req.file.mimetype,
+           cid,
+           ipfsUrl,
+           magnetLink: torrentData.magnetURI,
+           strategy: isVideo ? "sequential" : "rarest",
+           videoMetadata: isVideo
+             ? {
+                 hasFastStart: req.file.originalname
+                   .toLowerCase()
+                   .endsWith(".mp4"),
+               }
+             : null,
+           neighborhood: neighborhoodId || null,
+         });
 
-            res.json({
-              ipfsUrl,
-              magnetLink: torrentData.magnetURI,
-              fileType: fileType,
-              strategy: isVideo ? "sequential" : "rarest",
-              optimizedFor: isVideo ? "streaming" : "quick load",
-              neighborhoodId: neighborhoodId || null,
-            });
-          }
-        });
-      });
+         await newVideo.save();
+
+         res.json({
+           ipfsUrl,
+           magnetLink: torrentData.magnetURI,
+           fileType: fileType,
+           strategy: isVideo ? "sequential" : "rarest",
+           optimizedFor: isVideo ? "streaming" : "quick load",
+           neighborhoodId: neighborhoodId || null,
+         });
+       }
+     });
+   }
+ );
     } catch (error) {
       console.error("❌ Upload error:", error);
       res.status(500).send(`Upload failed: ${error.message}`);
