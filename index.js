@@ -669,9 +669,18 @@ app.use(
           // console.log("Token invalid:", error.message);
         }
       }
+      const models = {
+        User,
+        Neighborhood,
+        Video,
+        Image,
+        Message,
+        ...ModelSchema // This ensures anything in your index.js is also included
+      };
       return {
         user,
         pubsub,
+        models,
         token: authHeader.substring(7),
         dataSources: {
           mediaAPI: new MediaAPI({ cache }),
