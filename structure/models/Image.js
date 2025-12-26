@@ -11,7 +11,7 @@ const imageSchema = new mongoose.Schema(
     fileSize: Number,
     fileType: String,
     mimetype: String,
-    cid: String,
+cid: { type: String, required: true },
     ipfsUrl: String,
     magnetLink: String,
     isPublic: { type: Boolean, default: true },
