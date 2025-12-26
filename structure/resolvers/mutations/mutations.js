@@ -79,14 +79,13 @@ const validateAndExtractAffiliateHtml = (html) => {
 
 const resolvers = {
   Query: {
-
     streamChunks: async (parent, { sessionId }) => {
-  return await Message.find({ 
-    sessionId: sessionId,
-    fileType: "video_chunk" 
-  }).sort({ chunkIndex: 1 }); // Crucial: ensure correct order
-},
-    
+      return await Message.find({
+        sessionId: sessionId,
+        fileType: "video_chunk",
+      }).sort({ chunkIndex: 1 }); // Crucial: ensure correct order
+    },
+
     getMyAllNeighborhoodsGallery: async (_, __, { user, models }) => {
       if (!user) {
         throw new Error("Authentication required");
@@ -95,12 +94,11 @@ const resolvers = {
       try {
         console.log("Fetching all neighborhoods gallery for user:", user.id);
 
-        // OPTION 1: If you have a myNeighborhoods query, use it
         // Get user's neighborhoods
         const userNeighborhoods = await models.Neighborhood.find({
           $or: [
-            { owner: user.id }, // User is owner
-            { members: { $elemMatch: { user: user.id } } }, // User is a member
+            { owner: user.id },
+            { members: { $elemMatch: { user: user.id } } },
           ],
         }).select("_id");
 
@@ -108,11 +106,6 @@ const resolvers = {
 
         console.log("User's neighborhood IDs:", neighborhoodIds);
 
-        // OPTION 2: Alternative if you have a different schema
-        // Get neighborhoods where user is owner or member
-        // This depends on your actual schema structure
-
-        // If no neighborhoods found, return empty
         if (neighborhoodIds.length === 0) {
           return {
             videos: [],
@@ -121,13 +114,16 @@ const resolvers = {
           };
         }
 
-        // Get videos from user's neighborhoods
+        // Get videos from user's neighborhoods - INCLUDE thumbnailUrl
         const videos = await models.Video.find({
           $or: [
             { neighborhoodId: { $in: neighborhoodIds } },
-            { user: user.id }, // Include user's own videos regardless of neighborhood
+            { user: user.id },
           ],
         })
+          .select(
+            "title description fileName fileSize fileType cid ipfsUrl magnetLink thumbnailUrl isPublic createdAt user neighborhood"
+          )
           .populate("user", "username profilePhoto")
           .populate("neighborhood", "id name description")
           .sort({ createdAt: -1 });
@@ -136,9 +132,12 @@ const resolvers = {
         const images = await models.Image.find({
           $or: [
             { neighborhoodId: { $in: neighborhoodIds } },
-            { user: user.id }, // Include user's own images regardless of neighborhood
+            { user: user.id },
           ],
         })
+          .select(
+            "title description fileName fileSize fileType mimetype cid ipfsUrl magnetLink isPublic createdAt user neighborhood"
+          )
           .populate("user", "username profilePhoto")
           .populate("neighborhood", "id name description")
           .sort({ createdAt: -1 });
@@ -305,8 +304,10 @@ const resolvers = {
       };
     },
     // Stream queries
-    streams: async () => await Stream.find().populate("startedBy").populate("neighborhood"),
-    stream: async (_, { id }) => await Stream.findById(id).populate("startedBy").populate("neighborhood"),
+    streams: async () =>
+      await Stream.find().populate("startedBy").populate("neighborhood"),
+    stream: async (_, { id }) =>
+      await Stream.findById(id).populate("startedBy").populate("neighborhood"),
 
     // Ad queries
     ads: async () => await Ad.find().populate("user"),
@@ -316,7 +317,6 @@ const resolvers = {
     chats: async () => await Chat.find().populate("participants"),
     chat: async (_, { id }) => await Chat.findById(id).populate("participants"),
 
-    
     // Message queries
     messages: async (_, { room }, context) => {
       if (!context.user) throw new Error("Authentication required");
@@ -761,7 +761,6 @@ const resolvers = {
   },
 
   Mutation: {
-    
     // Toggle video privacy
     toggleVideoPrivacy: async (_, { videoId }, { user }) => {
       if (!user) throw new Error("Authentication required");
@@ -781,8 +780,6 @@ const resolvers = {
 
       return video;
     },
-
-    
 
     // Create video with isPublic flag
     createVideo: async (_, { input }, { user }) => {
@@ -814,18 +811,22 @@ const resolvers = {
         title,
         startedBy: context.user.userId, // Corrected from 'user'
         neighborhood: neighborhoodId,
-        sessionId: `live_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        status: 'live', // Corrected from 'isActive: true'
+        sessionId: `live_${Date.now()}_${Math.random()
+          .toString(36)
+          .substr(2, 9)}`,
+        status: "live", // Corrected from 'isActive: true'
         createdAt: new Date(),
       });
 
       await newStream.save();
-      
+
       console.log("✅ New stream created:", newStream);
 
       // Return the newly created stream
       // Corrected populate('user') to populate('startedBy')
-      return await Stream.findById(newStream._id).populate('startedBy').populate('neighborhood');
+      return await Stream.findById(newStream._id)
+        .populate("startedBy")
+        .populate("neighborhood");
     },
 
     sendMessage: async (
@@ -872,25 +873,25 @@ const resolvers = {
         if (!isMember) throw new Error("Not a member of this neighborhood");
       }
 
-            const message = new Message({
-              sender: context.user.userId,
-              content,
-              imageUrl: imageUrl || null,
-              videoUrl: videoUrl || null,
-              fileUrl: fileUrl || null,
-              magnetLink: magnetLink,
-              fileName: fileName || null,
-              fileType: fileType,
-              thumbnailUrl: thumbnailUrl || null,
-              fileSize: fileSize || null,
-              mimeType: mimeType || null,
-              room: room || "neighborhood",
-              neighborhood: neighborhoodId || null,
-              sessionId: sessionId || null,
-              chunkIndex: typeof chunkIndex === "number" ? chunkIndex : undefined,
-              totalChunks: typeof totalChunks === "number" ? totalChunks : undefined,
-              createdAt: new Date(), // ✅ Explicitly set date
-            });
+      const message = new Message({
+        sender: context.user.userId,
+        content,
+        imageUrl: imageUrl || null,
+        videoUrl: videoUrl || null,
+        fileUrl: fileUrl || null,
+        magnetLink: magnetLink,
+        fileName: fileName || null,
+        fileType: fileType,
+        thumbnailUrl: thumbnailUrl || null,
+        fileSize: fileSize || null,
+        mimeType: mimeType || null,
+        room: room || "neighborhood",
+        neighborhood: neighborhoodId || null,
+        sessionId: sessionId || null,
+        chunkIndex: typeof chunkIndex === "number" ? chunkIndex : undefined,
+        totalChunks: typeof totalChunks === "number" ? totalChunks : undefined,
+        createdAt: new Date(), // ✅ Explicitly set date
+      });
       await message.save();
       console.log("✅ Backend: Message saved with ID:", message._id);
 
@@ -914,10 +915,9 @@ const resolvers = {
 
       // Publish to livestreamChunkAdded subscription if it's a video chunk
       if (result.fileType === "video_chunk" && result.sessionId) {
-        context.pubsub.publish(
-          `LIVESTREAM_CHUNK_ADDED_${result.sessionId}`,
-          { livestreamChunkAdded: result }
-        );
+        context.pubsub.publish(`LIVESTREAM_CHUNK_ADDED_${result.sessionId}`, {
+          livestreamChunkAdded: result,
+        });
       }
 
       return result;
