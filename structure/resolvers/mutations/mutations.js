@@ -118,7 +118,8 @@ getMyAllNeighborhoodsGallery: async (_, __, { user, models }) => {
         .populate("neighborhood", "name")
         .sort({ createdAt: -1 }),
     ]);
-
+console.log("FIRST IMAGE FROM DB:", JSON.stringify(images[0], null, 2));
+    
     return {
       videos,
       images,
