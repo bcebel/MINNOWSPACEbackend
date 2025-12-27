@@ -86,50 +86,47 @@ const resolvers = {
       }).sort({ chunkIndex: 1 }); // Crucial: ensure correct order
     },
 
-getMyAllNeighborhoodsGallery: async (_, __, { user, models }) => {
-  if (!user) throw new Error("Authentication required");
+    getMyAllNeighborhoodsGallery: async (_, __, { user, models }) => {
+      if (!user) throw new Error("Authentication required");
 
-  try {
-    // 1. Find all neighborhoods where the user is an owner or member
-    const userNeighborhoods = await models.Neighborhood.find({
-      $or: [
-        { owner: user.userId },
-        { "members.user": user.userId },
-      ],
-    }).select("_id");
+      try {
+        // 1. Find all neighborhoods where the user is an owner or member
+        const userNeighborhoods = await models.Neighborhood.find({
+          $or: [{ owner: user.userId }, { "members.user": user.userId }],
+        }).select("_id");
 
-    const neighborhoodIds = userNeighborhoods.map((n) => n._id);
+        const neighborhoodIds = userNeighborhoods.map((n) => n._id);
 
-    // 2. Query Criteria: (Shared in my neighborhoods) OR (Uploaded by me)
-    const mediaQuery = {
-      $or: [
-        { neighborhood: { $in: neighborhoodIds } },
-        { user: user.userId },
-      ],
-    };
+        // 2. Query Criteria: (Shared in my neighborhoods) OR (Uploaded by me)
+        const mediaQuery = {
+          $or: [
+            { neighborhood: { $in: neighborhoodIds } },
+            { user: user.userId },
+          ],
+        };
 
-    const [videos, images] = await Promise.all([
-      models.Video.find(mediaQuery)
-        .populate("user", "username profilePhoto")
-        .populate("neighborhood", "name")
-        .sort({ createdAt: -1 }),
-      models.Image.find(mediaQuery)
-        .populate("user", "username profilePhoto")
-        .populate("neighborhood", "name")
-        .sort({ createdAt: -1 }),
-    ]);
-console.log("FIRST IMAGE FROM DB:", JSON.stringify(images[0], null, 2));
-    
-    return {
-      videos,
-      images,
-      totalCount: videos.length + images.length,
-    };
-  } catch (error) {
-    console.error("Gallery Error:", error);
-    throw new Error("Failed to fetch gallery");
-  }
-},
+        const [videos, images] = await Promise.all([
+          models.Video.find(mediaQuery)
+            .populate("user", "username profilePhoto")
+            .populate("neighborhood", "name")
+            .sort({ createdAt: -1 }),
+          models.Image.find(mediaQuery)
+            .populate("user", "username profilePhoto")
+            .populate("neighborhood", "name")
+            .sort({ createdAt: -1 }),
+        ]);
+        console.log("FIRST IMAGE FROM DB:", JSON.stringify(images[0], null, 2));
+
+        return {
+          videos,
+          images,
+          totalCount: videos.length + images.length,
+        };
+      } catch (error) {
+        console.error("Gallery Error:", error);
+        throw new Error("Failed to fetch gallery");
+      }
+    },
 
     // Get public media (no auth needed)
     publicVideos: async () => {
@@ -181,7 +178,6 @@ console.log("FIRST IMAGE FROM DB:", JSON.stringify(images[0], null, 2));
       if (!user) throw new Error("User not found");
       return user;
     },
-
 
     // In resolvers.js - Update randomAffiliateLink
     randomAffiliateLink: async (_, __, context) => {
@@ -878,8 +874,20 @@ console.log("FIRST IMAGE FROM DB:", JSON.stringify(images[0], null, 2));
 
       // Publish to livestreamChunkAdded subscription if it's a video chunk
       if (result.fileType === "video_chunk" && result.sessionId) {
+        const chunkPayload = {
+          id: result._id.toString(), // Ensure ID is a string
+          sessionId: result.sessionId,
+          chunkIndex: result.chunkIndex,
+          magnetLink: result.magnetLink,
+          fileType: result.fileType,
+        };
+
+        console.log(
+          `📡 Publishing chunk ${result.chunkIndex} to sessionId: ${result.sessionId}`
+        );
+
         context.pubsub.publish(`LIVESTREAM_CHUNK_ADDED_${result.sessionId}`, {
-          livestreamChunkAdded: result,
+          livestreamChunkAdded: chunkPayload,
         });
       }
 
@@ -1762,6 +1770,7 @@ console.log("FIRST IMAGE FROM DB:", JSON.stringify(images[0], null, 2));
       };
     },
   },
+
   Neighborhood: {
     // Add a computed field for memberCount
     memberCount: (parent) => {
@@ -1774,6 +1783,15 @@ console.log("FIRST IMAGE FROM DB:", JSON.stringify(images[0], null, 2));
         return parent.memberCount;
       }
       return 0;
+    },
+  },
+
+  Subscription: {
+    livestreamChunkAdded: {
+      subscribe: (_, { sessionId }, { pubsub }) => {
+        // This MUST match the string used in Mutation.sendMessage
+        return pubsub.asyncIterator(`LIVESTREAM_CHUNK_ADDED_${sessionId}`);
+      },
     },
   },
   // Field resolvers// In resolvers.js - Update the InviteLink field resolver
