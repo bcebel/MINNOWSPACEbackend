@@ -12,6 +12,7 @@ import Image from "../../models/Image.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
+import { pubsub } from "../../pubsub.js";
 
 
 // In validateAndExtractAffiliateHtml, loosen the validation:
@@ -873,23 +874,14 @@ const resolvers = {
       }
 
       // Publish to livestreamChunkAdded subscription if it's a video chunk
-      if (result.fileType === "video_chunk" && result.sessionId) {
-        const chunkPayload = {
-          id: result._id.toString(), // Ensure ID is a string
-          sessionId: result.sessionId,
-          chunkIndex: result.chunkIndex,
-          magnetLink: result.magnetLink,
-          fileType: result.fileType,
-        };
+  if (result.fileType === "video_chunk" && result.sessionId) {
+    const topic = `LIVESTREAM_CHUNK_ADDED_${result.sessionId}`;
+    console.log(`📡 Server: Publishing to topic: ${topic}`);
 
-        console.log(
-          `📡 Publishing chunk ${result.chunkIndex} to sessionId: ${result.sessionId}`
-        );
-
-        context.pubsub.publish(`LIVESTREAM_CHUNK_ADDED_${result.sessionId}`, {
-          livestreamChunkAdded: chunkPayload,
-        });
-      }
+pubsub.publish(`LIVESTREAM_CHUNK_ADDED_${result.sessionId}`, {
+  livestreamChunkAdded: result, // This key MUST match the TypeDef name exactly
+});
+  }
 
       return result;
     },
