@@ -874,14 +874,24 @@ const resolvers = {
       }
 
       // Publish to livestreamChunkAdded subscription if it's a video chunk
-  if (result.fileType === "video_chunk" && result.sessionId) {
-    const topic = `LIVESTREAM_CHUNK_ADDED_${result.sessionId}`;
-    console.log(`📡 Server: Publishing to topic: ${topic}`);
+if (result.fileType === "video_chunk" && result.sessionId) {
+  const topic = `LIVESTREAM_CHUNK_ADDED_${result.sessionId}`;
 
-pubsub.publish(`LIVESTREAM_CHUNK_ADDED_${result.sessionId}`, {
-  livestreamChunkAdded: result, // This key MUST match the TypeDef name exactly
-});
-  }
+  // Ensure the object we publish is "Clean JSON"
+  const cleanChunk = {
+    ...result,
+    id: result._id.toString(), // GraphQL needs this to be a string
+    chunkIndex: Number(result.chunkIndex),
+  };
+
+  console.log(
+    `📡 Server: Publishing Chunk #${cleanChunk.chunkIndex} to ${topic}`
+  );
+
+  pubsub.publish(topic, {
+    livestreamChunkAdded: cleanChunk,
+  });
+}
 
       return result;
     },
