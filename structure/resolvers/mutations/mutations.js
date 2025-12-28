@@ -83,8 +83,9 @@ const resolvers = {
     streamChunks: async (parent, { sessionId }) => {
       return await Message.find({
         sessionId: sessionId,
-        fileType: "video_chunk",
-      }).sort({ chunkIndex: 1 }); // Crucial: ensure correct order
+        // Include BOTH headers and chunks
+        fileType: { $in: ["video_header", "video_chunk"] },
+      }).sort({ chunkIndex: 1 });
     },
 
     getMyAllNeighborhoodsGallery: async (_, __, { user, models }) => {
@@ -874,24 +875,24 @@ const resolvers = {
       }
 
       // Publish to livestreamChunkAdded subscription if it's a video chunk
-if (result.fileType === "video_chunk" && result.sessionId) {
-  const topic = `LIVESTREAM_CHUNK_ADDED_${result.sessionId}`;
+      if (result.fileType === "video_chunk" && result.sessionId) {
+        const topic = `LIVESTREAM_CHUNK_ADDED_${result.sessionId}`;
 
-  // Ensure the object we publish is "Clean JSON"
-  const cleanChunk = {
-    ...result,
-    id: result._id.toString(), // GraphQL needs this to be a string
-    chunkIndex: Number(result.chunkIndex),
-  };
+        // Ensure the object we publish is "Clean JSON"
+        const cleanChunk = {
+          ...result,
+          id: result._id.toString(), // GraphQL needs this to be a string
+          chunkIndex: Number(result.chunkIndex),
+        };
 
-  console.log(
-    `📡 Server: Publishing Chunk #${cleanChunk.chunkIndex} to ${topic}`
-  );
+        console.log(
+          `📡 Server: Publishing Chunk #${cleanChunk.chunkIndex} to ${topic}`
+        );
 
-  pubsub.publish(topic, {
-    livestreamChunkAdded: cleanChunk,
-  });
-}
+        pubsub.publish(topic, {
+          livestreamChunkAdded: cleanChunk,
+        });
+      }
 
       return result;
     },
