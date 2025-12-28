@@ -35,7 +35,7 @@ const app = express();
 const httpServer = http.createServer(app);
 
 const pubsub = new PubSub();
-
+/*
 const corsOptions = {
   origin:
     process.env.NODE_ENV === "production"
@@ -65,6 +65,16 @@ const corsOptions = {
           "http://localhost:8081/",
           "http://127.0.0.1:5501",
         ],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  credentials: true,
+  allowedHeaders: ["Content-Type", "Authorization", "Accept"],
+  exposedHeaders: ["Content-Length", "X-Powered-By"],
+  maxAge: 86400,
+};
+*/
+const corsOptions = {
+  // Allow any origin during this testing phase
+  origin: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   credentials: true,
   allowedHeaders: ["Content-Type", "Authorization", "Accept"],
