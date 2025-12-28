@@ -8,7 +8,7 @@ const streamChunkSchema = new mongoose.Schema(
       required: true,
       index: true,
     }, // Parent reference
-    chunkIndex: { type: Number, required: true, min: 0 }, // Essential for correct order
+    chunkIndex: { type: Number, required: true, min: -1 }, // Essential for correct order
     magnetLink: { type: String, required: true }, // Essential for WebTorrent
     fileName: { type: String, required: true }, // e.g., 'chunk_21.mp4'
     fileSize: Number, // In bytes (good to have for progress)
