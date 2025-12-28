@@ -25,7 +25,7 @@ const messageSchema = new mongoose.Schema(
       type: Number,
       required: false,
       min: -1,
-      default: 0,
+      default: -1,
     },
     totalChunks: {
       type: Number,
