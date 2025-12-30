@@ -2,9 +2,11 @@
 import WebTorrent from "webtorrent";
 import fs from "fs/promises";
 import path from "path";
+import { EventEmitter } from "events";
 
 class ReactiveSeedBooster {
-  constructor() {
+    constructor() {
+      EventEmitter.defaultMaxListeners = 50; 
     this.client = new WebTorrent({ maxConns: 100 });
     // chunkId -> { torrent, checkInterval, isHeader, filePath }
     this.activeTorrents = new Map();
