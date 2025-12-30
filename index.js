@@ -26,6 +26,7 @@ import Neighborhood from "./structure/models/Neighborhood.js";
 import MediaAPI from "./datasources/MediaAPI.cjs";
 import { PubSub } from "graphql-subscriptions";
 import { reactiveBooster } from "./seedService.js";
+import fs from "fs";
 
 dotenv.config();
 

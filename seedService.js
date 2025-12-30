@@ -1,6 +1,6 @@
 // server/seedService.js - UPDATED TO REACTIVE "SEED BOOSTER"
 import WebTorrent from "webtorrent";
-import fs from "fs/promises";
+import fs from "fs";
 import path from "path";
 import { EventEmitter } from "events";
 
