@@ -25,6 +25,7 @@ import Image from "./structure/models/Image.js";
 import Neighborhood from "./structure/models/Neighborhood.js";
 import MediaAPI from "./datasources/MediaAPI.cjs";
 import { PubSub } from "graphql-subscriptions";
+import { reactiveBooster } from "./seedService.js";
 
 dotenv.config();
 
@@ -314,6 +315,109 @@ const upload = multer({
       cb(new Error("Only image files are allowed!"), false);
     }
   },
+});
+
+// ========== LIVE STREAM CHUNK UPLOAD ==========
+// Reuse your multer memoryStorage
+const liveChunkUpload = multer({ storage: multer.memoryStorage() });
+
+app.post('/api/live-chunk', authenticateToken, liveChunkUpload.single('chunk'), async (req, res) => {
+  try {
+    // 1. Extract data from the request
+    const { sessionId, chunkIndex } = req.body;
+    const fileBuffer = req.file.buffer;
+    const mimeType = req.file.mimetype;
+    const userId = req.user.userId;
+
+    console.log(`📥 Received live chunk: session=${sessionId}, index=${chunkIndex}, size=${fileBuffer.length}`);
+
+    // 2. Create a temporary file in Heroku's ephemeral /tmp
+    // Use a unique name to avoid collisions across sessions
+    const tempDir = path.join('/tmp', 'live-chunks', sessionId);
+    await fs.promises.mkdir(tempDir, { recursive: true });
+    const tempFilePath = path.join(tempDir, `chunk-${chunkIndex}.${mimeType.includes('mp4') ? 'mp4' : 'webm'}`);
+    await fs.promises.writeFile(tempFilePath, fileBuffer);
+
+    // 3. Define trackers (same as frontend for unified swarm)
+    const trackers = [
+      'wss://tracker.openwebtorrent.com',
+      'wss://tracker.btorrent.xyz',
+      'wss://tracker.fastcast.nz'
+    ];
+
+    // 4. Seed the chunk using your SeedBoosterService
+    // Assuming you've created and imported: import { reactiveBooster } from './seedService.js';
+    const magnetUri = await reactiveBooster.boostChunkIfNeeded(
+      tempFilePath,
+      `${sessionId}-${chunkIndex}`, // Unique ID for the seeder to track
+      trackers
+    );
+
+    console.log(`🌱 Backend seeding chunk ${chunkIndex} for session ${sessionId}. Magnet: ${magnetUri.substring(0, 60)}...`);
+
+    // 5. Store minimal metadata in your database (reusing Video model or create a StreamChunk)
+    // This allows you to query chunks later if needed for debugging or catch-up
+    const chunkRecord = new Video({
+      fileName: `live-${sessionId}-chunk-${chunkIndex}`,
+      fileType: 'video_chunk',
+      mimeType: mimeType,
+      magnetLink: magnetUri,
+      sessionId: sessionId,
+      chunkIndex: chunkIndex,
+      isPublic: true, // Live streams are public to the neighborhood
+      user: userId,
+      neighborhood: req.body.neighborhoodId // You might want to pass this from frontend
+    });
+    await chunkRecord.save();
+
+    // 6. Publish via GraphQL subscription
+    // This is optional since the frontend also sends a message,
+    // but it ensures all clients get the update from a single source.
+    pubsub.publish('CHUNK_ADDED', {
+      livestreamChunkAdded: {
+        id: chunkRecord._id,
+        sessionId: sessionId,
+        chunkIndex: parseInt(chunkIndex),
+        magnetLink: magnetUri,
+        fileType: 'video_chunk',
+        mimeType: mimeType,
+        createdAt: new Date().toISOString()
+      }
+    });
+
+    // 7. Respond to the frontend with success
+    res.json({
+      success: true,
+      magnetUri: magnetUri,
+      chunkId: chunkRecord._id,
+      message: `Chunk ${chunkIndex} is now seeded by backend.`
+    });
+
+    // 8. Schedule cleanup of the temp file after seeding (optional)
+    // The SeedBoosterService will manage the torrent; we can clean the file later.
+    setTimeout(async () => {
+      try {
+        await fs.promises.unlink(tempFilePath);
+        console.log(`🧹 Cleaned temp file for chunk ${chunkIndex}`);
+      } catch (cleanupErr) {
+        // File might already be gone; ignore
+      }
+    }, 10 * 60 * 1000); // 10 minutes
+
+  } catch (error) {
+    console.error('❌ Live chunk processing error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to process live chunk',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+app.post("/api/stream-end", authenticateToken, async (req, res) => {
+  const { sessionId } = req.body;
+  await reactiveBooster.stopStreamBoost(sessionId);
+  res.json({ success: true, message: `Stopped boosting stream ${sessionId}` });
 });
 
 // Simple upload endpoint for testing
