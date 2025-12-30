@@ -414,6 +414,50 @@ app.post(
   }
 );
 
+// ========== GET LIVE CHUNK METADATA (Cacheable) ==========
+app.get('/api/live-chunk/:sessionId/:chunkIndex', async (req, res) => {
+  const { sessionId, chunkIndex } = req.params;
+  
+  // Set caching headers. Chunk metadata for a specific index never changes.
+  // 5 minutes (300s) is a good balance for a live stream.
+  res.set({
+    'Cache-Control': 'public, max-age=300',
+    'Vary': 'Accept-Encoding'
+  });
+
+  try {
+    // Query your database for the chunk.
+    // Assuming you saved it to a `StreamChunk` or `Video` model with these fields.
+    const chunk = await Video.findOne({
+      sessionId: sessionId,
+      chunkIndex: parseInt(chunkIndex)
+    }).lean();
+
+    if (!chunk) {
+      // If not found, still cache the negative response briefly to avoid hammering the DB.
+      res.set('Cache-Control', 'public, max-age=30');
+      return res.status(404).json({ error: 'Chunk not found' });
+    }
+
+    // Return the essential data for the player.
+    res.json({
+      success: true,
+      sessionId: chunk.sessionId,
+      chunkIndex: chunk.chunkIndex,
+      magnetLink: chunk.magnetLink, // The most important field
+      mimeType: chunk.mimeType,
+      fileName: chunk.fileName
+      // Add any other fields your frontend player needs
+    });
+
+  } catch (error) {
+    console.error('Error in GET /api/live-chunk:', error);
+    // Do not cache error responses
+    res.set('Cache-Control', 'no-cache');
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
+});
+
 app.post("/api/stream-end", authenticateToken, async (req, res) => {
   const { sessionId } = req.body;
   await reactiveBooster.stopStreamBoost(sessionId);
