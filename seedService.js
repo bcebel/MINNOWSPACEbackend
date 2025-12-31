@@ -1,67 +1,78 @@
-// server/seedService.js - UPDATED TO REACTIVE "SEED BOOSTER"
 import WebTorrent from "webtorrent";
 import fs from "fs";
 import path from "path";
 import { EventEmitter } from "events";
 
 class ReactiveSeedBooster {
-    constructor() {
-      EventEmitter.defaultMaxListeners = 50; 
+  constructor() {
+    EventEmitter.defaultMaxListeners = 100; // Increased for livestream
     this.client = new WebTorrent({
-      maxConns: 20,
-      dht: false, // Disable DHT to make torrent initialization faster
-      lsd: false,
+      maxConns: 50, // Increased connections
+      dht: true, // ENABLE DHT for better peer discovery
+      lsd: true, // Enable local peer discovery
+      tracker: {
+        rtcConfig: {
+          iceServers: [
+            { urls: "stun:stun.l.google.com:19302" },
+            { urls: "stun:global.stun.twilio.com:3478" },
+          ],
+        },
+      },
     });
-    // chunkId -> { torrent, checkInterval, isHeader, filePath }
+
+    this.trackers = [
+      "wss://tracker.openwebtorrent.com",
+      "wss://tracker.webtorrent.dev",
+      "wss://tracker.files.fm:7073/announce",
+      "wss://tracker.btorrent.xyz",
+      "udp://tracker.opentrackr.org:1337/announce", // Added UDP tracker
+      "udp://open.demonii.com:1337/announce", // Added UDP tracker
+    ];
+
     this.activeTorrents = new Map();
-    console.log("🎯 Reactive Seed Booster started (Peer-Aware)");
+    console.log("🎯 Reactive Seed Booster started (P2P Livestream Optimized)");
   }
 
   /**
-   * Main method: start seeding a chunk and monitor its swarm health.
-   * Will automatically stop seeding when the chunk has enough peers.
+   * Start seeding a chunk for livestream
+   * For livestreams, we NEVER stop seeding automatically
    */
   async boostChunkIfNeeded(filePath, chunkId, announceUrls) {
-    // If already boosting this chunk, do nothing
+    // If already boosting, just return the magnet URI
     if (this.activeTorrents.has(chunkId)) {
-      console.log(`⏭️ Already boosting chunk ${chunkId}. Skipping.`);
       const job = this.activeTorrents.get(chunkId);
       return job.torrent.magnetURI;
     }
 
     const torrentOptions = {
-      announce: announceUrls,
-      name: `chunk-${chunkId}`,
+      announce: announceUrls || this.trackers,
+      name: `livestream-${chunkId}-${Date.now()}`, // Unique name
     };
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       this.client.seed(filePath, torrentOptions, (torrent) => {
         console.log(
-          `🔍 Monitoring chunk ${chunkId}. Initial peers: ${torrent.numPeers}`
+          `📤 Seeding chunk ${chunkId}. InfoHash: ${torrent.infoHash.substring(
+            0,
+            8
+          )}...`
         );
 
-        // Determine if this is a header chunk (contains '-1' in ID)
-        const isHeader = chunkId.includes("-1");
+        // Log peer connections
+        torrent.on("wire", (wire, addr) => {
+          console.log(`🤝 Connected to peer for ${chunkId}: ${addr}`);
+        });
+
+        torrent.on("error", (err) => {
+          console.error(`❌ Torrent error for ${chunkId}:`, err.message);
+        });
 
         const boosterJob = {
           torrent: torrent,
-          isHeader: isHeader,
           filePath: filePath,
           startTime: Date.now(),
-          // Start a periodic health check for non-header chunks
-          checkInterval: null,
+          peers: new Set(),
         };
-
-        // HEADER: Keep forever. REGULAR: Start health checks.
-        if (!boosterJob.isHeader) {
-          boosterJob.checkInterval = setInterval(() => {
-            this._evaluateSwarmHealth(chunkId, torrent);
-          }, 30000); // Check every 30 seconds
-        } else {
-          console.log(
-            `🎯 Header chunk ${chunkId} detected. Will seed indefinitely.`
-          );
-        }
 
         this.activeTorrents.set(chunkId, boosterJob);
         resolve(torrent.magnetURI);
@@ -70,132 +81,80 @@ class ReactiveSeedBooster {
   }
 
   /**
-   * Core logic: Decide whether to keep or stop seeding based on peer count.
+   * Manual cleanup for a specific chunk
    */
-  _evaluateSwarmHealth(chunkId, torrent) {
-    const totalPeers = torrent.numPeers;
+  async stopBoosting(chunkId) {
     const job = this.activeTorrents.get(chunkId);
     if (!job) return;
-    
-    if (job.isHeader) {
-      console.log(`⭐ Header ${chunkId} is active. Peers: ${torrent.numPeers}`);
-      return;
-    }
-
-      
-      const ageInMinutes = (Date.now() - job.startTime) / 60000;
-
-      if (ageInMinutes > 10 && !job.isHeader) {
-        console.log(
-          `⏰ Chunk ${chunkId} expired (3 mins). Cleaning up to save RAM.`
-        );
-        this._stopBoosting(chunkId, "expired");
-        return;
-      }
-
-    // DECISION MATRIX
-    if (totalPeers === 0) {
-      console.log(
-        `🆘 Chunk ${chunkId} has 0 peers! Staying alive as critical backup.`
-      );
-    } else if (totalPeers >= 5) {
-      console.log(
-        `✅ Chunk ${chunkId} has ${totalPeers} peers. Swarm healthy. STOPPING BOOST.`
-      );
-      this._stopBoosting(chunkId, "healthy swarm");
-    } else if (totalPeers >= 3) {
-      console.log(
-        `🟡 Chunk ${chunkId} has ${totalPeers} peers. Getting there...`
-      );
-    } else {
-      console.log(`🔵 Chunk ${chunkId} has ${totalPeers} peers. Still needed.`);
-    }
-  }
-
-  /**
-   * Cleanly stop boosting a chunk and clean up resources.
-   */
-  async _stopBoosting(chunkId, reason) {
-    const job = this.activeTorrents.get(chunkId);
-    if (!job) return;
-
-    // Clear the health check interval
-    if (job.checkInterval) {
-      clearInterval(job.checkInterval);
-    }
 
     // Remove from WebTorrent client
-    this.client.remove(job.torrent.infoHash);
+    if (job.torrent) {
+      this.client.remove(job.torrent.infoHash);
+    }
 
     // Try to delete the temporary file
     try {
-      await fs.unlink(job.filePath);
+      await fs.promises.unlink(job.filePath);
       console.log(`🧹 Deleted temp file: ${path.basename(job.filePath)}`);
     } catch (err) {
       // File might already be gone; ignore
     }
 
     this.activeTorrents.delete(chunkId);
-    console.log(`⏹️ Stopped boosting chunk ${chunkId} (${reason})`);
+    console.log(`⏹️ Stopped boosting chunk ${chunkId}`);
   }
 
   /**
-   * Manual cleanup for an entire stream session.
-   * Call this when a stream ends to clean up all its chunks.
+   * Cleanup all chunks for a stream session
    */
   async stopStreamBoost(sessionId) {
     const chunksToRemove = [];
 
     for (const [chunkId, job] of this.activeTorrents.entries()) {
-      if (chunkId.startsWith(sessionId)) {
+      if (chunkId.includes(sessionId)) {
         chunksToRemove.push(chunkId);
       }
     }
 
     console.log(
-      `🧼 Stopping boost for ${chunksToRemove.length} chunks from stream ${sessionId}`
+      `🧼 Stopping ${chunksToRemove.length} chunks from stream ${sessionId}`
     );
 
     for (const chunkId of chunksToRemove) {
-      await this._stopBoosting(chunkId, "stream ended");
+      await this.stopBoosting(chunkId);
     }
   }
 
-  /**
-   * Get status for monitoring (useful for a dashboard or health endpoint).
-   */
   getStatus() {
     const status = {
       activeTorrents: this.activeTorrents.size,
       totalPeers: 0,
-      bySession: {},
+      sessions: {},
     };
 
     for (const [chunkId, job] of this.activeTorrents.entries()) {
       const peerCount = job.torrent.numPeers;
       status.totalPeers += peerCount;
 
-      // Extract sessionId from chunkId (format: "sessionId-chunkIndex")
-      const sessionId = chunkId.split("-").slice(0, -1).join("-");
-      if (!status.bySession[sessionId]) {
-        status.bySession[sessionId] = { chunks: 0, peers: 0, headers: 0 };
+      // Extract session ID from chunkId format
+      const sessionMatch = chunkId.match(/(.*?)-chunk-\d+/);
+      if (sessionMatch) {
+        const sessionId = sessionMatch[1];
+        if (!status.sessions[sessionId]) {
+          status.sessions[sessionId] = { chunks: 0, peers: 0 };
+        }
+        status.sessions[sessionId].chunks++;
+        status.sessions[sessionId].peers += peerCount;
       }
-      status.bySession[sessionId].chunks++;
-      status.bySession[sessionId].peers += peerCount;
-      if (job.isHeader) status.bySession[sessionId].headers++;
     }
 
     return status;
   }
 
-  /**
-   * Emergency cleanup - stops everything.
-   */
   destroy() {
-    console.log("🛑 Shutting down ReactiveSeedBooster...");
+    console.log("🛑 Shutting down Seed Booster...");
 
     for (const [chunkId, job] of this.activeTorrents.entries()) {
-      if (job.checkInterval) clearInterval(job.checkInterval);
       this.client.remove(job.torrent.infoHash);
     }
 
@@ -204,5 +163,4 @@ class ReactiveSeedBooster {
   }
 }
 
-// Export a singleton instance
 export const reactiveBooster = new ReactiveSeedBooster();
