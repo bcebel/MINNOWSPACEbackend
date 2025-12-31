@@ -75,11 +75,17 @@ class ReactiveSeedBooster {
   _evaluateSwarmHealth(chunkId, torrent) {
     const totalPeers = torrent.numPeers;
     const job = this.activeTorrents.get(chunkId);
-      if (!job) return;
+    if (!job) return;
+    
+    if (job.isHeader) {
+      console.log(`⭐ Header ${chunkId} is active. Peers: ${torrent.numPeers}`);
+      return;
+    }
+
       
       const ageInMinutes = (Date.now() - job.startTime) / 60000;
 
-      if (ageInMinutes > 3 && !job.isHeader) {
+      if (ageInMinutes > 10 && !job.isHeader) {
         console.log(
           `⏰ Chunk ${chunkId} expired (3 mins). Cleaning up to save RAM.`
         );
