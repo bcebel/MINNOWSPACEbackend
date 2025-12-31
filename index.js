@@ -376,11 +376,8 @@ app.post(
       const trackers = [
         "wss://tracker.openwebtorrent.com",
         "wss://tracker.webtorrent.dev",
-        "udp://tracker.opentrackr.org:1337",
-        "udp://9.rarbg.to:2710",
-        "udp://open.stealth.si:80",
-        "udp://exodus.desync.com:6969",
-        "udp://tracker.torrent.eu.org:451",
+        "wss://tracker.files.fm:7073/announce",
+        "wss://tracker.btorrent.xyz",
       ];
 
       console.log(
