@@ -7,7 +7,11 @@ import { EventEmitter } from "events";
 class ReactiveSeedBooster {
     constructor() {
       EventEmitter.defaultMaxListeners = 50; 
-    this.client = new WebTorrent({ maxConns: 100 });
+    this.client = new WebTorrent({
+      maxConns: 20,
+      dht: false, // Disable DHT to make torrent initialization faster
+      lsd: false,
+    });
     // chunkId -> { torrent, checkInterval, isHeader, filePath }
     this.activeTorrents = new Map();
     console.log("🎯 Reactive Seed Booster started (Peer-Aware)");
@@ -43,6 +47,7 @@ class ReactiveSeedBooster {
           torrent: torrent,
           isHeader: isHeader,
           filePath: filePath,
+          startTime: Date.now(),
           // Start a periodic health check for non-header chunks
           checkInterval: null,
         };
@@ -70,7 +75,17 @@ class ReactiveSeedBooster {
   _evaluateSwarmHealth(chunkId, torrent) {
     const totalPeers = torrent.numPeers;
     const job = this.activeTorrents.get(chunkId);
-    if (!job) return;
+      if (!job) return;
+      
+      const ageInMinutes = (Date.now() - job.startTime) / 60000;
+
+      if (ageInMinutes > 3 && !job.isHeader) {
+        console.log(
+          `⏰ Chunk ${chunkId} expired (3 mins). Cleaning up to save RAM.`
+        );
+        this._stopBoosting(chunkId, "expired");
+        return;
+      }
 
     // DECISION MATRIX
     if (totalPeers === 0) {

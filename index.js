@@ -401,8 +401,8 @@ app.post(
       ); // ADD THIS
 
       // ... rest of your code (saving to DB, pubsub publish, response) ...
-      console.log(`🟢 [LIVE-CHUNK] Process completed successfully.`); // ADD THIS BEFORE res.json
-      res.json({ success: true, magnetUri, chunkId: chunkRecord._id });
+      console.log(`🟢 [LIVE-CHUNK] Process completed successfully.`); // ADD THIS BEFORE 
+      res.json({ success: true, magnetUri });
     } catch (error) {
       // THIS IS THE CRITICAL PART - log the FULL error
       console.error("🔴 [LIVE-CHUNK] UNHANDLED ERROR in try-catch:", error);
