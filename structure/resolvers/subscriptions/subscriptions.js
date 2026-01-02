@@ -1,27 +1,23 @@
-// 1. Make sure you are importing the SAME pubsub instance at the top
-
-// structure/resolvers/subscriptions/subscriptions.js
-// structure/resolvers/subscriptions/subscriptions.js
 const subscriptionResolvers = {
   Subscription: {
     livestreamChunkAdded: {
-      // Use the 3rd argument 'context'
+      // Use the 'context' argument (the 3rd one)
       subscribe: (_, { sessionId }, context) => {
-        const { pubsub } = context; 
+        // Pull pubsub from the context we injected in index.js
+        const { pubsub } = context;
 
-        if (!pubsub) {
-          console.error("❌ ERROR: PubSub missing from context in resolver!");
-          throw new Error("Subscription failed: PubSub not initialized");
+        if (!pubsub || typeof pubsub.asyncIterator !== "function") {
+          console.error("❌ RESOLVER ERROR: PubSub missing from context!");
+          throw new Error("pubsub.asyncIterator is not a function");
         }
 
         const topic = `LIVESTREAM_CHUNK_ADDED_${sessionId}`;
-        console.log(`📡 Subscribing to: ${topic}`);
-        
-        return pubsub.asyncIterator([topic]);
+        console.log(`📡 [SUBSCRIPTION] Listening for topic: ${topic}`);
+
+        return pubsub.asyncIterator(topic);
       },
     },
   },
 };
 
 export default subscriptionResolvers;
-

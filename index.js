@@ -806,16 +806,11 @@ const wsServer = new WebSocketServer({
 const serverCleanup = useServer(
   {
     schema,
-    // THIS IS THE MISSING LINK
     context: async (ctx, msg, args) => {
-      // This log will appear in your Heroku terminal when the player joins
       console.log("🔌 [WS CONTEXT] Creating context for subscription...");
-
-
-     return { pubsub };
-      },
+      return { pubsub };
     },
-
+  },
   wsServer
 );
 
