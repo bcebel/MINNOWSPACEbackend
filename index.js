@@ -389,17 +389,22 @@ app.post(
         trackers // PASS THE NEW TRACKER LIST
       );
 
-      const payload = {
-        livestreamChunkAdded: {
-          id: `${sessionId}-${chunkIndex}`,
-          sessionId: sessionId,
-          chunkIndex: parseInt(chunkIndex),
-          magnetLink: magnetUri,
-          fileType: chunkIndex === "-1" ? "video_header" : "video_chunk",
-        },
-      };
+pubsub.publish(`LIVESTREAM_CHUNK_ADDED_${sessionId}`, {
+  livestreamChunkAdded: {
+    id: `${sessionId}-${chunkIndex}`,
+    sessionId,
+    chunkIndex: parseInt(chunkIndex),
+    magnetLink: magnetUri,
+    fileType: parseInt(chunkIndex) === -1 ? "video_header" : "video_chunk",
+  },
+});
+console.log(`📡 [SINGLE-SHOUT] Sent Chunk ${chunkIndex} to GQL`);
 
-      pubsub.publish(`LIVESTREAM_CHUNK_ADDED_${sessionId}`, payload);
+ console.log(`📡 [LIVE-CHUNK] Published to GraphQL: Chunk ${chunkIndex}`);
+
+   
+
+
       console.log(`📡 [LIVE-CHUNK] Published to GraphQL: Chunk ${chunkIndex}`);
       console.log(
         `🟢 [LIVE-CHUNK] Backend seeding started. Magnet: ${magnetUri.substring(
