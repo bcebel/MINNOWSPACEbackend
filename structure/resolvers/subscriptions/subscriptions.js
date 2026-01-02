@@ -5,14 +5,25 @@ const subscriptionResolvers = {
   Subscription: {
     livestreamChunkAdded: {
       // 1. Force the return into a simple, direct iterator call
-      subscribe: (parent, { sessionId }) => {
+      subscribe: (_, { sessionId }) => {
         const topic = `LIVESTREAM_CHUNK_ADDED_${sessionId}`;
 
-        // 2. Log exactly what the topic is to verify the frontend
-        // and backend are on the same ID
-        console.log("👂 Subscription triggered for topic:", topic);
+        // DIAGNOSTIC LOGS - Look at these in your Heroku terminal
+        console.log("🛠️ PUB-DEBUG: What is pubsub?", typeof pubsub);
+        if (pubsub) {
+          console.log("🛠️ PUB-DEBUG: Keys found:", Object.keys(pubsub));
+          console.log(
+            "🛠️ PUB-DEBUG: Prototype:",
+            Object.getPrototypeOf(pubsub)?.constructor?.name
+          );
+        }
 
-        return pubsub.asyncIterator([topic]); // Wrap topic in an array
+        try {
+          return pubsub.asyncIterator(topic);
+        } catch (err) {
+          console.error("💥 THE CRASH:", err.message);
+          throw err;
+        }
       },
     },
   },
