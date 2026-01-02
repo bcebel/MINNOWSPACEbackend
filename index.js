@@ -24,12 +24,12 @@ import Video from "./structure/models/Video.js";
 import Image from "./structure/models/Image.js";
 import Neighborhood from "./structure/models/Neighborhood.js";
 import MediaAPI from "./datasources/MediaAPI.cjs";
-import { pubsub } from "./structure/pubsub.js";
+import { PubSub } from "graphql-subscriptions";
 import { reactiveBooster } from "./seedService.js";
 import fs from "fs";
 
 dotenv.config();
-
+const pubsub = new PubSub();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -811,11 +811,11 @@ const serverCleanup = useServer(
       // This log will appear in your Heroku terminal when the player joins
       console.log("🔌 [WS CONTEXT] Creating context for subscription...");
 
-      return {
-        pubsub, // This must be the same pubsub you imported
-      };
+
+     return { pubsub };
+      },
     },
-  },
+
   wsServer
 );
 
@@ -866,6 +866,7 @@ app.use(
       return {
         user,
         pubsub,
+        user: req.user,
         models,
         token: authHeader.substring(7),
         dataSources: {
