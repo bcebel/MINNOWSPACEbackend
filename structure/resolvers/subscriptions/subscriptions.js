@@ -1,33 +1,19 @@
-import { withFilter } from "graphql-subscriptions";
-import { pubsub } from "../../pubsub.js"; // <--- This is the one we want!
+// 1. Make sure you are importing the SAME pubsub instance at the top
+import { pubsub } from "../../pubsub.js";
 
 const resolvers = {
   Subscription: {
-    messageAdded: {
-      // Remove { pubsub } from the 3rd argument
-      subscribe: (_, { chatId }) => {
-        return pubsub.asyncIterator(`MESSAGE_ADDED_${chatId}`);
-      },
-    },
-    postAdded: {
-      // Remove { pubsub } from the 3rd argument
-      subscribe: (_, { feedType, groupId }) => {
-        if (feedType) return pubsub.asyncIterator(`POST_ADDED_${feedType}`);
-        if (groupId) return pubsub.asyncIterator(`POST_ADDED_GROUP_${groupId}`);
-        return pubsub.asyncIterator("POST_ADDED_UNIVERSAL");
-      },
-    },
     livestreamChunkAdded: {
-      // Remove { pubsub } from the 3rd argument
+      // 2. REMOVE { pubsub } from the third argument (context)
+      // This forces the resolver to use the 'pubsub' we imported above
       subscribe: (_, { sessionId }) => {
-        // Now 'pubsub' refers to your import at the top
         const topic = `LIVESTREAM_CHUNK_ADDED_${sessionId}`;
-        console.log(`📡 [SUBSCRIPTION] User started listening to: ${topic}`);
+        console.log(`📡 [SUBSCRIPTION] Listening to: ${topic}`);
 
+        // 3. Now this will definitely work because it's using the imported instance
         return pubsub.asyncIterator(topic);
       },
     },
   },
 };
-
 export default resolvers;
