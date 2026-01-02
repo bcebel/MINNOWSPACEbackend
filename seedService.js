@@ -22,11 +22,7 @@ class ReactiveSeedBooster {
 
     this.trackers = [
       "wss://tracker.openwebtorrent.com",
-      "wss://tracker.webtorrent.dev",
-      "wss://tracker.files.fm:7073/announce",
-      "wss://tracker.btorrent.xyz",
-      "udp://tracker.opentrackr.org:1337/announce", // Added UDP tracker
-      "udp://open.demonii.com:1337/announce", // Added UDP tracker
+      "wss://tracker.webtorrent.dev", // Added UDP tracker
     ];
 
     this.activeTorrents = new Map();
