@@ -1,26 +1,25 @@
 // 1. Make sure you are importing the SAME pubsub instance at the top
 import { pubsub } from "../../pubsub.js";
 
+// structure/resolvers/subscriptions/subscriptions.js
 const subscriptionResolvers = {
   Subscription: {
     livestreamChunkAdded: {
-      // 1. Force the return into a simple, direct iterator call
       subscribe: (_, { sessionId }, context) => {
-        // We pull pubsub from the context that index.js is sending
-        const { pubsub } = context;
+        // Log the keys to see what actually arrived
+        console.log("🎁 Context Keys:", Object.keys(context || {}));
+        
+        const ps = context.pubsub;
 
-        const topic = `LIVESTREAM_CHUNK_ADDED_${sessionId}`;
-
-        // This log will tell us if context actually has the real pubsub
-        console.log("🔍 Context PubSub Check:", !!pubsub?.asyncIterator);
-
-        if (!pubsub || typeof pubsub.asyncIterator !== "function") {
+        if (!ps || typeof ps.asyncIterator !== 'function') {
+          console.error("❌ PubSub still missing from context!");
           throw new Error("PubSub missing from context or broken");
         }
 
-        return pubsub.asyncIterator(topic);
+        return ps.asyncIterator(`LIVESTREAM_CHUNK_ADDED_${sessionId}`);
       },
     },
   },
 };
+
 export default subscriptionResolvers;
