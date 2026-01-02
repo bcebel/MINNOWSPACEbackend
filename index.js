@@ -866,7 +866,6 @@ app.use(
       return {
         user,
         pubsub,
-        user: req.user,
         models,
         token: authHeader.substring(7),
         dataSources: {
