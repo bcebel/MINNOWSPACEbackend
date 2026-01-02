@@ -787,7 +787,16 @@ const wsServer = new WebSocketServer({
   path: "/graphql",
 });
 
-const serverCleanup = useServer({ schema }, wsServer);
+const serverCleanup = useServer(
+  {
+    schema,
+    // This provides variables to your Subscription resolvers
+    context: async (ctx, msg, args) => {
+      return { pubsub }; // Now 'pubsub' will be available in the 3rd argument of your resolvers
+    },
+  },
+  wsServer
+);
 
 // Apollo Server v4 setup
 const apolloServer = new ApolloServer({
