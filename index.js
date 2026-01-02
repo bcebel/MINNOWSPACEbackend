@@ -24,7 +24,7 @@ import Video from "./structure/models/Video.js";
 import Image from "./structure/models/Image.js";
 import Neighborhood from "./structure/models/Neighborhood.js";
 import MediaAPI from "./datasources/MediaAPI.cjs";
-import { PubSub } from "graphql-subscriptions";
+import { pubsub } from "./structure/pubsub.js";
 import { reactiveBooster } from "./seedService.js";
 import fs from "fs";
 
@@ -36,7 +36,6 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const httpServer = http.createServer(app);
 
-const pubsub = new PubSub();
 /*
 const corsOptions = {
   origin:
@@ -390,6 +389,18 @@ app.post(
         trackers // PASS THE NEW TRACKER LIST
       );
 
+      const payload = {
+        livestreamChunkAdded: {
+          id: `${sessionId}-${chunkIndex}`,
+          sessionId: sessionId,
+          chunkIndex: parseInt(chunkIndex),
+          magnetLink: magnetUri,
+          fileType: chunkIndex === "-1" ? "video_header" : "video_chunk",
+        },
+      };
+
+      pubsub.publish(`LIVESTREAM_CHUNK_ADDED_${sessionId}`, payload);
+      console.log(`📡 [LIVE-CHUNK] Published to GraphQL: Chunk ${chunkIndex}`);
       console.log(
         `🟢 [LIVE-CHUNK] Backend seeding started. Magnet: ${magnetUri.substring(
           0,
