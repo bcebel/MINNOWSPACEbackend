@@ -806,9 +806,14 @@ const wsServer = new WebSocketServer({
 const serverCleanup = useServer(
   {
     schema,
-    // This provides variables to your Subscription resolvers
+    // THIS IS THE MISSING LINK
     context: async (ctx, msg, args) => {
-      return { pubsub }; // Now 'pubsub' will be available in the 3rd argument of your resolvers
+      // This log will appear in your Heroku terminal when the player joins
+      console.log("🔌 [WS CONTEXT] Creating context for subscription...");
+
+      return {
+        pubsub, // This must be the same pubsub you imported
+      };
     },
   },
   wsServer
