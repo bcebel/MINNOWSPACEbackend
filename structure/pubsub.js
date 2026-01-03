@@ -1,2 +1,11 @@
+// structure/pubsub.js
 import { PubSub } from "graphql-subscriptions";
-export const pubsub = new PubSub();
+
+// Create a single instance
+const pubsub = new PubSub();
+
+console.log("📡 PubSub instance created at startup");
+
+// Export both named and default
+export { pubsub };
+export default pubsub;

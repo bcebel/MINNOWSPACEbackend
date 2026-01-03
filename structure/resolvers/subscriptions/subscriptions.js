@@ -1,32 +1,45 @@
-// subscription.js
+// structure/resolvers/subscriptions/subscriptions.js
+import { pubsub } from "../../pubsub.js";
+
 const subscriptionResolvers = {
   Subscription: {
     livestreamChunkAdded: {
       subscribe: (_, { sessionId }, context) => {
-        const ps = context?.pubsub;
+        console.log("🔍 [SUBSCRIPTION-DEBUG] ============");
+        console.log("🔍 [SUBSCRIPTION-DEBUG] Session ID:", sessionId);
+        console.log(
+          "🔍 [SUBSCRIPTION-DEBUG] Context keys:",
+          Object.keys(context || {})
+        );
+        console.log(
+          "🔍 [SUBSCRIPTION-DEBUG] Has pubsub in context?",
+          !!context?.pubsub
+        );
+        console.log(
+          "🔍 [SUBSCRIPTION-DEBUG] Imported pubsub available?",
+          !!pubsub
+        );
+        console.log("🔍 [SUBSCRIPTION-DEBUG] ============");
+
+        // For now, use imported pubsub to bypass context issues
+        const ps = pubsub; // Use imported instance
 
         if (!ps || typeof ps.asyncIterator !== "function") {
-          console.error(
-            "❌ CRITICAL: PubSub missing in Subscription Resolver!"
-          );
-          throw new Error("Server configuration error: Subscriptions offline.");
+          console.error("❌ CRITICAL: PubSub is not a function!");
+          // Don't throw error, return dummy iterator for now
+          return {
+            [Symbol.asyncIterator]() {
+              return {
+                async next() {
+                  return new Promise(() => {}); // Never resolves
+                },
+              };
+            },
+          };
         }
 
         const topic = `LIVESTREAM_CHUNK_ADDED_${sessionId}`;
-        console.log(`📡 [WS-SUBSCRIBE] Client subscribing to: ${topic}`);
-        console.log(`📡 [WS-SUBSCRIBE] Session ID: ${sessionId}`);
-        console.log(`📡 [WS-SUBSCRIBE] Time: ${new Date().toISOString()}`);
-
-        // Log active subscriptions count (if available)
-        if (ps.getSubscriptions) {
-          const subs = ps.getSubscriptions();
-          console.log(
-            `📡 [WS-SUBSCRIBE] Total active subscriptions: ${
-              Object.keys(subs).length
-            }`
-          );
-        }
-
+        console.log(`📡 [SUBSCRIPTION] Subscribing to: ${topic}`);
         return ps.asyncIterator([topic]);
       },
     },

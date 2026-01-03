@@ -803,12 +803,30 @@ const wsServer = new WebSocketServer({
   path: "/graphql",
 });
 
+// In index.js, replace the useServer setup:
+
 const serverCleanup = useServer(
   {
     schema,
-    context: async (ctx, msg, args) => {
-      console.log("🔌 [WS CONTEXT] Creating context for subscription...");
+    context: async (ctx) => {
+      // For debugging, log what we get
+      console.log('🔌 [WS-CONTEXT] WebSocket connection established');
+      console.log('🔌 [WS-CONTEXT] Connection params:', ctx.connectionParams);
+      
+      // Return the pubsub instance
       return { pubsub };
+    },
+    // Add onSubscribe for debugging
+    onSubscribe: (ctx, msg) => {
+      console.log('🔌 [WS-ONSUBSCRIBE] Client subscribing:', msg.payload?.operationName);
+      console.log('🔌 [WS-ONSUBSCRIBE] Variables:', msg.payload?.variables);
+    },
+    onConnect: (ctx) => {
+      console.log('🔌 [WS-ONCONNECT] Client connected');
+      return true; // Allow the connection
+    },
+    onDisconnect: (ctx, code, reason) => {
+      console.log(`🔌 [WS-ONDISCONNECT] Client disconnected: ${code} - ${reason}`);
     },
   },
   wsServer
