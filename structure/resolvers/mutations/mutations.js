@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { pubsub } from "../../pubsub.js";
 import User from "../../models/User.js";
 import Chat from "../../models/Chat.js";
 import Post from "../../models/Post.js";
@@ -12,7 +13,7 @@ import Image from "../../models/Image.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import { pubsub } from "../../pubsub.js";
+
 import StreamChunk from "../../models/StreamChunk.js";
 
 
