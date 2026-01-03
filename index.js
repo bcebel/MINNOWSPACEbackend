@@ -330,8 +330,8 @@ app.post(
     console.log("🔵 [LIVE-CHUNK] Endpoint hit. Starting processing...");
 
     try {
-      // 1. Extract data AFTER the request hits
-      const { sessionId, chunkIndex } = req.body;
+      // 1. Extract data - Fixed the 'titlechunkIndex' typo here
+      const { sessionId, neighborhoodId, chunkIndex } = req.body;
       const fileBuffer = req.file?.buffer;
       const mimeType = req.file?.mimetype;
       const userId = req.user?.userId;
@@ -375,12 +375,12 @@ app.post(
         trackers
       );
 
-      // 4. FIND THE PARENT STREAM ID (From your Streams DB)
+      // 4. FIND THE PARENT STREAM ID
       const parentStream = await Stream.findOne({ sessionId });
 
-      // 5. SAVE TO STREAMCHUNK COLLECTION (Using your variables)
+      // 5. SAVE TO STREAMCHUNK COLLECTION
       const newChunk = await StreamChunk.create({
-        stream: parentStream ? parentStream._id : null, // Links to your Stream DB
+        stream: parentStream ? parentStream._id : null,
         sessionId,
         chunkIndex: parseInt(chunkIndex),
         magnetLink: magnetUri,
@@ -389,10 +389,10 @@ app.post(
         fileType: parseInt(chunkIndex) === -1 ? "video_header" : "video_chunk",
       });
 
-      // 6. SHOUT TO GRAPHQL (The Single Shout)
+      // 6. SHOUT TO GRAPHQL
       pubsub.publish(`LIVESTREAM_CHUNK_ADDED_${sessionId}`, {
         livestreamChunkAdded: {
-          id: newChunk.id, // Now this exists!
+          id: newChunk.id,
           sessionId: sessionId,
           chunkIndex: newChunk.chunkIndex,
           magnetLink: magnetUri,
@@ -402,12 +402,7 @@ app.post(
         },
       });
 
-      console.log(
-        `📡 [SINGLE-SHOUT] Sent Chunk ${chunkIndex} to GQL. Magnet: ${magnetUri.substring(
-          0,
-          30
-        )}...`
-      );
+      console.log(`📡 [SINGLE-SHOUT] Sent Chunk ${chunkIndex} to GQL.`);
       res.json({ success: true, magnetUri });
     } catch (error) {
       console.error("🔴 [LIVE-CHUNK] UNHANDLED ERROR:", error);
