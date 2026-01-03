@@ -85,7 +85,7 @@ const resolvers = {
       try {
         // 1. Query the specialized StreamChunk model, not Message
         // 2. We don't need the $in filter because ONLY chunks live here now
-        return await StreamChunk.find({ sessionId })
+        return await StreamChunk.find({ stream: sessionId })
           .sort({ chunkIndex: 1 })
           .lean(); // .lean() makes it a plain JS object for speed
       } catch (error) {

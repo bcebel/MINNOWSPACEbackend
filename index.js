@@ -383,7 +383,8 @@ app.post(
       // 5. SAVE TO STREAMCHUNK COLLECTION
       const newChunk = await StreamChunk.create({
         stream: parentStream ? parentStream._id : null,
-        sessionId,
+        stream: streamId,
+        sessionId: sessionId,
         chunkIndex: parseInt(chunkIndex),
         magnetLink: magnetUri,
         fileName: req.file.originalname,
