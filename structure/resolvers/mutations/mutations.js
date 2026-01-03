@@ -11,7 +11,6 @@ import Message from "../../models/Message.js";
 import Image from "../../models/Image.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import StreamChunk from "../../models/StreamChunk.js";
 import crypto from "crypto";
 import { pubsub } from "../../pubsub.js";
 import StreamChunk from "../../models/StreamChunk.js";
@@ -1804,7 +1803,10 @@ const resolvers = {
   Subscription: {
     livestreamChunkAdded: {
       subscribe: (_, { sessionId }, { pubsub }) => {
-        // This MUST match the string used in Mutation.sendMessage
+        if (!pubsub) {
+          throw new Error("PubSub instance not found in contextValue.");
+        }
+        // Topic must match exactly what you publish in index.js
         return pubsub.asyncIterator(`LIVESTREAM_CHUNK_ADDED_${sessionId}`);
       },
     },

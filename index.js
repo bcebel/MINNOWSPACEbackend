@@ -338,11 +338,11 @@ app.post(
     // Then Shout it out to GraphQL
     pubsub.publish(`LIVESTREAM_CHUNK_ADDED_${sessionId}`, {
       livestreamChunkAdded: {
-        id: newChunk.id, // from your virtuals
-        chunkIndex: newChunk.chunkIndex,
-        magnetLink: newChunk.magnetLink,
-        fileName: newChunk.fileName,
-        fileSize: newChunk.fileSize,
+        id: newChunk.id, // Ensure this is a string
+        chunkIndex: parseInt(chunkIndex),
+        magnetLink: magnetUri,
+        fileName: req.file.originalname,
+        fileSize: req.file.size,
         // NO 'content' or 'sender' needed anymore!
       },
     });
