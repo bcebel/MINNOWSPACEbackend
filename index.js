@@ -337,7 +337,12 @@ app.post(
       const fileBuffer = req.file?.buffer;
       const mimeType = req.file?.mimetype;
       const userId = req.user?.userId;
-
+ console.log(
+   `📡 [LIVE-CHUNK-RECEIVED] Session: ${sessionId}, Chunk: ${chunkIndex}`
+ );
+ console.log(
+   `📡 [LIVE-CHUNK-RECEIVED] File size: ${req.file?.size || 0} bytes`
+ );
       // --- VALIDATION ---
       if (!fileBuffer) {
         console.error("🔴 [LIVE-CHUNK] ERROR: req.file.buffer is undefined.");
@@ -383,7 +388,6 @@ app.post(
       // 5. SAVE TO STREAMCHUNK COLLECTION
       const newChunk = await StreamChunk.create({
         stream: parentStream ? parentStream._id : null,
-        stream: streamId,
         sessionId: sessionId,
         chunkIndex: parseInt(chunkIndex),
         magnetLink: magnetUri,
@@ -392,6 +396,12 @@ app.post(
         fileType: parseInt(chunkIndex) === -1 ? "video_header" : "video_chunk",
       });
 
+      const channelName = `LIVESTREAM_CHUNK_ADDED_${sessionId}`;
+      console.log(
+        `📢 Publishing chunk ${chunkIndex} (type: ${
+          parseInt(chunkIndex) === -1 ? "HEADER" : "VIDEO"
+        })`
+      );
       // 6. SHOUT TO GRAPHQL
       pubsub.publish(`LIVESTREAM_CHUNK_ADDED_${sessionId}`, {
         livestreamChunkAdded: {
@@ -402,6 +412,8 @@ app.post(
           fileName: newChunk.fileName,
           fileSize: newChunk.fileSize,
           fileType: newChunk.fileType,
+          mimeType:
+            req.file?.mimetype || supportedTypeRef.current || "video/mp4",
         },
       });
 

@@ -1,10 +1,8 @@
+// subscription.js
 const subscriptionResolvers = {
   Subscription: {
     livestreamChunkAdded: {
-      // The context here MUST contain the pubsub instance from index.js
       subscribe: (_, { sessionId }, context) => {
-        // Look in context first, then check if it's available globally
-        // (This is a safety net for consolidated files)
         const ps = context?.pubsub;
 
         if (!ps || typeof ps.asyncIterator !== "function") {
@@ -15,7 +13,19 @@ const subscriptionResolvers = {
         }
 
         const topic = `LIVESTREAM_CHUNK_ADDED_${sessionId}`;
-        console.log(`📡 [WS] Subscribing user to topic: ${topic}`);
+        console.log(`📡 [WS-SUBSCRIBE] Client subscribing to: ${topic}`);
+        console.log(`📡 [WS-SUBSCRIBE] Session ID: ${sessionId}`);
+        console.log(`📡 [WS-SUBSCRIBE] Time: ${new Date().toISOString()}`);
+
+        // Log active subscriptions count (if available)
+        if (ps.getSubscriptions) {
+          const subs = ps.getSubscriptions();
+          console.log(
+            `📡 [WS-SUBSCRIBE] Total active subscriptions: ${
+              Object.keys(subs).length
+            }`
+          );
+        }
 
         return ps.asyncIterator([topic]);
       },
