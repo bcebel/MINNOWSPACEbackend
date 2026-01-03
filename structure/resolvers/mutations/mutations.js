@@ -1807,7 +1807,7 @@ const resolvers = {
           throw new Error("PubSub instance not found in contextValue.");
         }
         // Topic must match exactly what you publish in index.js
-        return pubsub.asyncIterator(`LIVESTREAM_CHUNK_ADDED_${sessionId}`);
+        return pubsub.asyncIterator([`LIVESTREAM_CHUNK_ADDED_${sessionId}`]);
       },
     },
   },
