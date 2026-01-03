@@ -340,10 +340,13 @@ app.post(
     pubsub.publish(`LIVESTREAM_CHUNK_ADDED_${sessionId}`, {
       livestreamChunkAdded: {
         id: newChunk.id, // Ensure this is a string
+        sessionId: sessionId,
         chunkIndex: parseInt(chunkIndex),
         magnetLink: magnetUri,
         fileName: req.file.originalname,
         fileSize: req.file.size,
+        fileType: parseInt(chunkIndex) === -1 ? "video_header" : "video_chunk", // <--- Critical
+
         // NO 'content' or 'sender' needed anymore!
       },
     });
