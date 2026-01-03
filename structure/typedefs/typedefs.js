@@ -206,11 +206,11 @@ const typeDefs = gql`
 
   type StreamChunk {
     id: ID!
-    # Playback essentials
+    sessionId: String!
     chunkIndex: Int!
     magnetLink: String!
     fileName: String!
-    # Useful metadata
+    fileType: String
     fileSize: Int
     duration: Float
     trackerUrls: [String!]
