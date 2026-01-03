@@ -24,14 +24,13 @@ import Video from "./structure/models/Video.js";
 import Image from "./structure/models/Image.js";
 import Neighborhood from "./structure/models/Neighborhood.js";
 import MediaAPI from "./datasources/MediaAPI.cjs";
-import { PubSub } from "graphql-subscriptions";
+import { pubsub } from "./structure/pubsub.js";
 import { reactiveBooster } from "./seedService.js";
 import fs from "fs";
 import StreamChunk from "./structure/models/StreamChunk.js";
 import Stream from "./structure/models/Stream.js";
 
 dotenv.config();
-const pubsub = new PubSub();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
