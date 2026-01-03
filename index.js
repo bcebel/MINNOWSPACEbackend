@@ -6,6 +6,7 @@ import jwt from "jsonwebtoken";
 import http from "http";
 import cors from "cors";
 import dotenv from "dotenv";
+import { pubsub } from "./structure/pubsub.js";
 import { Server } from "socket.io";
 import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@as-integrations/express4";
@@ -24,7 +25,7 @@ import Video from "./structure/models/Video.js";
 import Image from "./structure/models/Image.js";
 import Neighborhood from "./structure/models/Neighborhood.js";
 import MediaAPI from "./datasources/MediaAPI.cjs";
-import { pubsub } from "./structure/pubsub.js";
+
 import { reactiveBooster } from "./seedService.js";
 import fs from "fs";
 import StreamChunk from "./structure/models/StreamChunk.js";
