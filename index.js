@@ -331,17 +331,20 @@ app.post(
     console.log("🔵 [LIVE-CHUNK] Endpoint hit. Starting processing...");
 
     try {
-      // 1. Extract data - Fixed the 'titlechunkIndex' typo here
+      // 1. Extract data
       const { sessionId, neighborhoodId, chunkIndex } = req.body;
       const fileBuffer = req.file?.buffer;
       const mimeType = req.file?.mimetype;
       const userId = req.user?.userId;
- console.log(
-   `📡 [LIVE-CHUNK-RECEIVED] Session: ${sessionId}, Chunk: ${chunkIndex}`
- );
- console.log(
-   `📡 [LIVE-CHUNK-RECEIVED] File size: ${req.file?.size || 0} bytes`
- );
+
+      console.log(
+        `📡 [LIVE-CHUNK-RECEIVED] Session: ${sessionId}, Chunk: ${chunkIndex}`
+      );
+      console.log(
+        `📡 [LIVE-CHUNK-RECEIVED] File size: ${req.file?.size || 0} bytes`
+      );
+      console.log(`📡 [LIVE-CHUNK-RECEIVED] Mime type: ${mimeType}`);
+
       // --- VALIDATION ---
       if (!fileBuffer) {
         console.error("🔴 [LIVE-CHUNK] ERROR: req.file.buffer is undefined.");
@@ -381,8 +384,20 @@ app.post(
         trackers
       );
 
+      console.log(
+        `🧲 [LIVE-CHUNK] Generated magnet URI: ${magnetUri?.substring(
+          0,
+          80
+        )}...`
+      );
+
       // 4. FIND THE PARENT STREAM ID
       const parentStream = await Stream.findOne({ sessionId });
+      console.log(
+        `🔍 [LIVE-CHUNK] Parent stream: ${
+          parentStream ? parentStream._id : "NOT FOUND"
+        }`
+      );
 
       // 5. SAVE TO STREAMCHUNK COLLECTION
       const newChunk = await StreamChunk.create({
@@ -393,16 +408,21 @@ app.post(
         fileName: req.file.originalname,
         fileSize: req.file.size,
         fileType: parseInt(chunkIndex) === -1 ? "video_header" : "video_chunk",
+        mimeType: mimeType, // ADD THIS FIELD
       });
 
+      console.log(`💾 [LIVE-CHUNK] Saved chunk to DB: ${newChunk._id}`);
+
+      // 6. SHOUT TO GRAPHQL
       const channelName = `LIVESTREAM_CHUNK_ADDED_${sessionId}`;
+      console.log(`📢 [PUBLISH] Publishing to channel: ${channelName}`);
       console.log(
-        `📢 Publishing chunk ${chunkIndex} (type: ${
+        `📢 [PUBLISH] Chunk ${chunkIndex} (${
           parseInt(chunkIndex) === -1 ? "HEADER" : "VIDEO"
         })`
       );
-      // 6. SHOUT TO GRAPHQL
-      pubsub.publish(`LIVESTREAM_CHUNK_ADDED_${sessionId}`, {
+
+      const publishData = {
         livestreamChunkAdded: {
           id: newChunk.id,
           sessionId: sessionId,
@@ -411,13 +431,34 @@ app.post(
           fileName: newChunk.fileName,
           fileSize: newChunk.fileSize,
           fileType: newChunk.fileType,
-          mimeType:
-            req.file?.mimetype || supportedTypeRef.current || "video/mp4",
+          mimeType: mimeType, // CRITICAL: Player needs this!
         },
-      });
+      };
 
-      console.log(`📡 [SINGLE-SHOUT] Sent Chunk ${chunkIndex} to GQL.`);
-      res.json({ success: true, magnetUri });
+      console.log(
+        `📊 [PUBLISH-DATA] Payload:`,
+        JSON.stringify(publishData, null, 2)
+      );
+
+      // ACTUALLY PUBLISH USING THE CHANNEL NAME VARIABLE
+      try {
+        pubsub.publish(channelName, publishData);
+        console.log(
+          `✅ [PUBLISH-SUCCESS] Published chunk ${chunkIndex} to ${channelName}`
+        );
+
+        // Debug: Check subscription listeners
+        if (pubsub.ee && pubsub.ee.listeners) {
+          const listeners = pubsub.ee.listeners(channelName) || [];
+          console.log(
+            `👥 [PUBLISH-SUBS] Channel ${channelName} has ${listeners.length} listener(s)`
+          );
+        }
+      } catch (publishError) {
+        console.error(`❌ [PUBLISH-FAILED] Error:`, publishError);
+      }
+
+      res.json({ success: true, magnetUri, chunkId: newChunk._id });
     } catch (error) {
       console.error("🔴 [LIVE-CHUNK] UNHANDLED ERROR:", error);
       res

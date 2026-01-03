@@ -213,6 +213,7 @@ const typeDefs = gql`
     fileType: String
     fileSize: Int
     duration: Float
+    mimeType: String
     trackerUrls: [String!]
   }
   type Query {
