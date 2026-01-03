@@ -81,16 +81,29 @@ const validateAndExtractAffiliateHtml = (html) => {
 
 const resolvers = {
   Query: {
- streamChunks: async (_, { sessionId }) => {
-  // 1. Find the Stream document using the "live_..." string
-  const stream = await Stream.findOne({ sessionId });
-  if (!stream) return [];
+    streamChunks: async (_, { sessionId }) => {
+      try {
+        // 1. Find the actual Stream document using the "live_..." string
+        const streamDoc = await Stream.findOne({ sessionId });
+        if (!streamDoc) {
+          console.log("❌ No stream found for sessionId:", sessionId);
+          return [];
+        }
 
-  // 2. Now use that Stream's _id to find the chunks
-  return await StreamChunk.find({ stream: stream._id })
-    .sort({ chunkIndex: 1 })
-    .lean();    
-},
+        // 2. Use the _id of that stream to find the chunks
+        const chunks = await StreamChunk.find({ stream: streamDoc._id })
+          .sort({ chunkIndex: 1 })
+          .lean();
+
+        console.log(
+          `✅ Found ${chunks.length} chunks for stream ${streamDoc._id}`
+        );
+        return chunks;
+      } catch (error) {
+        console.error("Error fetching stream history:", error);
+        return [];
+      }
+    },
     getMyAllNeighborhoodsGallery: async (_, __, { user, models }) => {
       if (!user) throw new Error("Authentication required");
 
@@ -1800,10 +1813,8 @@ const resolvers = {
   Subscription: {
     livestreamChunkAdded: {
       subscribe: (_, { sessionId }, { pubsub }) => {
-        if (!pubsub) {
-          throw new Error("PubSub instance not found in contextValue.");
-        }
-        // Topic must match exactly what you publish in index.js
+        // Logic check: ensure we are listening to the same ID format used in app.post
+        console.log("📡 Subscribing to session:", sessionId);
         return pubsub.asyncIterator([`LIVESTREAM_CHUNK_ADDED_${sessionId}`]);
       },
     },
