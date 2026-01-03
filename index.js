@@ -28,6 +28,7 @@ import { PubSub } from "graphql-subscriptions";
 import { reactiveBooster } from "./seedService.js";
 import fs from "fs";
 import StreamChunk from "./structure/models/StreamChunk.js";
+import Stream from "./structure/models/Stream.js";
 
 dotenv.config();
 const pubsub = new PubSub();
