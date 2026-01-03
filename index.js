@@ -325,7 +325,27 @@ app.post(
   "/api/live-chunk",
   authenticateToken,
   liveChunkUpload.single("chunk"),
+  
   async (req, res) => {
+    const newChunk = await StreamChunk.create({
+      sessionId,
+      chunkIndex,
+      magnetLink: magnetUri,
+      fileType: mimeType,
+      createdAt: new Date(),
+    });
+
+    // Then Shout it out to GraphQL
+    pubsub.publish(`LIVESTREAM_CHUNK_ADDED_${sessionId}`, {
+      livestreamChunkAdded: {
+        id: newChunk.id, // from your virtuals
+        chunkIndex: newChunk.chunkIndex,
+        magnetLink: newChunk.magnetLink,
+        fileName: newChunk.fileName,
+        fileSize: newChunk.fileSize,
+        // NO 'content' or 'sender' needed anymore!
+      },
+    });
     console.log("🔵 [LIVE-CHUNK] Endpoint hit. Starting processing..."); // ADD THIS
 
     try {
@@ -425,6 +445,7 @@ console.log(`📡 [SINGLE-SHOUT] Sent Chunk ${chunkIndex} to GQL`);
         .json({ success: false, error: "Failed to process live chunk" });
     }
   }
+  
 );
 
 // ========== GET LIVE CHUNK METADATA (Cacheable) ==========

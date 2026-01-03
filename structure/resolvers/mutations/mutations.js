@@ -11,8 +11,10 @@ import Message from "../../models/Message.js";
 import Image from "../../models/Image.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import StreamChunk from "../../models/StreamChunk.js";
 import crypto from "crypto";
 import { pubsub } from "../../pubsub.js";
+import StreamChunk from "../../models/StreamChunk.js";
 
 
 // In validateAndExtractAffiliateHtml, loosen the validation:
@@ -80,12 +82,17 @@ const validateAndExtractAffiliateHtml = (html) => {
 
 const resolvers = {
   Query: {
-    streamChunks: async (parent, { sessionId }) => {
-      return await Message.find({
-        sessionId: sessionId,
-        // Include BOTH headers and chunks
-        fileType: { $in: ["video_header", "video_chunk"] },
-      }).sort({ chunkIndex: 1 });
+    streamChunks: async (_, { sessionId }) => {
+      try {
+        // 1. Query the specialized StreamChunk model, not Message
+        // 2. We don't need the $in filter because ONLY chunks live here now
+        return await StreamChunk.find({ sessionId })
+          .sort({ chunkIndex: 1 })
+          .lean(); // .lean() makes it a plain JS object for speed
+      } catch (error) {
+        console.error("Error fetching stream history:", error);
+        return [];
+      }
     },
 
     getMyAllNeighborhoodsGallery: async (_, __, { user, models }) => {
@@ -875,27 +882,29 @@ const resolvers = {
       }
 
       // Publish to livestreamChunkAdded subscription if it's a video chunk
-if (
-  (result.fileType === "video_chunk" || result.fileType === "video_header") &&
-  result.sessionId
-) {
-  const topic = `LIVESTREAM_CHUNK_ADDED_${result.sessionId}`;
+      if (
+        (result.fileType === "video_chunk" ||
+          result.fileType === "video_header") &&
+        result.sessionId
+      ) {
+        const topic = `LIVESTREAM_CHUNK_ADDED_${result.sessionId}`;
 
-  const cleanChunk = {
-    ...result,
-    id: result._id.toString(),
-    // Ensure index is a number (Header is -1, Chunks are 0, 1, 2...)
-    chunkIndex: typeof result.chunkIndex === "number" ? result.chunkIndex : -1,
-  };
+        const cleanChunk = {
+          ...result,
+          id: result._id.toString(),
+          // Ensure index is a number (Header is -1, Chunks are 0, 1, 2...)
+          chunkIndex:
+            typeof result.chunkIndex === "number" ? result.chunkIndex : -1,
+        };
 
-  console.log(
-    `📡 [PUB] Sending ${result.fileType} #${cleanChunk.chunkIndex} to ${topic}`
-  );
+        console.log(
+          `📡 [PUB] Sending ${result.fileType} #${cleanChunk.chunkIndex} to ${topic}`
+        );
 
-  pubsub.publish(topic, {
-    livestreamChunkAdded: cleanChunk,
-  });
-}
+        pubsub.publish(topic, {
+          livestreamChunkAdded: cleanChunk,
+        });
+      }
 
       return result;
     },

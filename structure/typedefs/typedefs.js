@@ -228,7 +228,7 @@ const typeDefs = gql`
   }
 
   type Query {
-    streamChunks(sessionId: String!): [Message]
+    streamChunks(sessionId: String!): [StreamChunk]
     getMyAllNeighborhoodsGallery: GalleryResponse
 
     # User queries
@@ -303,7 +303,7 @@ const typeDefs = gql`
   type Subscription {
     messageAdded(room: String!): Message
     postAdded(feedType: String, groupId: ID): Post
-    livestreamChunkAdded(sessionId: String!): Message
+    livestreamChunkAdded(sessionId: String!): StreamChunk
   }
 
   type Mutation {

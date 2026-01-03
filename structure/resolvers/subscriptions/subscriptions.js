@@ -1,20 +1,23 @@
 const subscriptionResolvers = {
   Subscription: {
     livestreamChunkAdded: {
-      // Use the 'context' argument (the 3rd one)
+      // The context here MUST contain the pubsub instance from index.js
       subscribe: (_, { sessionId }, context) => {
-        // Pull pubsub from the context we injected in index.js
-        const { pubsub } = context;
+        // Look in context first, then check if it's available globally
+        // (This is a safety net for consolidated files)
+        const ps = context?.pubsub;
 
-        if (!pubsub || typeof pubsub.asyncIterator !== "function") {
-          console.error("❌ RESOLVER ERROR: PubSub missing from context!");
-          throw new Error("pubsub.asyncIterator is not a function");
+        if (!ps || typeof ps.asyncIterator !== "function") {
+          console.error(
+            "❌ CRITICAL: PubSub missing in Subscription Resolver!"
+          );
+          throw new Error("Server configuration error: Subscriptions offline.");
         }
 
         const topic = `LIVESTREAM_CHUNK_ADDED_${sessionId}`;
-        console.log(`📡 [SUBSCRIPTION] Listening for topic: ${topic}`);
+        console.log(`📡 [WS] Subscribing user to topic: ${topic}`);
 
-        return pubsub.asyncIterator(topic);
+        return ps.asyncIterator([topic]);
       },
     },
   },
