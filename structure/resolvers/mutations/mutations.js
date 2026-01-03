@@ -81,19 +81,16 @@ const validateAndExtractAffiliateHtml = (html) => {
 
 const resolvers = {
   Query: {
-    streamChunks: async (_, { sessionId }) => {
-      try {
-        // 1. Query the specialized StreamChunk model, not Message
-        // 2. We don't need the $in filter because ONLY chunks live here now
-        return await StreamChunk.find({ stream: sessionId })
-          .sort({ chunkIndex: 1 })
-          .lean(); // .lean() makes it a plain JS object for speed
-      } catch (error) {
-        console.error("Error fetching stream history:", error);
-        return [];
-      }
-    },
+ streamChunks: async (_, { sessionId }) => {
+  // 1. Find the Stream document using the "live_..." string
+  const stream = await Stream.findOne({ sessionId });
+  if (!stream) return [];
 
+  // 2. Now use that Stream's _id to find the chunks
+  return await StreamChunk.find({ stream: stream._id })
+    .sort({ chunkIndex: 1 })
+    .lean();    
+},
     getMyAllNeighborhoodsGallery: async (_, __, { user, models }) => {
       if (!user) throw new Error("Authentication required");
 
