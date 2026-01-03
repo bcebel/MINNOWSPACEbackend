@@ -326,48 +326,17 @@ app.post(
   "/api/live-chunk",
   authenticateToken,
   liveChunkUpload.single("chunk"),
-  
   async (req, res) => {
-    const newChunk = await StreamChunk.create({
-      sessionId,
-      chunkIndex,
-      magnetLink: magnetUri,
-      fileType: mimeType,
-      createdAt: new Date(),
-    });
-
-    // Then Shout it out to GraphQL
-    pubsub.publish(`LIVESTREAM_CHUNK_ADDED_${sessionId}`, {
-      livestreamChunkAdded: {
-        id: newChunk.id, // Ensure this is a string
-        sessionId: sessionId,
-        chunkIndex: parseInt(chunkIndex),
-        magnetLink: magnetUri,
-        fileName: req.file.originalname,
-        fileSize: req.file.size,
-        fileType: parseInt(chunkIndex) === -1 ? "video_header" : "video_chunk", // <--- Critical
-
-        // NO 'content' or 'sender' needed anymore!
-      },
-    });
-    console.log("🔵 [LIVE-CHUNK] Endpoint hit. Starting processing..."); // ADD THIS
+    console.log("🔵 [LIVE-CHUNK] Endpoint hit. Starting processing...");
 
     try {
-      // 1. Extract data from the request
+      // 1. Extract data AFTER the request hits
       const { sessionId, chunkIndex } = req.body;
       const fileBuffer = req.file?.buffer;
       const mimeType = req.file?.mimetype;
       const userId = req.user?.userId;
 
-      console.log(`🔵 [LIVE-CHUNK] Extracted data:`, {
-        sessionId,
-        chunkIndex,
-        hasBuffer: !!fileBuffer,
-        mimeType,
-        userId,
-      }); // ADD THIS
-
-      // --- ADD VALIDATION CHECKS ---
+      // --- VALIDATION ---
       if (!fileBuffer) {
         console.error("🔴 [LIVE-CHUNK] ERROR: req.file.buffer is undefined.");
         return res
@@ -382,10 +351,8 @@ app.post(
           .status(400)
           .json({ success: false, error: "Missing required fields" });
       }
-      // --- END VALIDATION ---
 
-      console.log(`🔵 [LIVE-CHUNK] Creating temp directory...`); // ADD THIS
-      // 2. Create a temporary file in Heroku's ephemeral /tmp
+      // 2. Setup temp file for WebTorrent
       const tempDir = path.join("/tmp", "live-chunks", sessionId);
       await fs.promises.mkdir(tempDir, { recursive: true });
       const tempFilePath = path.join(
@@ -393,9 +360,8 @@ app.post(
         `chunk-${chunkIndex}.${mimeType.includes("mp4") ? "mp4" : "webm"}`
       );
       await fs.promises.writeFile(tempFilePath, fileBuffer);
-      console.log(`🔵 [LIVE-CHUNK] Temp file written: ${tempFilePath}`); // ADD THIS
 
-      // 3. Define trackers - USE THE UPDATED LIST, NOT THE OLD ONES
+      // 3. Seed with WebTorrent
       const trackers = [
         "wss://tracker.openwebtorrent.com",
         "wss://tracker.webtorrent.dev",
@@ -403,53 +369,53 @@ app.post(
         "wss://tracker.btorrent.xyz",
       ];
 
-      console.log(
-        `🔵 [LIVE-CHUNK] Calling reactiveBooster.boostChunkIfNeeded...`
-      ); // ADD THIS
-      // 4. Seed the chunk using your ReactiveSeedBooster
       const magnetUri = await reactiveBooster.boostChunkIfNeeded(
         tempFilePath,
         `${sessionId}-${chunkIndex}`,
-        trackers // PASS THE NEW TRACKER LIST
+        trackers
       );
 
-pubsub.publish(`LIVESTREAM_CHUNK_ADDED_${sessionId}`, {
-  livestreamChunkAdded: {
-    id: `${sessionId}-${chunkIndex}`,
-    sessionId,
-    chunkIndex: parseInt(chunkIndex),
-    magnetLink: magnetUri,
-    fileType: parseInt(chunkIndex) === -1 ? "video_header" : "video_chunk",
-  },
-});
-console.log(`📡 [SINGLE-SHOUT] Sent Chunk ${chunkIndex} to GQL`);
+      // 4. FIND THE PARENT STREAM ID (From your Streams DB)
+      const parentStream = await Stream.findOne({ sessionId });
 
- console.log(`📡 [LIVE-CHUNK] Published to GraphQL: Chunk ${chunkIndex}`);
+      // 5. SAVE TO STREAMCHUNK COLLECTION (Using your variables)
+      const newChunk = await StreamChunk.create({
+        stream: parentStream ? parentStream._id : null, // Links to your Stream DB
+        sessionId,
+        chunkIndex: parseInt(chunkIndex),
+        magnetLink: magnetUri,
+        fileName: req.file.originalname,
+        fileSize: req.file.size,
+        fileType: parseInt(chunkIndex) === -1 ? "video_header" : "video_chunk",
+      });
 
-   
+      // 6. SHOUT TO GRAPHQL (The Single Shout)
+      pubsub.publish(`LIVESTREAM_CHUNK_ADDED_${sessionId}`, {
+        livestreamChunkAdded: {
+          id: newChunk.id, // Now this exists!
+          sessionId: sessionId,
+          chunkIndex: newChunk.chunkIndex,
+          magnetLink: magnetUri,
+          fileName: newChunk.fileName,
+          fileSize: newChunk.fileSize,
+          fileType: newChunk.fileType,
+        },
+      });
 
-
-      console.log(`📡 [LIVE-CHUNK] Published to GraphQL: Chunk ${chunkIndex}`);
       console.log(
-        `🟢 [LIVE-CHUNK] Backend seeding started. Magnet: ${magnetUri.substring(
+        `📡 [SINGLE-SHOUT] Sent Chunk ${chunkIndex} to GQL. Magnet: ${magnetUri.substring(
           0,
-          60
+          30
         )}...`
-      ); // ADD THIS
-
-      // ... rest of your code (saving to DB, pubsub publish, response) ...
-      console.log(`🟢 [LIVE-CHUNK] Process completed successfully.`); // ADD THIS BEFORE 
+      );
       res.json({ success: true, magnetUri });
     } catch (error) {
-      // THIS IS THE CRITICAL PART - log the FULL error
-      console.error("🔴 [LIVE-CHUNK] UNHANDLED ERROR in try-catch:", error);
-      console.error("🔴 [LIVE-CHUNK] Error stack:", error.stack); // This shows the line number
+      console.error("🔴 [LIVE-CHUNK] UNHANDLED ERROR:", error);
       res
         .status(500)
         .json({ success: false, error: "Failed to process live chunk" });
     }
   }
-  
 );
 
 // ========== GET LIVE CHUNK METADATA (Cacheable) ==========
