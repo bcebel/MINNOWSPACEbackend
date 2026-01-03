@@ -27,6 +27,7 @@ import MediaAPI from "./datasources/MediaAPI.cjs";
 import { PubSub } from "graphql-subscriptions";
 import { reactiveBooster } from "./seedService.js";
 import fs from "fs";
+import StreamChunk from "./structure/models/StreamChunk.js";
 
 dotenv.config();
 const pubsub = new PubSub();
