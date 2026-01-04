@@ -434,23 +434,26 @@ app.post(
 
 app.get("/api/live-chunk/:sessionId/:index", (req, res) => {
   const { sessionId, index } = req.params;
-
-  // 1. Must match the tempDir in your POST route
   const tempDir = path.join("/tmp", "live-chunks", sessionId);
 
-  // 2. We need to check both possible extensions since your POST logic is dynamic
-  const mp4Path = path.join(tempDir, `chunk-${index}.mp4`);
-  const webmPath = path.join(tempDir, `chunk-${index}.webm`);
+  if (!fs.existsSync(tempDir)) {
+    console.log(`❌ [GET] Session directory missing: ${tempDir}`);
+    return res.status(404).send("Session not found");
+  }
 
-  if (fs.existsSync(mp4Path)) {
-    console.log(`📦 [GET] Serving MP4 Chunk ${index}`);
-    return res.sendFile(mp4Path);
-  } else if (fs.existsSync(webmPath)) {
-    console.log(`📦 [GET] Serving WEBM Chunk ${index}`);
-    return res.sendFile(webmPath);
+  // 1. Get all files in that session directory
+  const files = fs.readdirSync(tempDir);
+
+  // 2. Find any file that STARTS with "chunk-[index]."
+  // This ignores whether it's .mp4, .webm, or has a weird dash
+  const fileName = files.find((f) => f.startsWith(`chunk-${index}.`));
+
+  if (fileName) {
+    const filePath = path.join(tempDir, fileName);
+    console.log(`📦 [GET] Serving: ${fileName}`);
+    return res.sendFile(filePath);
   } else {
-    // This is why you see the 404s
-    console.log(`❌ [GET] Chunk ${index} not found in ${tempDir}`);
+    console.log(`❌ [GET] No file found for index ${index} in ${tempDir}`);
     return res.status(404).send("Chunk not ready yet");
   }
 });
