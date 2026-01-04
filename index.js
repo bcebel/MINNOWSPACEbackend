@@ -432,26 +432,30 @@ app.post(
   }
 );
 
-app.get("/api/live-chunk/:sessionId/:index", (req, res) => {
-  const { sessionId, index } = req.params;
-  const tempDir = path.join("/tmp", "live-chunks", sessionId);
+app.get("/api/live-chunk/:sessionId/:chunkIndex", (req, res) => {
+  const { sessionId, chunkIndex } = req.params;
+  const tempDir = path.join(__dirname, "tmp", "live-chunks", sessionId);
 
-  if (!fs.existsSync(tempDir)) return res.status(404).send("Path missing");
+  console.log(`🔍 Request for Session: ${sessionId}, Chunk: ${chunkIndex}`);
 
-  try {
-    const files = fs.readdirSync(tempDir);
-    // This finds 'chunk-0.mp4' OR 'chunk-0.webm' OR 'chunk--1.mp4'
-    const match = files.find((f) => f.startsWith(`chunk-${index}.`));
+  if (!fs.existsSync(tempDir)) {
+    console.log(`❌ Directory missing: ${tempDir}`);
+    return res.status(404).send("Not found");
+  }
 
-    if (match) {
-      return res.sendFile(path.join(tempDir, match));
-    } else {
-      // Log exactly what files DO exist so you can see the naming mismatch
-      console.log(`DEBUG: Index ${index} not found. Existing files:`, files);
-      return res.status(404).send("Not ready");
-    }
-  } catch (e) {
-    res.status(500).send("Error");
+  const files = fs.readdirSync(tempDir);
+  console.log(`📂 Files found in folder:`, files);
+
+  // Look for the index anywhere in the filename
+  const match = files.find(
+    (f) =>
+      f.includes(`chunk-${chunkIndex}`) || f.includes(`chunk_${chunkIndex}`)
+  );
+
+  if (match) {
+    res.sendFile(path.join(tempDir, match));
+  } else {
+    res.status(404).send("File not found on disk");
   }
 });
 
