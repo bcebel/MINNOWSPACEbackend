@@ -18,7 +18,7 @@ import { useServer } from "graphql-ws/use/ws";
 import typeDefs from "./structure/typedefs/typedefs.js";
 import ModelSchema from "./structure/models/index.js";
 import mutationResolvers from "./structure/resolvers/mutations/mutations.js";
-import subscriptionResolvers from "./structure/resolvers/subscriptions/subscriptions.js";
+//import subscriptionResolvers from "./structure/resolvers/subscriptions/subscriptions.js";
 import connectDB from "./config/connection.js";
 import videoUploadHandler from "./videoUploadHandler.js";
 import Video from "./structure/models/Video.js";
@@ -37,7 +37,17 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const httpServer = http.createServer(app);
-
+// In index.js, instead of importing subscriptions.js
+const subscriptionResolvers = {
+  Subscription: {
+    livestreamChunkAdded: {
+      subscribe: (_, { sessionId }) => {
+        console.log(`📡 Subscribing to: ${sessionId}`);
+        return pubsub.asyncIterator([`LIVESTREAM_CHUNK_ADDED_${sessionId}`]);
+      },
+    },
+  },
+};
 /*
 const corsOptions = {
   origin:
