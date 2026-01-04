@@ -432,70 +432,26 @@ app.post(
   }
 );
 
-// Example Express Route
 app.get("/api/live-chunk/:sessionId/:index", (req, res) => {
   const { sessionId, index } = req.params;
 
-  // 1. Point to the EXACT same folder as your POST route
+  // 1. Must match the tempDir in your POST route
   const tempDir = path.join("/tmp", "live-chunks", sessionId);
 
-  // 2. Check for both mp4 and webm extensions just in case
-  const possiblePaths = [
-    path.join(tempDir, `chunk-${index}.mp4`),
-    path.join(tempDir, `chunk-${index}.webm`),
-  ];
+  // 2. We need to check both possible extensions since your POST logic is dynamic
+  const mp4Path = path.join(tempDir, `chunk-${index}.mp4`);
+  const webmPath = path.join(tempDir, `chunk-${index}.webm`);
 
-  const filePath = possiblePaths.find((p) => fs.existsSync(p));
-
-  if (filePath) {
-    console.log(`📦 [GET] Serving Chunk ${index} from disk`);
-    res.sendFile(filePath);
+  if (fs.existsSync(mp4Path)) {
+    console.log(`📦 [GET] Serving MP4 Chunk ${index}`);
+    return res.sendFile(mp4Path);
+  } else if (fs.existsSync(webmPath)) {
+    console.log(`📦 [GET] Serving WEBM Chunk ${index}`);
+    return res.sendFile(webmPath);
   } else {
+    // This is why you see the 404s
     console.log(`❌ [GET] Chunk ${index} not found in ${tempDir}`);
-    res.status(404).send("Chunk not ready yet");
-  }
-});
-// ========== GET LIVE CHUNK METADATA (Cacheable) ==========
-app.get('/api/live-chunk/:sessionId/:chunkIndex', async (req, res) => {
-  const { sessionId, chunkIndex } = req.params;
-  
-  // Set caching headers. Chunk metadata for a specific index never changes.
-  // 5 minutes (300s) is a good balance for a live stream.
-  res.set({
-    'Cache-Control': 'public, max-age=300',
-    'Vary': 'Accept-Encoding'
-  });
-
-  try {
-    // Query your database for the chunk.
-    // Assuming you saved it to a `StreamChunk` or `Video` model with these fields.
-    const chunk = await Video.findOne({
-      sessionId: sessionId,
-      chunkIndex: parseInt(chunkIndex)
-    }).lean();
-
-    if (!chunk) {
-      // If not found, still cache the negative response briefly to avoid hammering the DB.
-      res.set('Cache-Control', 'public, max-age=30');
-      return res.status(404).json({ error: 'Chunk not found' });
-    }
-
-    // Return the essential data for the player.
-    res.json({
-      success: true,
-      sessionId: chunk.sessionId,
-      chunkIndex: chunk.chunkIndex,
-      magnetLink: chunk.magnetLink, // The most important field
-      mimeType: chunk.mimeType,
-      fileName: chunk.fileName
-      // Add any other fields your frontend player needs
-    });
-
-  } catch (error) {
-    console.error('Error in GET /api/live-chunk:', error);
-    // Do not cache error responses
-    res.set('Cache-Control', 'no-cache');
-    res.status(500).json({ success: false, error: 'Server error' });
+    return res.status(404).send("Chunk not ready yet");
   }
 });
 
