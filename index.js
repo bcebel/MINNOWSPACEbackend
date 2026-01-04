@@ -342,97 +342,61 @@ app.post(
     console.log("🔵 [LIVE-CHUNK] Endpoint hit. Starting processing...");
 
     try {
-      // 1. Extract data
-      const { sessionId, neighborhoodId, chunkIndex } = req.body;
-      const fileBuffer = req.file?.buffer;
-      const mimeType = req.file?.mimetype;
-      const userId = req.user?.userId;
+      // 1. DATA EXTRACTION - Use let/const consistently
+      const { sessionId, chunkIndex } = req.body;
+      const file = req.file;
 
-      console.log(
-        `📡 [LIVE-CHUNK-RECEIVED] Session: ${sessionId}, Chunk: ${chunkIndex}`
-      );
-      console.log(
-        `📡 [LIVE-CHUNK-RECEIVED] File size: ${req.file?.size || 0} bytes`
-      );
-      console.log(`📡 [LIVE-CHUNK-RECEIVED] Mime type: ${mimeType}`);
-
-      // --- VALIDATION ---
-      if (!fileBuffer) {
-        console.error("🔴 [LIVE-CHUNK] ERROR: req.file.buffer is undefined.");
+      // 2. CRITICAL VALIDATION (The 500 Killers)
+      if (!file || !file.buffer) {
+        console.error("🔴 [LIVE-CHUNK] ERROR: No file buffer found.");
+        return res.status(400).json({ success: false, error: "No file data" });
+      }
+      if (!sessionId) {
+        console.error("🔴 [LIVE-CHUNK] ERROR: Missing sessionId.");
         return res
           .status(400)
-          .json({ success: false, error: "No file data received" });
-      }
-      if (!sessionId || chunkIndex === undefined) {
-        console.error(
-          "🔴 [LIVE-CHUNK] ERROR: Missing sessionId or chunkIndex."
-        );
-        return res
-          .status(400)
-          .json({ success: false, error: "Missing required fields" });
+          .json({ success: false, error: "Missing sessionId" });
       }
 
-      // 2. Setup temp file for WebTorrent
-      const tempDir = path.join("/tmp", "live-chunks", sessionId);
-      await fs.promises.mkdir(tempDir, { recursive: true });
-      const tempFilePath = path.join(
-        tempDir,
-        `chunk-${chunkIndex}.${mimeType.includes("mp4") ? "mp4" : "webm"}`
-      );
-      await fs.promises.writeFile(tempFilePath, fileBuffer);
+      const mimeType = file.mimetype || "video/mp4";
+      const indexInt = parseInt(chunkIndex);
 
-      // 3. Seed with WebTorrent
+      // 3. SEED SERVICE
       const trackers = [
         "wss://tracker.openwebtorrent.com",
         "wss://tracker.webtorrent.dev",
-        "wss://tracker.files.fm:7073/announce",
-        "wss://tracker.btorrent.xyz",
       ];
+
+      // Setup temp file (using buffer directly to avoid fs write if possible,
+      // but keeping your temp logic for WebTorrent pathing)
+      const tempDir = path.join("/tmp", "live-chunks", sessionId);
+      if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+
+      const ext = mimeType.includes("mp4") ? "mp4" : "webm";
+      const tempFilePath = path.join(tempDir, `chunk-${indexInt}.${ext}`);
+      await fs.promises.writeFile(tempFilePath, file.buffer);
 
       const magnetUri = await reactiveBooster.boostChunkIfNeeded(
         tempFilePath,
-        `${sessionId}-${chunkIndex}`,
+        `${sessionId}-${indexInt}`,
         trackers
       );
 
-      console.log(
-        `🧲 [LIVE-CHUNK] Generated magnet URI: ${magnetUri?.substring(
-          0,
-          80
-        )}...`
-      );
-
-      // 4. FIND THE PARENT STREAM ID
+      // 4. DATABASE SYNC (The "DeepSeek" Clean Version)
       const parentStream = await Stream.findOne({ sessionId });
-      console.log(
-        `🔍 [LIVE-CHUNK] Parent stream: ${
-          parentStream ? parentStream._id : "NOT FOUND"
-        }`
-      );
 
-      // 5. SAVE TO STREAMCHUNK COLLECTION
       const newChunk = await StreamChunk.create({
         stream: parentStream ? parentStream._id : null,
-        sessionId: sessionId,
-        chunkIndex: parseInt(chunkIndex),
+        sessionId: sessionId, // This links the viewer query
+        chunkIndex: indexInt,
         magnetLink: magnetUri,
-        fileName: req.file.originalname,
-        fileSize: req.file.size,
-        fileType: parseInt(chunkIndex) === -1 ? "video_header" : "video_chunk",
-        mimeType: mimeType, // ADD THIS FIELD
+        fileName: file.originalname || `chunk-${indexInt}.${ext}`,
+        fileSize: file.size || 0,
+        fileType: indexInt === -1 ? "video_header" : "video_chunk",
+        mimeType: mimeType,
       });
 
-      console.log(`💾 [LIVE-CHUNK] Saved chunk to DB: ${newChunk._id}`);
-
-      // 6. SHOUT TO GRAPHQL
-      const channelName = `LIVESTREAM_CHUNK_ADDED_${sessionId}`;
-      console.log(`📢 [PUBLISH] Publishing to channel: ${channelName}`);
-      console.log(
-        `📢 [PUBLISH] Chunk ${chunkIndex} (${
-          parseInt(chunkIndex) === -1 ? "HEADER" : "VIDEO"
-        })`
-      );
-
+      // 5. GRAPHQL PUBLISH
       const publishData = {
         livestreamChunkAdded: {
           id: newChunk.id,
@@ -442,39 +406,18 @@ app.post(
           fileName: newChunk.fileName,
           fileSize: newChunk.fileSize,
           fileType: newChunk.fileType,
-          mimeType: mimeType, // CRITICAL: Player needs this!
+          mimeType: mimeType,
         },
       };
 
-      console.log(
-        `📊 [PUBLISH-DATA] Payload:`,
-        JSON.stringify(publishData, null, 2)
-      );
+      pubsub.publish(`LIVESTREAM_CHUNK_ADDED_${sessionId}`, publishData);
 
-      // ACTUALLY PUBLISH USING THE CHANNEL NAME VARIABLE
-      try {
-        pubsub.publish(channelName, publishData);
-        console.log(
-          `✅ [PUBLISH-SUCCESS] Published chunk ${chunkIndex} to ${channelName}`
-        );
-
-        // Debug: Check subscription listeners
-        if (pubsub.ee && pubsub.ee.listeners) {
-          const listeners = pubsub.ee.listeners(channelName) || [];
-          console.log(
-            `👥 [PUBLISH-SUBS] Channel ${channelName} has ${listeners.length} listener(s)`
-          );
-        }
-      } catch (publishError) {
-        console.error(`❌ [PUBLISH-FAILED] Error:`, publishError);
-      }
-
-      res.json({ success: true, magnetUri, chunkId: newChunk._id });
+      console.log(`✅ [LIVE-CHUNK] Chunk ${indexInt} processed successfully.`);
+      return res.json({ success: true, magnetUri, chunkId: newChunk._id });
     } catch (error) {
-      console.error("🔴 [LIVE-CHUNK] UNHANDLED ERROR:", error);
-      res
-        .status(500)
-        .json({ success: false, error: "Failed to process live chunk" });
+      console.error("🔴 [LIVE-CHUNK] SERVER ERROR:", error.message);
+      // Sending the error message back helps you see the culprit in the browser console
+      return res.status(500).json({ success: false, error: error.message });
     }
   }
 );
