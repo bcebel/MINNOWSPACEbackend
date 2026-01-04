@@ -444,22 +444,36 @@ await fs.promises.writeFile(writePath, file.buffer);
 
 app.get("/api/live-chunk/:sessionId/:index", async (req, res) => {
   const { sessionId, index } = req.params;
-  const filePath = path.join(
-    "/tmp",
-    "live-chunks",
-    sessionId,
-    `chunk-${index}.mp4`
-  );
+  const { hash } = req.query;
+  const tempDir = path.join("/tmp", "live-chunks", sessionId);
 
-  // Simple "Internal" retry - checks every 100ms for 500ms total
-  for (let i = 0; i < 5; i++) {
-    if (fs.existsSync(filePath)) {
-      return res.sendFile(filePath);
-    }
-    await new Promise((r) => setTimeout(r, 100));
+  if (!fs.existsSync(tempDir)) return res.status(404).send("Session not found");
+
+  // 1. Try the Logical path first (your current sequence)
+  const logicalPath = path.join(tempDir, `chunk-${index}.mp4`);
+  if (fs.existsSync(logicalPath)) {
+    return res.sendFile(logicalPath);
   }
 
-  res.status(404).json({ error: "File not found after wait" });
+  // 2. BACKUP: The "Extremely Specific String" lookup
+  if (hash) {
+    const files = fs.readdirSync(tempDir);
+    const hashMatch = files.find((f) => f.includes(hash));
+
+    if (hashMatch) {
+      console.log(`🎯 Logical fail, but Hash match found: ${hashMatch}`);
+      return res.sendFile(path.join(tempDir, hashMatch));
+    }
+  }
+
+  // 3. SPECIAL CASE: The Header (-1) often gets a different prefix
+  if (index === "-1") {
+    const files = fs.readdirSync(tempDir);
+    const headerFile = files.find((f) => f.toLowerCase().includes("header"));
+    if (headerFile) return res.sendFile(path.join(tempDir, headerFile));
+  }
+
+  res.status(404).send("Chunk not ready yet");
 });
 
 app.post("/api/stream-end", authenticateToken, async (req, res) => {
