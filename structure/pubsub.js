@@ -1,2 +1,6 @@
+// structure/pubsub.js
 import { PubSub } from "graphql-subscriptions";
-export const pubsub = new PubSub();
+const pubsub = new PubSub();
+// Export both named and default
+
+export default pubsub;
