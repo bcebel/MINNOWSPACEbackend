@@ -432,6 +432,20 @@ app.post(
   }
 );
 
+// Example Express Route
+app.get('/api/live-chunk/:sessionId/:index', (req, res) => {
+  const { sessionId, index } = req.params;
+  
+  // Logic: Find the file where your recorder stores data
+  // Example: ./storage/live_12345/chunk_0.mp4
+  const filePath = path.join(__dirname, 'storage', sessionId, `chunk_${index}.mp4`);
+
+  if (fs.existsSync(filePath)) {
+    res.sendFile(filePath);
+  } else {
+    res.status(404).send('Chunk not ready yet');
+  }
+});
 // ========== GET LIVE CHUNK METADATA (Cacheable) ==========
 app.get('/api/live-chunk/:sessionId/:chunkIndex', async (req, res) => {
   const { sessionId, chunkIndex } = req.params;
