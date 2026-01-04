@@ -41,9 +41,19 @@ const httpServer = http.createServer(app);
 const subscriptionResolvers = {
   Subscription: {
     livestreamChunkAdded: {
+      // Use the 'subscribe' property correctly
       subscribe: (_, { sessionId }) => {
-        console.log(`📡 Subscribing to: ${sessionId}`);
-        return pubsub.asyncIterator([`LIVESTREAM_CHUNK_ADDED_${sessionId}`]);
+        const channel = `LIVESTREAM_CHUNK_ADDED_${sessionId}`;
+        console.log(`📡 Attempting subscription to: ${channel}`);
+
+        // Debug: Check if pubsub exists and what methods it has
+        if (!pubsub) {
+          console.error("🔴 PubSub is undefined!");
+        } else {
+          console.log("🛠 PubSub keys:", Object.keys(pubsub));
+        }
+
+        return pubsub.asyncIterator(channel);
       },
     },
   },

@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { pubsub } from "../../pubsub.js";
+import pubsub from "../../pubsub.js";
 import User from "../../models/User.js";
 import Chat from "../../models/Chat.js";
 import Post from "../../models/Post.js";

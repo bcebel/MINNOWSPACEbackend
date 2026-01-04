@@ -1,5 +1,5 @@
 // structure/resolvers/subscriptions/subscriptions.js
-import { pubsub } from "../../pubsub.js";
+import  pubsub from "../../pubsub.js";
 
 console.log("✅ Subscription resolver loaded");
 
