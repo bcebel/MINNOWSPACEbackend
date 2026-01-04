@@ -436,25 +436,32 @@ app.get("/api/live-chunk/:sessionId/:index", (req, res) => {
   const { sessionId, index } = req.params;
   const tempDir = path.join("/tmp", "live-chunks", sessionId);
 
+  console.log(`🔍 [GET] Request for Session: ${sessionId}, Index: ${index}`);
+
   if (!fs.existsSync(tempDir)) {
-    console.log(`❌ [GET] Session directory missing: ${tempDir}`);
-    return res.status(404).send("Session not found");
+    console.log(`❌ [GET] Directory not found: ${tempDir}`);
+    return res.status(404).send("Session directory not found");
   }
 
-  // 1. Get all files in that session directory
-  const files = fs.readdirSync(tempDir);
+  try {
+    const files = fs.readdirSync(tempDir);
+    // Find a file that matches "chunk-[index].any_extension"
+    const fileName = files.find((f) => f.startsWith(`chunk-${index}.`));
 
-  // 2. Find any file that STARTS with "chunk-[index]."
-  // This ignores whether it's .mp4, .webm, or has a weird dash
-  const fileName = files.find((f) => f.startsWith(`chunk-${index}.`));
-
-  if (fileName) {
-    const filePath = path.join(tempDir, fileName);
-    console.log(`📦 [GET] Serving: ${fileName}`);
-    return res.sendFile(filePath);
-  } else {
-    console.log(`❌ [GET] No file found for index ${index} in ${tempDir}`);
-    return res.status(404).send("Chunk not ready yet");
+    if (fileName) {
+      const filePath = path.join(tempDir, fileName);
+      console.log(`📦 [GET] Serving file: ${fileName}`);
+      return res.sendFile(filePath);
+    } else {
+      console.log(
+        `❌ [GET] No file starts with 'chunk-${index}.' in ${tempDir}`
+      );
+      console.log(`📂 Available files: ${files.join(", ")}`);
+      return res.status(404).send("Chunk not ready yet");
+    }
+  } catch (err) {
+    console.error("🔴 [GET] Read error:", err);
+    return res.status(500).send("Internal Server Error");
   }
 });
 
