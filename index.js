@@ -436,26 +436,22 @@ app.get("/api/live-chunk/:sessionId/:chunkIndex", (req, res) => {
   const { sessionId, chunkIndex } = req.params;
   const tempDir = path.join(__dirname, "tmp", "live-chunks", sessionId);
 
-  console.log(`🔍 Request for Session: ${sessionId}, Chunk: ${chunkIndex}`);
-
-  if (!fs.existsSync(tempDir)) {
-    console.log(`❌ Directory missing: ${tempDir}`);
-    return res.status(404).send("Not found");
-  }
+  if (!fs.existsSync(tempDir)) return res.status(404).send("Not found");
 
   const files = fs.readdirSync(tempDir);
-  console.log(`📂 Files found in folder:`, files);
 
-  // Look for the index anywhere in the filename
-  const match = files.find(
-    (f) =>
-      f.includes(`chunk-${chunkIndex}`) || f.includes(`chunk_${chunkIndex}`)
-  );
+  // Naming logic that matches YOUR Recorder's naming convention
+  const match = files.find((f) => {
+    if (chunkIndex === "-1") return f.startsWith("header-");
+    return (
+      f.includes(`chunk-${chunkIndex}.`) || f.includes(`chunk_${chunkIndex}.`)
+    );
+  });
 
   if (match) {
     res.sendFile(path.join(tempDir, match));
   } else {
-    res.status(404).send("File not found on disk");
+    res.status(404).send("Chunk not found");
   }
 });
 
