@@ -433,17 +433,26 @@ app.post(
 );
 
 // Example Express Route
-app.get('/api/live-chunk/:sessionId/:index', (req, res) => {
+app.get("/api/live-chunk/:sessionId/:index", (req, res) => {
   const { sessionId, index } = req.params;
-  
-  // Logic: Find the file where your recorder stores data
-  // Example: ./storage/live_12345/chunk_0.mp4
-  const filePath = path.join(__dirname, 'storage', sessionId, `chunk_${index}.mp4`);
 
-  if (fs.existsSync(filePath)) {
+  // 1. Point to the EXACT same folder as your POST route
+  const tempDir = path.join("/tmp", "live-chunks", sessionId);
+
+  // 2. Check for both mp4 and webm extensions just in case
+  const possiblePaths = [
+    path.join(tempDir, `chunk-${index}.mp4`),
+    path.join(tempDir, `chunk-${index}.webm`),
+  ];
+
+  const filePath = possiblePaths.find((p) => fs.existsSync(p));
+
+  if (filePath) {
+    console.log(`📦 [GET] Serving Chunk ${index} from disk`);
     res.sendFile(filePath);
   } else {
-    res.status(404).send('Chunk not ready yet');
+    console.log(`❌ [GET] Chunk ${index} not found in ${tempDir}`);
+    res.status(404).send("Chunk not ready yet");
   }
 });
 // ========== GET LIVE CHUNK METADATA (Cacheable) ==========
