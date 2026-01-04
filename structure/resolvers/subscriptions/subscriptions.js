@@ -12,7 +12,7 @@ const subscriptionResolvers = {
         const topic = `LIVESTREAM_CHUNK_ADDED_${sessionId}`;
 
         // Simple, no wrapper, just return the iterator
-        return pubsub.asyncIterator([topic]);
+        return pubsub.asyncIterableIterator([topic]);
       },
     },
   },

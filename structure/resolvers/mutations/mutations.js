@@ -1816,7 +1816,9 @@ const resolvers = {
       subscribe: (_, { sessionId }, { pubsub }) => {
         // Logic check: ensure we are listening to the same ID format used in app.post
         console.log("📡 Subscribing to session:", sessionId);
-        return pubsub.asyncIterator([`LIVESTREAM_CHUNK_ADDED_${sessionId}`]);
+        return pubsub.asyncIterableIterator([
+          `LIVESTREAM_CHUNK_ADDED_${sessionId}`,
+        ]);
       },
     },
   },

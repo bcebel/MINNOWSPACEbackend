@@ -53,7 +53,7 @@ const subscriptionResolvers = {
           console.log("🛠 PubSub keys:", Object.keys(pubsub));
         }
 
-        return pubsub.asyncIterator(channel);
+        return pubsub.asyncIterableIterator(channel);
       },
     },
   },
