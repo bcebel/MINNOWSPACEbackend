@@ -436,32 +436,22 @@ app.get("/api/live-chunk/:sessionId/:index", (req, res) => {
   const { sessionId, index } = req.params;
   const tempDir = path.join("/tmp", "live-chunks", sessionId);
 
-  console.log(`🔍 [GET] Request for Session: ${sessionId}, Index: ${index}`);
-
-  if (!fs.existsSync(tempDir)) {
-    console.log(`❌ [GET] Directory not found: ${tempDir}`);
-    return res.status(404).send("Session directory not found");
-  }
+  if (!fs.existsSync(tempDir)) return res.status(404).send("Path missing");
 
   try {
     const files = fs.readdirSync(tempDir);
-    // Find a file that matches "chunk-[index].any_extension"
-    const fileName = files.find((f) => f.startsWith(`chunk-${index}.`));
+    // This finds 'chunk-0.mp4' OR 'chunk-0.webm' OR 'chunk--1.mp4'
+    const match = files.find((f) => f.startsWith(`chunk-${index}.`));
 
-    if (fileName) {
-      const filePath = path.join(tempDir, fileName);
-      console.log(`📦 [GET] Serving file: ${fileName}`);
-      return res.sendFile(filePath);
+    if (match) {
+      return res.sendFile(path.join(tempDir, match));
     } else {
-      console.log(
-        `❌ [GET] No file starts with 'chunk-${index}.' in ${tempDir}`
-      );
-      console.log(`📂 Available files: ${files.join(", ")}`);
-      return res.status(404).send("Chunk not ready yet");
+      // Log exactly what files DO exist so you can see the naming mismatch
+      console.log(`DEBUG: Index ${index} not found. Existing files:`, files);
+      return res.status(404).send("Not ready");
     }
-  } catch (err) {
-    console.error("🔴 [GET] Read error:", err);
-    return res.status(500).send("Internal Server Error");
+  } catch (e) {
+    res.status(500).send("Error");
   }
 });
 
