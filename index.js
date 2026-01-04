@@ -385,6 +385,13 @@ app.post(
       const ext = mimeType.includes("mp4") ? "mp4" : "webm";
       const tempFilePath = path.join(tempDir, `chunk-${indexInt}.${ext}`);
       await fs.promises.writeFile(tempFilePath, file.buffer);
+const finalPath = path.join(tempDir, `chunk-${indexInt}.${ext}`);
+const writePath = finalPath + ".tmp"; // Write to a .tmp file first
+
+await fs.promises.writeFile(writePath, file.buffer);
+// Atomic rename: This ensures the file ONLY appears as "chunk-1.mp4"
+// once every single byte is safely on the disk.
+await fs.promises.rename(writePath, finalPath);
 
       const magnetUri = await reactiveBooster.boostChunkIfNeeded(
         tempFilePath,
