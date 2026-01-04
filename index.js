@@ -6,7 +6,7 @@ import jwt from "jsonwebtoken";
 import http from "http";
 import cors from "cors";
 import dotenv from "dotenv";
-import { pubsub } from "./structure/pubsub.js";
+import  pubsub from "./structure/pubsub.js";
 import { Server } from "socket.io";
 import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@as-integrations/express4";
