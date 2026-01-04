@@ -441,24 +441,25 @@ await fs.promises.rename(writePath, finalPath);
 
 app.get("/api/live-chunk/:sessionId/:chunkIndex", (req, res) => {
   const { sessionId, chunkIndex } = req.params;
-  const tempDir = path.join(__dirname, "tmp", "live-chunks", sessionId);
+  const tempDir = path.join("/tmp", "live-chunks", sessionId);
 
-  if (!fs.existsSync(tempDir)) return res.status(404).send("Not found");
+  if (!fs.existsSync(tempDir)) return res.status(404).send("Session not found");
 
   const files = fs.readdirSync(tempDir);
 
-  // Naming logic that matches YOUR Recorder's naming convention
+  // This regex finds the file that contains either "-[index]." or "_[index]."
+  // It handles both chunk--1.mp4 and header-xyz.mp4 (if you check for -1)
   const match = files.find((f) => {
-    if (chunkIndex === "-1") return f.startsWith("header-");
-    return (
-      f.includes(`chunk-${chunkIndex}.`) || f.includes(`chunk_${chunkIndex}.`)
-    );
+    const pattern = new RegExp(`[\\-_]${chunkIndex}\\.`);
+    return pattern.test(f) || (chunkIndex === "-1" && f.includes("header"));
   });
 
   if (match) {
     res.sendFile(path.join(tempDir, match));
   } else {
-    res.status(404).send("Chunk not found");
+    // Log exactly what files WERE found to help you debug naming mismatches
+    console.log(`❌ Missing index ${chunkIndex}. Folder has:`, files);
+    res.status(404).send("Not ready");
   }
 });
 
