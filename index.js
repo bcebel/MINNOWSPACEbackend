@@ -385,13 +385,16 @@ app.post(
       const ext = mimeType.includes("mp4") ? "mp4" : "webm";
       const tempFilePath = path.join(tempDir, `chunk-${indexInt}.${ext}`);
       await fs.promises.writeFile(tempFilePath, file.buffer);
+
 const finalPath = path.join(tempDir, `chunk-${indexInt}.${ext}`);
 const writePath = finalPath + ".tmp"; // Write to a .tmp file first
 
 await fs.promises.writeFile(writePath, file.buffer);
 // Atomic rename: This ensures the file ONLY appears as "chunk-1.mp4"
 // once every single byte is safely on the disk.
-await fs.promises.rename(writePath, finalPath);
+      await fs.promises.rename(writePath, finalPath);
+      console.log(`📝 Written chunk to temp file: ${finalPath}`);
+      console.log('writePath:', writePath);
 
       const magnetUri = await reactiveBooster.boostChunkIfNeeded(
         tempFilePath,
@@ -441,25 +444,34 @@ await fs.promises.rename(writePath, finalPath);
 
 app.get("/api/live-chunk/:sessionId/:chunkIndex", (req, res) => {
   const { sessionId, chunkIndex } = req.params;
+  // Use absolute path to be 100% sure where we are looking
   const tempDir = path.join("/tmp", "live-chunks", sessionId);
 
-  if (!fs.existsSync(tempDir)) return res.status(404).send("Session not found");
+  console.log(
+    `--- 🛰️  Incoming Request: Session[${sessionId}] Index[${chunkIndex}] ---`
+  );
+
+  if (!fs.existsSync(tempDir)) {
+    console.log(`❌ FOLDER MISSING: Checked ${tempDir}`);
+    return res.status(404).send("Folder missing");
+  }
 
   const files = fs.readdirSync(tempDir);
+  console.log(`📂 Folder Content (${files.length} files):`, files);
 
-  // This regex finds the file that contains either "-[index]." or "_[index]."
-  // It handles both chunk--1.mp4 and header-xyz.mp4 (if you check for -1)
-  const match = files.find((f) => {
-    const pattern = new RegExp(`[\\-_]${chunkIndex}\\.`);
-    return pattern.test(f) || (chunkIndex === "-1" && f.includes("header"));
-  });
+  // Look for the index. We use a regex that looks for the index followed by a dot
+  // e.g. "chunk-0.mp4" or "live_0.webm"
+  const match = files.find(
+    (f) => f.includes(`-${chunkIndex}.`) || f.includes(`_${chunkIndex}.`)
+  );
 
   if (match) {
-    res.sendFile(path.join(tempDir, match));
+    const fullPath = path.join(tempDir, match);
+    console.log(`✅ MATCH FOUND: serving ${match}`);
+    return res.sendFile(fullPath);
   } else {
-    // Log exactly what files WERE found to help you debug naming mismatches
-    console.log(`❌ Missing index ${chunkIndex}. Folder has:`, files);
-    res.status(404).send("Not ready");
+    console.log(`❓ NO MATCH for index ${chunkIndex} in the list above.`);
+    return res.status(404).send("File not found");
   }
 });
 
