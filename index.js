@@ -442,37 +442,24 @@ await fs.promises.writeFile(writePath, file.buffer);
   }
 );
 
-app.get("/api/live-chunk/:sessionId/:chunkIndex", (req, res) => {
-  const { sessionId, chunkIndex } = req.params;
-  // Use absolute path to be 100% sure where we are looking
-  const tempDir = path.join("/tmp", "live-chunks", sessionId);
-
-  console.log(
-    `--- 🛰️  Incoming Request: Session[${sessionId}] Index[${chunkIndex}] ---`
+app.get("/api/live-chunk/:sessionId/:index", async (req, res) => {
+  const { sessionId, index } = req.params;
+  const filePath = path.join(
+    "/tmp",
+    "live-chunks",
+    sessionId,
+    `chunk-${index}.mp4`
   );
 
-  if (!fs.existsSync(tempDir)) {
-    console.log(`❌ FOLDER MISSING: Checked ${tempDir}`);
-    return res.status(404).send("Folder missing");
+  // Simple "Internal" retry - checks every 100ms for 500ms total
+  for (let i = 0; i < 5; i++) {
+    if (fs.existsSync(filePath)) {
+      return res.sendFile(filePath);
+    }
+    await new Promise((r) => setTimeout(r, 100));
   }
 
-  const files = fs.readdirSync(tempDir);
-  console.log(`📂 Folder Content (${files.length} files):`, files);
-
-  // Look for the index. We use a regex that looks for the index followed by a dot
-  // e.g. "chunk-0.mp4" or "live_0.webm"
-  const match = files.find(
-    (f) => f.includes(`-${chunkIndex}.`) || f.includes(`_${chunkIndex}.`)
-  );
-
-  if (match) {
-    const fullPath = path.join(tempDir, match);
-    console.log(`✅ MATCH FOUND: serving ${match}`);
-    return res.sendFile(fullPath);
-  } else {
-    console.log(`❓ NO MATCH for index ${chunkIndex} in the list above.`);
-    return res.status(404).send("File not found");
-  }
+  res.status(404).json({ error: "File not found after wait" });
 });
 
 app.post("/api/stream-end", authenticateToken, async (req, res) => {
