@@ -377,24 +377,19 @@ app.post(
         "wss://tracker.webtorrent.dev",
       ];
 
-      // Setup temp file (using buffer directly to avoid fs write if possible,
-      // but keeping your temp logic for WebTorrent pathing)
+      // Setup temp file
       const tempDir = path.join("/tmp", "live-chunks", sessionId);
       if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
       const ext = mimeType.includes("mp4") ? "mp4" : "webm";
       const tempFilePath = path.join(tempDir, `chunk-${indexInt}.${ext}`);
-      await fs.promises.writeFile(tempFilePath, file.buffer);
 
-const finalPath = path.join(tempDir, `chunk-${indexInt}.${ext}`);
-const writePath = finalPath + ".tmp"; // Write to a .tmp file first
+      // Atomic write
+      const writePath = tempFilePath + ".tmp";
+      await fs.promises.writeFile(writePath, file.buffer);
+      await fs.promises.rename(writePath, tempFilePath);
 
-await fs.promises.writeFile(writePath, file.buffer);
-// Atomic rename: This ensures the file ONLY appears as "chunk-1.mp4"
-// once every single byte is safely on the disk.
-      await fs.promises.rename(writePath, finalPath);
-      console.log(`📝 Written chunk to temp file: ${finalPath}`);
-      console.log('writePath:', writePath);
+      console.log(`📝 Written chunk to temp file: ${tempFilePath}`);
 
       const magnetUri = await reactiveBooster.boostChunkIfNeeded(
         tempFilePath,
@@ -402,21 +397,52 @@ await fs.promises.writeFile(writePath, file.buffer);
         trackers
       );
 
-      // 4. DATABASE SYNC (The "DeepSeek" Clean Version)
-      const parentStream = await Stream.findOne({ sessionId });
+      // 4. DATABASE SYNC WITH RETRY LOGIC
+      let parentStream = await Stream.findOne({ sessionId });
+      let retries = 0;
+      const maxRetries = 5;
 
+      // For header chunks, wait longer - they're first
+      const isHeader = indexInt === -1;
+      const maxRetriesForHeader = 10; // Header needs more patience
+
+      while (
+        !parentStream &&
+        retries < (isHeader ? maxRetriesForHeader : maxRetries)
+      ) {
+        console.log(
+          `⏳ Stream document not yet created for ${sessionId}, retry ${
+            retries + 1
+          }...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        parentStream = await Stream.findOne({ sessionId });
+        retries++;
+      }
+
+      if (!parentStream) {
+        console.warn(
+          `⚠️ Stream ${sessionId} still not found after ${retries} retries`
+        );
+        // If it's not a header, we can proceed - header might come later
+        if (!isHeader) {
+          console.log("Proceeding with chunk creation anyway...");
+        }
+      }
+
+      // 5. CREATE CHUNK DOCUMENT
       const newChunk = await StreamChunk.create({
-        stream: parentStream ? parentStream._id : null,
-        sessionId: sessionId, // This links the viewer query
+        stream: parentStream ? parentStream._id : undefined, // Use undefined, not null
+        sessionId: sessionId,
         chunkIndex: indexInt,
         magnetLink: magnetUri,
         fileName: file.originalname || `chunk-${indexInt}.${ext}`,
         fileSize: file.size || 0,
-        fileType: indexInt === -1 ? "video_header" : "video_chunk",
+        fileType: isHeader ? "video_header" : "video_chunk",
         mimeType: mimeType,
       });
 
-      // 5. GRAPHQL PUBLISH
+      // 6. GRAPHQL PUBLISH
       const publishData = {
         livestreamChunkAdded: {
           id: newChunk.id,
@@ -433,11 +459,19 @@ await fs.promises.writeFile(writePath, file.buffer);
       pubsub.publish(`LIVESTREAM_CHUNK_ADDED_${sessionId}`, publishData);
 
       console.log(`✅ [LIVE-CHUNK] Chunk ${indexInt} processed successfully.`);
-      return res.json({ success: true, magnetUri, chunkId: newChunk._id });
+      return res.json({
+        success: true,
+        magnetUri,
+        chunkId: newChunk._id,
+        streamFound: !!parentStream,
+      });
     } catch (error) {
       console.error("🔴 [LIVE-CHUNK] SERVER ERROR:", error.message);
-      // Sending the error message back helps you see the culprit in the browser console
-      return res.status(500).json({ success: false, error: error.message });
+      return res.status(500).json({
+        success: false,
+        error: error.message,
+        hint: "Check if StreamChunk model has 'stream' as required field",
+      });
     }
   }
 );

@@ -5,7 +5,7 @@ const streamChunkSchema = new mongoose.Schema(
     stream: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Stream",
-      required: true,
+      required: false,
       index: true,
     }, // Parent reference
     chunkIndex: { type: Number, required: true, min: -1 }, // Essential for correct order

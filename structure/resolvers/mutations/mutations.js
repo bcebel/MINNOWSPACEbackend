@@ -773,7 +773,7 @@ const resolvers = {
       return await video.populate("user neighborhood");
     },
 
-    createStream: async (_, { title, neighborhoodId }, context) => {
+    createStream: async (_, { title, neighborhoodId, sessionId }, context) => {
       if (!context.user) throw new Error("Authentication required");
 
       // Ensure the neighborhood exists and the user is a member
@@ -787,21 +787,21 @@ const resolvers = {
       // Create the new Stream object
       const newStream = new Stream({
         title,
-        startedBy: context.user.userId, // Corrected from 'user'
+        startedBy: context.user.userId,
         neighborhood: neighborhoodId,
-        sessionId: `live_${Date.now()}_${Math.random()
-          .toString(36)
-          .substr(2, 9)}`,
-        status: "live", // Corrected from 'isActive: true'
+        // CRITICAL: Use the passed sessionId if provided, otherwise generate
+        sessionId:
+          sessionId ||
+          `live_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        status: "live",
         createdAt: new Date(),
       });
 
       await newStream.save();
 
-      console.log("✅ New stream created:", newStream);
+      console.log("✅ New stream created with sessionId:", newStream.sessionId);
 
       // Return the newly created stream
-      // Corrected populate('user') to populate('startedBy')
       return await Stream.findById(newStream._id)
         .populate("startedBy")
         .populate("neighborhood");
