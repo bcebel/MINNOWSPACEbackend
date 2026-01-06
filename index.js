@@ -442,50 +442,6 @@ await fs.promises.writeFile(writePath, file.buffer);
   }
 );
 
-/**
- * THE JANITOR: Background task to prevent Heroku R14 (Memory) and Disk errors.
- * It cleans up zombie torrents and files that weren't closed properly.
- */
-function startJanitor(webTorrentClient) {
-  setInterval(async () => {
-    const CHUNK_TIMEOUT = 10 * 60 * 1000; // 10 minutes of inactivity
-    const now = Date.now();
-    const rootDir = path.join("/tmp", "live-chunks");
-
-    if (!fs.existsSync(rootDir)) return;
-
-    try {
-      const sessions = fs.readdirSync(rootDir);
-
-      for (const sessionId of sessions) {
-        const sessionPath = path.join(rootDir, sessionId);
-        const stats = fs.statSync(sessionPath);
-
-        // Check if the folder is old (based on last modification time)
-        if (now - stats.mtimeMs > CHUNK_TIMEOUT) {
-          console.log(`🧹 [JANITOR] Cleaning abandoned session: ${sessionId}`);
-
-          // 1. Kill associated torrents in the WebTorrent Client
-          if (webTorrentClient) {
-            webTorrentClient.torrents.forEach(t => {
-              if (t.name && t.name.includes(sessionId)) {
-                console.log(`🛑 [JANITOR] Destroying zombie torrent: ${t.name}`);
-                t.destroy();
-              }
-            });
-          }
-
-          // 2. Wipe the files from disk
-          fs.rmSync(sessionPath, { recursive: true, force: true });
-          console.log(`🗑️ [JANITOR] Disk cleared for ${sessionId}`);
-        }
-      }
-    } catch (err) {
-      console.error("❌ [JANITOR] Error during cleanup sweep:", err);
-    }
-  }, 60000); // Runs every 1 minute
-}
-
 app.get("/api/live-chunk/:sessionId/:index", async (req, res) => {
   const { sessionId, index } = req.params;
   const { hash } = req.query;
@@ -522,39 +478,8 @@ app.get("/api/live-chunk/:sessionId/:index", async (req, res) => {
 
 app.post("/api/stream-end", authenticateToken, async (req, res) => {
   const { sessionId } = req.body;
-
-  try {
-    // 1. Existing logic
-    await reactiveBooster.stopStreamBoost(sessionId);
-
-    // 2. WebTorrent Cleanup (RAM relief)
-    if (global.webTorrentClient) {
-      const activeTorrents = global.webTorrentClient.torrents;
-      activeTorrents.forEach((t) => {
-        // Ensure we only kill torrents for THIS session
-        if (t.name && t.name.includes(sessionId)) {
-          console.log(`🛑 Stopping torrent: ${t.name}`);
-          t.destroy();
-        }
-      });
-    }
-
-    // 3. Filesystem Cleanup (Disk relief)
-    const tempDir = path.join("/tmp", "live-chunks", sessionId);
-    if (fs.existsSync(tempDir)) {
-      // 'recursive: true' handles the folder and all chunks inside
-      fs.rmSync(tempDir, { recursive: true, force: true });
-      console.log(`🗑️ Deleted temp files for session: ${sessionId}`);
-    }
-
-    res.json({
-      success: true,
-      message: `Cleaned up and stopped boost for ${sessionId}`,
-    });
-  } catch (error) {
-    console.error("Cleanup Error:", error);
-    res.status(500).json({ error: "Failed to fully clean up session" });
-  }
+  await reactiveBooster.stopStreamBoost(sessionId);
+  res.json({ success: true, message: `Stopped boosting stream ${sessionId}` });
 });
 
 // Simply upload endpoint for testing
