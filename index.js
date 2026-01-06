@@ -557,7 +557,7 @@ app.post("/api/stream-end", authenticateToken, async (req, res) => {
   }
 });
 
-// Simple upload endpoint for testing
+// Simply upload endpoint for testing
 app.post(
   "/api/upload-image",
   authenticateToken,
