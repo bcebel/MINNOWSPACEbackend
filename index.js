@@ -481,30 +481,33 @@ app.get("/api/live-chunk/:sessionId/:index", async (req, res) => {
   const { hash } = req.query;
   const tempDir = path.join("/tmp", "live-chunks", sessionId);
 
-  if (!fs.existsSync(tempDir)) return res.status(404).send("Session not found");
+  if (!fs.existsSync(tempDir))
+    return res.status(404).send("Session folder missing");
 
-  // 1. Try the Logical path first (your current sequence)
-  const logicalPath = path.join(tempDir, `chunk-${index}.mp4`);
-  if (fs.existsSync(logicalPath)) {
-    return res.sendFile(logicalPath);
-  }
-
-  // 2. BACKUP: The "Extremely Specific String" lookup
+  // 1. PRIORITY 1: The Hash (The only thing that is 100% unique)
   if (hash) {
     const files = fs.readdirSync(tempDir);
     const hashMatch = files.find((f) => f.includes(hash));
 
     if (hashMatch) {
-      console.log(`🎯 Logical fail, but Hash match found: ${hashMatch}`);
+      // If we find the hash, we don't care about anything else. This is the "right" file.
       return res.sendFile(path.join(tempDir, hashMatch));
     }
   }
 
-  // 3. SPECIAL CASE: The Header (-1) often gets a different prefix
+  // 2. PRIORITY 2: The Header (Vital for the player to even start)
   if (index === "-1") {
     const files = fs.readdirSync(tempDir);
-    const headerFile = files.find((f) => f.toLowerCase().includes("header"));
+    const headerFile = files.find(
+      (f) => f.toLowerCase().includes("header") || f.includes("-1")
+    );
     if (headerFile) return res.sendFile(path.join(tempDir, headerFile));
+  }
+
+  // 3. FALLBACK: Logical path (Only if we haven't found a hash match)
+  const logicalPath = path.join(tempDir, `chunk-${index}.mp4`);
+  if (fs.existsSync(logicalPath)) {
+    return res.sendFile(logicalPath);
   }
 
   res.status(404).send("Chunk not ready yet");
