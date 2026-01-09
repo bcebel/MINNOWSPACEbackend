@@ -481,35 +481,53 @@ app.get("/api/live-chunk/:sessionId/:index", async (req, res) => {
   const { hash } = req.query;
   const tempDir = path.join("/tmp", "live-chunks", sessionId);
 
-  if (!fs.existsSync(tempDir))
+  if (!fs.existsSync(tempDir)) {
+    res.set("Cache-Control", "no-cache"); // Don't cache missing sessions
     return res.status(404).send("Session folder missing");
+  }
 
-  // 1. PRIORITY 1: The Hash (The only thing that is 100% unique)
+  // 1. PRIORITY 1: The Hash (Immutable - 100% unique)
   if (hash) {
     const files = fs.readdirSync(tempDir);
     const hashMatch = files.find((f) => f.includes(hash));
 
     if (hashMatch) {
-      // If we find the hash, we don't care about anything else. This is the "right" file.
+      // 🚀 AGGRESSIVE CACHE: This hash will NEVER change.
+      res.set({
+        "Cache-Control": "public, max-age=31536000, immutable", // 1 year
+        "Access-Control-Allow-Origin": "*",
+      });
       return res.sendFile(path.join(tempDir, hashMatch));
     }
   }
 
-  // 2. PRIORITY 2: The Header (Vital for the player to even start)
+  // 2. PRIORITY 2: The Header (Vital - 1 hour cache)
   if (index === "-1") {
     const files = fs.readdirSync(tempDir);
     const headerFile = files.find(
       (f) => f.toLowerCase().includes("header") || f.includes("-1")
     );
-    if (headerFile) return res.sendFile(path.join(tempDir, headerFile));
+    if (headerFile) {
+      res.set({
+        "Cache-Control": "public, max-age=3600", // 1 hour
+        "Access-Control-Allow-Origin": "*",
+      });
+      return res.sendFile(path.join(tempDir, headerFile));
+    }
   }
 
-  // 3. FALLBACK: Logical path (Only if we haven't found a hash match)
+  // 3. FALLBACK: Logical path (Standard chunk - 1 hour cache)
   const logicalPath = path.join(tempDir, `chunk-${index}.mp4`);
   if (fs.existsSync(logicalPath)) {
+    res.set({
+      "Cache-Control": "public, max-age=3600",
+      "Access-Control-Allow-Origin": "*",
+    });
     return res.sendFile(logicalPath);
   }
 
+  // 🛑 SAFETY: Tell the browser NOT to cache the "Not Ready" state
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate");
   res.status(404).send("Chunk not ready yet");
 });
 
