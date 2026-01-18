@@ -25,9 +25,11 @@ const streamSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['pending', 'live', 'ended', 'processing', 'completed', 'failed'],
-      default: 'pending',
+      enum: ["pending", "live", "ended", "processing", "completed", "failed"],
+      default: "pending",
     },
+    archiveUrl: { type: String, default: null }, // The IPFS link if we "Stitch & Ship"
+    isPermanentP2P: { type: Boolean, default: false }, // If true, Reassembler uses Magnet chunks instead
   },
   {
     timestamps: true,

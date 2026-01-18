@@ -11,6 +11,7 @@ const streamChunkSchema = new mongoose.Schema(
     chunkIndex: { type: Number, required: true, min: -1 }, // Essential for correct order
     magnetLink: { type: String, required: true }, // Essential for WebTorrent
     fileName: { type: String, required: true }, // e.g., 'chunk_21.mp4'
+    thumbnailUrl: { type: String, default: null },
     mimeType: String,
     fileSize: Number, // In bytes (good to have for progress)
     // Optional: You could store a 'duration' field if your recorder provides it.
