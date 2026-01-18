@@ -347,14 +347,10 @@ const liveChunkUpload = multer({ storage: multer.memoryStorage() });
 app.post(
   "/api/live-chunk",
   authenticateToken,
-  liveChunkUpload.fields([
-    { name: "chunk", maxCount: 1 },
-    { name: "thumbnail", maxCount: 1 },
-  ]),
+  liveChunkUpload.single("chunk"),
   async (req, res) => {
     console.log("🔵 [LIVE-CHUNK] Endpoint hit. Starting processing...");
-const chunkFile = req.files["chunk"] ? req.files["chunk"][0] : null;
-const thumbFile = req.files["thumbnail"] ? req.files["thumbnail"][0] : null;
+
     try {
       // 1. DATA EXTRACTION - Use let/const consistently
       const { sessionId, chunkIndex } = req.body;
@@ -466,7 +462,6 @@ const thumbFile = req.files["thumbnail"] ? req.files["thumbnail"][0] : null;
       return res.json({
         success: true,
         magnetUri,
-        thumbnailUrl: savedThumbUrl || "",
         chunkId: newChunk._id,
         streamFound: !!parentStream,
       });
