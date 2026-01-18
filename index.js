@@ -349,62 +349,129 @@ app.post(
   authenticateToken,
   liveChunkUpload.single("chunk"),
   async (req, res) => {
+    console.log("🔵 [LIVE-CHUNK] Endpoint hit. Starting processing...");
+
     try {
+      // 1. DATA EXTRACTION - Use let/const consistently
       const { sessionId, chunkIndex } = req.body;
       const file = req.file;
 
-      if (!file || !file.buffer || !sessionId) {
-        return res.status(400).json({ success: false, error: "Missing data" });
+      // 2. CRITICAL VALIDATION (The 500 Killers)
+      if (!file || !file.buffer) {
+        console.error("🔴 [LIVE-CHUNK] ERROR: No file buffer found.");
+        return res.status(400).json({ success: false, error: "No file data" });
+      }
+      if (!sessionId) {
+        console.error("🔴 [LIVE-CHUNK] ERROR: Missing sessionId.");
+        return res
+          .status(400)
+          .json({ success: false, error: "Missing sessionId" });
       }
 
+      const mimeType = file.mimetype || "video/mp4";
       const indexInt = parseInt(chunkIndex);
-      const isHeader = indexInt === -1;
 
-      // MMS MANDATE: We save as .mp4. Even if the incoming blob is 'video/webm',
-      // for Managed Media Source on the player side, we want to serve it as mp4.
-      const ext = "mp4";
-      const tempDir = path.join("/tmp", "live-chunks", sessionId);
-      if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-
-      const fileName = `chunk-${indexInt}.${ext}`;
-      const tempFilePath = path.join(tempDir, fileName);
-
-      await fs.promises.writeFile(tempFilePath, file.buffer);
-
-      // Seed logic
+      // 3. SEED SERVICE
       const trackers = [
         "wss://tracker.openwebtorrent.com",
         "wss://tracker.webtorrent.dev",
       ];
+
+      // Setup temp file
+      const tempDir = path.join("/tmp", "live-chunks", sessionId);
+      if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+
+      const ext = mimeType.includes("mp4") ? "mp4" : "webm";
+      const tempFilePath = path.join(tempDir, `chunk-${indexInt}.${ext}`);
+
+      // Atomic write
+      const writePath = tempFilePath + ".tmp";
+      await fs.promises.writeFile(writePath, file.buffer);
+      await fs.promises.rename(writePath, tempFilePath);
+
+      console.log(`📝 Written chunk to temp file: ${tempFilePath}`);
+
       const magnetUri = await reactiveBooster.boostChunkIfNeeded(
         tempFilePath,
         `${sessionId}-${indexInt}`,
         trackers
       );
 
-      // DB logic
+      // 4. DATABASE SYNC WITH RETRY LOGIC
       let parentStream = await Stream.findOne({ sessionId });
-      // ... (Keep your retry loop here) ...
+      let retries = 0;
+      const maxRetries = 5;
 
+      // For header chunks, wait longer - they're first
+      const isHeader = indexInt === -1;
+      const maxRetriesForHeader = 10; // Header needs more patience
+
+      while (
+        !parentStream &&
+        retries < (isHeader ? maxRetriesForHeader : maxRetries)
+      ) {
+        console.log(
+          `⏳ Stream document not yet created for ${sessionId}, retry ${
+            retries + 1
+          }...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        parentStream = await Stream.findOne({ sessionId });
+        retries++;
+      }
+
+      if (!parentStream) {
+        console.warn(
+          `⚠️ Stream ${sessionId} still not found after ${retries} retries`
+        );
+        // If it's not a header, we can proceed - header might come later
+        if (!isHeader) {
+          console.log("Proceeding with chunk creation anyway...");
+        }
+      }
+
+      // 5. CREATE CHUNK DOCUMENT
       const newChunk = await StreamChunk.create({
-        stream: parentStream ? parentStream._id : undefined,
+        stream: parentStream ? parentStream._id : undefined, // Use undefined, not null
         sessionId: sessionId,
         chunkIndex: indexInt,
         magnetLink: magnetUri,
-        fileName: fileName,
-        fileSize: file.size,
+        fileName: file.originalname || `chunk-${indexInt}.${ext}`,
+        fileSize: file.size || 0,
         fileType: isHeader ? "video_header" : "video_chunk",
-        mimeType: "video/mp4", // Force this for MMS awareness
+        mimeType: mimeType,
       });
 
-      pubsub.publish(`LIVESTREAM_CHUNK_ADDED_${sessionId}`, {
-        livestreamChunkAdded: { ...newChunk.toObject(), id: newChunk._id },
-      });
+      // 6. GRAPHQL PUBLISH
+      const publishData = {
+        livestreamChunkAdded: {
+          id: newChunk.id,
+          sessionId: sessionId,
+          chunkIndex: newChunk.chunkIndex,
+          magnetLink: magnetUri,
+          fileName: newChunk.fileName,
+          fileSize: newChunk.fileSize,
+          fileType: newChunk.fileType,
+          mimeType: mimeType,
+        },
+      };
 
-      return res.json({ success: true, magnetUri, chunkId: newChunk._id });
+      pubsub.publish(`LIVESTREAM_CHUNK_ADDED_${sessionId}`, publishData);
+
+      console.log(`✅ [LIVE-CHUNK] Chunk ${indexInt} processed successfully.`);
+      return res.json({
+        success: true,
+        magnetUri,
+        chunkId: newChunk._id,
+        streamFound: !!parentStream,
+      });
     } catch (error) {
       console.error("🔴 [LIVE-CHUNK] SERVER ERROR:", error.message);
-      return res.status(500).json({ success: false, error: error.message });
+      return res.status(500).json({
+        success: false,
+        error: error.message,
+        hint: "Check if StreamChunk model has 'stream' as required field",
+      });
     }
   }
 );
@@ -414,38 +481,54 @@ app.get("/api/live-chunk/:sessionId/:index", async (req, res) => {
   const { hash } = req.query;
   const tempDir = path.join("/tmp", "live-chunks", sessionId);
 
-  // 1. Priority: Hash Match (for P2P caching)
-  if (hash && fs.existsSync(tempDir)) {
+  if (!fs.existsSync(tempDir)) {
+    res.set("Cache-Control", "no-cache"); // Don't cache missing sessions
+    return res.status(404).send("Session folder missing");
+  }
+
+  // 1. PRIORITY 1: The Hash (Immutable - 100% unique)
+  if (hash) {
     const files = fs.readdirSync(tempDir);
-    const match = files.find((f) => f.includes(hash));
-    if (match) {
+    const hashMatch = files.find((f) => f.includes(hash));
+
+    if (hashMatch) {
+      // 🚀 AGGRESSIVE CACHE: This hash will NEVER change.
       res.set({
-        "Content-Type": "video/mp4", // Force for MMS
-        "Cache-Control": "public, max-age=31536000, immutable",
+        "Cache-Control": "public, max-age=31536000, immutable", // 1 year
         "Access-Control-Allow-Origin": "*",
       });
-      return res.sendFile(path.join(tempDir, match));
+      return res.sendFile(path.join(tempDir, hashMatch));
     }
   }
 
-  // 2. Logic Match: Look for .mp4 first, then .webm as fallback
-  const pathsToTry = [
-    path.join(tempDir, `chunk-${index}.mp4`),
-    path.join(tempDir, `chunk-${index}.webm`),
-  ];
-
-  for (const p of pathsToTry) {
-    if (fs.existsSync(p)) {
+  // 2. PRIORITY 2: The Header (Vital - 1 hour cache)
+  if (index === "-1") {
+    const files = fs.readdirSync(tempDir);
+    const headerFile = files.find(
+      (f) => f.toLowerCase().includes("header") || f.includes("-1")
+    );
+    if (headerFile) {
       res.set({
-        "Content-Type": "video/mp4", // Essential for Managed Media Source
-        "Cache-Control": "public, max-age=3600",
+        "Cache-Control": "public, max-age=3600", // 1 hour
         "Access-Control-Allow-Origin": "*",
       });
-      return res.sendFile(p);
+      return res.sendFile(path.join(tempDir, headerFile));
     }
   }
 
-  res.status(404).set("Cache-Control", "no-cache").send("Not ready");
+  // 3. FALLBACK: Logical path (Standard chunk - 1 hour cache)
+  const logicalPath = path.join(tempDir, `chunk-${index}.mp4`);
+  if (fs.existsSync(logicalPath)) {
+    res.set({
+      "Cache-Control": "public, max-age=3600",
+      "Access-Control-Allow-Origin": "*",
+    });
+    return res.sendFile(logicalPath);
+  }
+
+  // 🛑 SAFETY: Tell the browser NOT to cache the "Not Ready" state
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate");
+  res.status(404).send("Chunk not ready yet");
 });
 
 app.post("/api/stream-end", authenticateToken, async (req, res) => {
