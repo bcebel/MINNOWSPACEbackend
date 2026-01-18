@@ -739,6 +739,27 @@ const resolvers = {
   },
 
   Mutation: {
+completeStream: async (_, { sessionId, archiveUrl, totalChunks }, context) => {
+  if (!context.user) throw new Error("Authentication required");
+
+  // Determine if this is a "Long Hangout" (P2P only) or a "Clip" (IPFS)
+  // If the frontend didn't send an archiveUrl, we assume it's staying P2P
+  const isPermanentP2P = !archiveUrl; 
+
+  const stream = await Stream.findOneAndUpdate(
+    { sessionId },
+    { 
+      status: 'completed', 
+      archiveUrl: archiveUrl || null, 
+      isPermanentP2P: isPermanentP2P,
+      totalChunks: totalChunks,
+      endedAt: new Date() 
+    },
+    { new: true }
+  ).populate("startedBy neighborhood");
+
+  return stream;
+},
     // Toggle video privacy
     toggleVideoPrivacy: async (_, { videoId }, { user }) => {
       if (!user) throw new Error("Authentication required");
@@ -872,7 +893,30 @@ const resolvers = {
       });
       await message.save();
       console.log("✅ Backend: Message saved with ID:", message._id);
+if (sessionId && (fileType === "video_chunk" || fileType === "video_header")) {
+  try {
+    const parentStream = await Stream.findOne({ sessionId });
+    if (parentStream) {
+      await StreamChunk.create({
+        stream: parentStream._id,
+        chunkIndex: typeof chunkIndex === "number" ? chunkIndex : -1,
+        magnetLink: magnetLink,
+        fileName: fileName || "blob",
+        mimeType: mimeType || "video/mp4",
+        fileSize: fileSize || 0,
+        thumbnailUrl: thumbnailUrl || null, // 🔑 SAVE THE THUMBNAIL HERE
+      });
 
+      // If it's the header, update the Stream's main status or title if needed
+      if (chunkIndex === -1 && thumbnailUrl) {
+        parentStream.status = "live";
+        await parentStream.save();
+      }
+    }
+  } catch (err) {
+    console.error("Error syncing message to StreamChunk:", err);
+  }
+}
       // 🚨 SIMPLIFIED: Only populate sender, don't populate neighborhood
       const populatedMessage = await Message.findById(message._id)
         .populate("sender", "username profilePhoto")

@@ -200,6 +200,8 @@ const typeDefs = gql`
     startedBy: User!
     neighborhood: Neighborhood!
     title: String
+    archiveUrl: String
+    isPermanentP2P: Boolean
     chunks: [StreamChunk!]!
     thumbnailUrl: String
   }
@@ -210,6 +212,7 @@ const typeDefs = gql`
     chunkIndex: Int!
     magnetLink: String!
     fileName: String!
+    thumbnailUrl: String
     fileType: String
     fileSize: Int
     duration: Float
@@ -308,6 +311,11 @@ const typeDefs = gql`
   }
 
   type Mutation {
+    completeStream(
+      sessionId: String!
+      archiveUrl: String
+      totalChunks: Int
+    ): Stream
     # Auth mutations
     registerUser(
       username: String!
@@ -401,7 +409,7 @@ const typeDefs = gql`
       fileName: String
       fileType: String
       magnetLink: String
-      fileSize: Int
+      fileSize: Float
       mimeType: String
       ipfsHash: String
       ipfsData: IPFSDataInput
