@@ -893,30 +893,43 @@ completeStream: async (_, { sessionId, archiveUrl, totalChunks }, context) => {
       });
       await message.save();
       console.log("✅ Backend: Message saved with ID:", message._id);
-if (sessionId && (fileType === "video_chunk" || fileType === "video_header")) {
-  try {
-    const parentStream = await Stream.findOne({ sessionId });
-    if (parentStream) {
-      await StreamChunk.create({
-        stream: parentStream._id,
-        chunkIndex: typeof chunkIndex === "number" ? chunkIndex : -1,
-        magnetLink: magnetLink,
-        fileName: fileName || "blob",
-        mimeType: mimeType || "video/mp4",
-        fileSize: fileSize || 0,
-        thumbnailUrl: thumbnailUrl || null, // 🔑 SAVE THE THUMBNAIL HERE
-      });
+      // Inside your sendMessage resolver, replace the StreamChunk.create block:
+      if (
+        sessionId &&
+        (fileType === "video_chunk" || fileType === "video_header")
+      ) {
+        try {
+          const parentStream = await Stream.findOne({ sessionId });
+          if (parentStream) {
+            // 🔄 THE FIX: Use findOneAndUpdate to prevent duplicates
+            await StreamChunk.findOneAndUpdate(
+              {
+                stream: parentStream._id,
+                chunkIndex: typeof chunkIndex === "number" ? chunkIndex : -1,
+              },
+              {
+                magnetLink: magnetLink,
+                fileName: fileName || "blob",
+                mimeType: mimeType || "video/mp4",
+                fileSize: fileSize || 0,
+                thumbnailUrl: thumbnailUrl || null,
+              },
+              {
+                upsert: true, // Create if doesn't exist
+                new: true, // Return the updated doc
+                setDefaultsOnInsert: true,
+              }
+            );
 
-      // If it's the header, update the Stream's main status or title if needed
-      if (chunkIndex === -1 && thumbnailUrl) {
-        parentStream.status = "live";
-        await parentStream.save();
+            if (chunkIndex === -1 && thumbnailUrl) {
+              parentStream.status = "live";
+              await parentStream.save();
+            }
+          }
+        } catch (err) {
+          console.error("Error syncing message to StreamChunk:", err);
+        }
       }
-    }
-  } catch (err) {
-    console.error("Error syncing message to StreamChunk:", err);
-  }
-}
       // 🚨 SIMPLIFIED: Only populate sender, don't populate neighborhood
       const populatedMessage = await Message.findById(message._id)
         .populate("sender", "username profilePhoto")
