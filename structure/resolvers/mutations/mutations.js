@@ -1918,8 +1918,8 @@ const resolvers = {
   },
 
   Stream: {
+    // This looks up the chunk -1 only when requested by the frontend
     header: async (parent) => {
-      // We use the sessionId from the Stream to find the Chunk -1
       return await StreamChunk.findOne({
         sessionId: parent.sessionId,
         chunkIndex: -1,
