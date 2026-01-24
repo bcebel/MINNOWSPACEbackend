@@ -97,7 +97,7 @@ const resolvers = {
           .lean();
 
         console.log(
-          `✅ Found ${chunks.length} chunks for stream ${streamDoc._id}`
+          `✅ Found ${chunks.length} chunks for stream ${streamDoc._id}`,
         );
         return chunks;
       } catch (error) {
@@ -269,7 +269,7 @@ const resolvers = {
         // HITS the authenticated REST endpoint, token is used via willSendRequest hook
         restMetadata = await dataSources.mediaAPI.getPrivateMetadata(
           cid,
-          token
+          token,
         );
       } else {
         throw new Error("Invalid access level.");
@@ -314,7 +314,7 @@ const resolvers = {
       if (!context.user) throw new Error("Authentication required");
       return await Message.findById(id).populate(
         "sender",
-        "username profilePhoto"
+        "username profilePhoto",
       );
     },
 
@@ -392,7 +392,7 @@ const resolvers = {
       }
 
       const isMember = neighborhood.members.some(
-        (member) => member.user.toString() === context.user.userId
+        (member) => member.user.toString() === context.user.userId,
       );
 
       if (!isMember) throw new Error("Not a member of this neighborhood");
@@ -410,7 +410,7 @@ const resolvers = {
       // Check membership
       const neighborhood = await Neighborhood.findById(neighborhoodId);
       const isMember = neighborhood.members.some(
-        (member) => member.user.toString() === context.user.userId
+        (member) => member.user.toString() === context.user.userId,
       );
 
       if (!isMember) throw new Error("Not a member of this neighborhood");
@@ -465,7 +465,7 @@ const resolvers = {
           .sort({ createdAt: -1 });
 
         console.log(
-          `✅ Found ${videos.length} videos SHARED TO neighborhood ${neighborhoodId}`
+          `✅ Found ${videos.length} videos SHARED TO neighborhood ${neighborhoodId}`,
         );
         return videos;
       } catch (error) {
@@ -534,7 +534,7 @@ const resolvers = {
           .populate("neighborhood", "name description");
 
         console.log(
-          `📊 Found: ${videos.length} videos, ${images.length} images`
+          `📊 Found: ${videos.length} videos, ${images.length} images`,
         );
 
         // Return as GalleryResponse object
@@ -664,7 +664,7 @@ const resolvers = {
               profilePhoto: doc.profilePhoto,
             };
           },
-        }
+        },
       );
 
       if (!neighborhood) {
@@ -674,7 +674,7 @@ const resolvers = {
 
       // Check permissions
       const userRole = neighborhood.members.find(
-        (member) => member.user.toString() === context.user.userId
+        (member) => member.user.toString() === context.user.userId,
       )?.role;
 
       console.log("User role:", userRole);
@@ -742,7 +742,7 @@ const resolvers = {
     completeStream: async (
       _,
       { sessionId, archiveUrl, totalChunks },
-      context
+      context,
     ) => {
       if (!context.user) throw new Error("Authentication required");
 
@@ -759,7 +759,7 @@ const resolvers = {
           totalChunks: totalChunks,
           endedAt: new Date(),
         },
-        { new: true }
+        { new: true },
       ).populate("startedBy neighborhood");
 
       return stream;
@@ -805,7 +805,7 @@ const resolvers = {
       const neighborhood = await Neighborhood.findById(neighborhoodId);
       if (!neighborhood) throw new Error("Neighborhood not found");
       const isMember = neighborhood.members.some(
-        (member) => member.user.toString() === context.user.userId
+        (member) => member.user.toString() === context.user.userId,
       );
       if (!isMember) throw new Error("You must be a member to stream here.");
 
@@ -851,7 +851,7 @@ const resolvers = {
         chunkIndex,
         totalChunks,
       },
-      context
+      context,
     ) => {
       if (!context.user) throw new Error("Authentication required");
 
@@ -871,7 +871,7 @@ const resolvers = {
       if (neighborhoodId) {
         neighborhood = await Neighborhood.findById(neighborhoodId);
         const isMember = neighborhood.members.some(
-          (member) => member.user.toString() === context.user.userId
+          (member) => member.user.toString() === context.user.userId,
         );
         if (!isMember) throw new Error("Not a member of this neighborhood");
       }
@@ -923,7 +923,7 @@ const resolvers = {
                 upsert: true, // Create if doesn't exist
                 new: true, // Return the updated doc
                 setDefaultsOnInsert: true,
-              }
+              },
             );
 
             if (chunkIndex === -1 && thumbnailUrl) {
@@ -970,7 +970,7 @@ const resolvers = {
         };
 
         console.log(
-          `📡 [PUB] Sending ${result.fileType} #${cleanChunk.chunkIndex} to ${topic}`
+          `📡 [PUB] Sending ${result.fileType} #${cleanChunk.chunkIndex} to ${topic}`,
         );
 
         pubsub.publish(topic, {
@@ -1076,7 +1076,7 @@ const resolvers = {
         // Validate the affiliate link (make sure this function is defined)
         if (!validateAffiliateHtml(html)) {
           throw new Error(
-            "Invalid affiliate link. Must be from approved networks (impact.com, cj.com, rakuten.com, shareasale.com, awin.com, webgains.com)"
+            "Invalid affiliate link. Must be from approved networks (impact.com, cj.com, rakuten.com, shareasale.com, awin.com, webgains.com)",
           );
         }
 
@@ -1101,7 +1101,7 @@ const resolvers = {
     updateProfile: async (
       _,
       { bio, profilePhoto, affiliateLinks },
-      context
+      context,
     ) => {
       if (!context.user) throw new Error("Authentication required");
 
@@ -1138,7 +1138,7 @@ const resolvers = {
             });
           } else {
             console.warn(
-              `Skipping invalid link for user ${userId}: ${validationResult.error}`
+              `Skipping invalid link for user ${userId}: ${validationResult.error}`,
             );
           }
         }
@@ -1152,7 +1152,7 @@ const resolvers = {
       const updatedUser = await User.findByIdAndUpdate(
         userId,
         { $set: updates },
-        { new: true }
+        { new: true },
       );
 
       if (!updatedUser) {
@@ -1187,7 +1187,7 @@ const resolvers = {
 
       // Check if user has permission (owner or moderator)
       const userRole = neighborhood.members.find(
-        (member) => member.user.toString() === context.user.userId
+        (member) => member.user.toString() === context.user.userId,
       )?.role;
 
       if (!userRole || !["owner", "moderator"].includes(userRole)) {
@@ -1200,7 +1200,7 @@ const resolvers = {
       }
 
       const targetMember = neighborhood.members.find(
-        (member) => member.user.toString() === userId
+        (member) => member.user.toString() === userId,
       );
 
       if (targetMember?.role === "owner") {
@@ -1209,7 +1209,7 @@ const resolvers = {
 
       // Remove from members
       neighborhood.members = neighborhood.members.filter(
-        (member) => member.user.toString() !== userId
+        (member) => member.user.toString() !== userId,
       );
 
       await neighborhood.save();
@@ -1231,7 +1231,7 @@ const resolvers = {
         email,
         password: password,
         profilePhoto: `https://ui-avatars.com/api/?name=${encodeURIComponent(
-          username
+          username,
         )}&background=00FF00&color=000`,
         affiliateLinks: [],
         videos: [],
@@ -1298,7 +1298,7 @@ const resolvers = {
       const validTypes = ["personal", "private", "public", "global"];
       if (!validTypes.includes(type)) {
         throw new Error(
-          `Invalid neighborhood type. Must be one of: ${validTypes.join(", ")}`
+          `Invalid neighborhood type. Must be one of: ${validTypes.join(", ")}`,
         );
       }
 
@@ -1330,7 +1330,7 @@ const resolvers = {
     updateNeighborhood: async (
       _,
       { id, name, description, rules },
-      context
+      context,
     ) => {
       if (!context.user) throw new Error("Authentication required");
 
@@ -1363,7 +1363,7 @@ const resolvers = {
 
       if (neighborhood.owner.toString() !== context.user.userId) {
         throw new Error(
-          "Only the neighborhood owner can delete the neighborhood"
+          "Only the neighborhood owner can delete the neighborhood",
         );
       }
 
@@ -1385,7 +1385,7 @@ const resolvers = {
 
       // Check if user is already a member
       const isAlreadyMember = neighborhood.members.some(
-        (member) => member.user.toString() === context.user.userId
+        (member) => member.user.toString() === context.user.userId,
       );
 
       if (isAlreadyMember) {
@@ -1403,7 +1403,7 @@ const resolvers = {
       } else if (neighborhood.type === "private") {
         // Add to join requests for private neighborhoods
         const alreadyRequested = neighborhood.joinRequests.some(
-          (request) => request.user.toString() === context.user.userId
+          (request) => request.user.toString() === context.user.userId,
         );
 
         if (!alreadyRequested) {
@@ -1434,13 +1434,13 @@ const resolvers = {
       // Can't leave if you're the owner (or implement transfer ownership)
       if (neighborhood.owner.toString() === context.user.userId) {
         throw new Error(
-          "Neighborhood owner cannot leave. Transfer ownership or delete the neighborhood."
+          "Neighborhood owner cannot leave. Transfer ownership or delete the neighborhood.",
         );
       }
 
       // Remove from members
       neighborhood.members = neighborhood.members.filter(
-        (member) => member.user.toString() !== context.user.userId
+        (member) => member.user.toString() !== context.user.userId,
       );
 
       await neighborhood.save();
@@ -1456,7 +1456,7 @@ const resolvers = {
 
       // Check permissions
       const userRole = neighborhood.members.find(
-        (member) => member.user.toString() === context.user.userId
+        (member) => member.user.toString() === context.user.userId,
       )?.role;
 
       if (!userRole || !["owner", "moderator"].includes(userRole)) {
@@ -1466,7 +1466,7 @@ const resolvers = {
       // Find and update the join request
       const joinRequest = neighborhood.joinRequests.find(
         (request) =>
-          request.user.toString() === userId && request.status === "pending"
+          request.user.toString() === userId && request.status === "pending",
       );
 
       if (!joinRequest) throw new Error("Join request not found");
@@ -1498,7 +1498,7 @@ const resolvers = {
         expiresInDays,
         role = "member",
       },
-      context
+      context,
     ) => {
       console.log("🚀 CREATE INVITE LINK RESOLVER");
 
@@ -1510,7 +1510,7 @@ const resolvers = {
 
         // Check permissions
         const userRole = neighborhood.members.find(
-          (member) => member.user.toString() === context.user.userId
+          (member) => member.user.toString() === context.user.userId,
         )?.role;
 
         if (!["owner", "moderator"].includes(userRole)) {
@@ -1537,7 +1537,7 @@ const resolvers = {
 
         // Get the neighborhood with populated data
         const savedNeighborhood = await Neighborhood.findById(
-          neighborhood._id
+          neighborhood._id,
         ).populate({
           path: "inviteLinks.createdBy",
           select: "id username profilePhoto", // Make sure id is selected
@@ -1592,7 +1592,7 @@ const resolvers = {
     updateInviteLink: async (
       _,
       { linkId, name, maxUses, expiresAt, isActive },
-      context
+      context,
     ) => {
       if (!context.user) throw new Error("Authentication required");
 
@@ -1604,7 +1604,7 @@ const resolvers = {
 
       // Check if user has permission
       const userRole = neighborhood.members.find(
-        (member) => member.user.toString() === context.user.userId
+        (member) => member.user.toString() === context.user.userId,
       )?.role;
 
       if (!["owner", "moderator"].includes(userRole)) {
@@ -1624,7 +1624,7 @@ const resolvers = {
 
       // Populate and return
       const savedNeighborhood = await Neighborhood.findById(
-        neighborhood._id
+        neighborhood._id,
       ).populate("inviteLinks.createdBy", "username profilePhoto");
 
       const savedLink = savedNeighborhood.inviteLinks.id(linkId);
@@ -1650,7 +1650,7 @@ const resolvers = {
 
       // Check if user has permission
       const userRole = neighborhood.members.find(
-        (member) => member.user.toString() === context.user.userId
+        (member) => member.user.toString() === context.user.userId,
       )?.role;
 
       if (!["owner", "moderator"].includes(userRole)) {
@@ -1720,7 +1720,7 @@ const resolvers = {
 
       // Check if user is already a member
       const isAlreadyMember = neighborhood.members.some(
-        (member) => member.user.toString() === context.user.userId
+        (member) => member.user.toString() === context.user.userId,
       );
 
       if (isAlreadyMember) {
@@ -1815,7 +1815,7 @@ const resolvers = {
         email,
         password: password,
         profilePhoto: `https://ui-avatars.com/api/?name=${encodeURIComponent(
-          username
+          username,
         )}&background=00FF00&color=000`,
         affiliateLinks: [],
         videos: [],
@@ -1900,7 +1900,7 @@ const resolvers = {
       // If we have just the ID, fetch the user
       if (parent.createdBy) {
         const user = await User.findById(parent.createdBy).select(
-          "id username profilePhoto"
+          "id username profilePhoto",
         );
         return {
           id: user._id.toString(),
@@ -1921,19 +1921,19 @@ const resolvers = {
   // In your GraphQL Resolvers file
   // Backend: resolvers.js
   Stream: {
-    // This function runs for EVERY stream in your list
-    thumbnailUrl: async (parent) => {
-      // 1. 'parent' is the Stream document (it has the sessionId)
-      // 2. We jump over to the Message collection to find the base64 string
+    thumbnailUrl: async (stream) => {
+      // 1. Grab the Message model
       const Message = mongoose.model("Message");
+
+      // 2. SEARCH the Message collection using the sessionId from the Stream
       const msg = await Message.findOne({
-        sessionId: parent.sessionId,
-        content: "STREAM_HEADER",
+        sessionId: stream.sessionId,
+        content: "STREAM_HEADER", // Or whatever identifies your thumb message
       })
         .select("thumbnailUrl")
         .lean();
 
-      // This will return the data for OLD and NEW streams alike
+      // 3. Return the base64 string directly to the 'streams' query
       return msg?.thumbnailUrl || null;
     },
   },
