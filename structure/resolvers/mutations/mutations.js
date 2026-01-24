@@ -912,6 +912,7 @@ const resolvers = {
                 chunkIndex: typeof chunkIndex === "number" ? chunkIndex : -1,
               },
               {
+                sessionId: sessionId,
                 magnetLink: magnetLink,
                 fileName: fileName || "blob",
                 mimeType: mimeType || "video/mp4",
