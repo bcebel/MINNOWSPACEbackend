@@ -695,8 +695,9 @@ const resolvers = {
         const transformedLink = {
           ...link.toObject(),
           id: link._id.toString(),
-          url: `${process.env.APP_URL || "http://bubblebase.app"}/join/${link.code
-            }`,
+          url: `${process.env.APP_URL || "http://bubblebase.app"}/join/${
+            link.code
+          }`,
         };
 
         // Ensure createdBy has proper id field
@@ -1560,22 +1561,23 @@ const resolvers = {
             : null,
           role: savedLink.role || "member",
           isActive: savedLink.isActive !== false,
-          url: `${process.env.APP_URL || "http://bubblebase.app"}/join/${savedLink.code
-            }`,
+          url: `${process.env.APP_URL || "http://bubblebase.app"}/join/${
+            savedLink.code
+          }`,
           createdAt: savedLink.createdAt
             ? savedLink.createdAt.toISOString()
             : new Date().toISOString(),
           createdBy: savedLink.createdBy
             ? {
-              id: savedLink.createdBy._id.toString(), // ✅ Ensure id is string
-              username: savedLink.createdBy.username,
-              profilePhoto: savedLink.createdBy.profilePhoto,
-            }
+                id: savedLink.createdBy._id.toString(), // ✅ Ensure id is string
+                username: savedLink.createdBy.username,
+                profilePhoto: savedLink.createdBy.profilePhoto,
+              }
             : {
-              id: context.user.userId,
-              username: "Unknown",
-              profilePhoto: null,
-            },
+                id: context.user.userId,
+                username: "Unknown",
+                profilePhoto: null,
+              },
         };
 
         console.log("✅ Returning result with createdBy:", result.createdBy);
@@ -1630,8 +1632,9 @@ const resolvers = {
       return {
         ...savedLink.toObject(),
         id: savedLink._id.toString(),
-        url: `${process.env.APP_URL || "https://yourapp.com"}/join/${savedLink.code
-          }`,
+        url: `${process.env.APP_URL || "https://yourapp.com"}/join/${
+          savedLink.code
+        }`,
       };
     },
 
@@ -1884,8 +1887,9 @@ const resolvers = {
   // Field resolvers// In resolvers.js - Update the InviteLink field resolver
   InviteLink: {
     url: (parent) => {
-      return `${process.env.APP_URL || "https://yourapp.com"}/join/${parent.code
-        }`;
+      return `${process.env.APP_URL || "https://yourapp.com"}/join/${
+        parent.code
+      }`;
     },
     createdBy: async (parent) => {
       // If already populated, return it
@@ -1914,21 +1918,29 @@ const resolvers = {
     },
   },
 
+  // In your GraphQL Resolvers file
   Stream: {
     header: async (parent) => {
-      // parent._id is the MongoDB ID of the Stream
-      // We look for the chunk where the 'stream' field matches this ID
+      // 1. Get the Magnet Link from StreamChunks
       const chunk = await StreamChunk.findOne({
         stream: parent._id,
-        chunkIndex: -1
+        chunkIndex: -1,
       }).lean();
 
-      // Log this to your terminal to verify it's finding the data!
-      console.log(`Checking Stream ${parent._id}: ${chunk ? 'Found Thumbnail' : 'Still Null'}`);
-      
-      return chunk;
-    }
+      // 2. Get the Base64 Thumbnail from Messages (The missing link!)
+      const message = await Message.findOne({
+        sessionId: parent.sessionId,
+        content: "STREAM_HEADER",
+      }).lean();
+
+      // 3. Merge them into one object for the frontend
+      return {
+        magnetLink: chunk?.magnetLink,
+        thumbnailUrl: message?.thumbnailUrl, // This is the base64 string!
+        mimeType: chunk?.mimeType || message?.mimeType,
+      };
+    },
   },
-}
+};
 
 export default resolvers;
