@@ -49,4 +49,20 @@ const streamSchema = new mongoose.Schema(
   }
 );
 
+// 🎯 THE BRIDGE: Look up the thumbnail from the Message collection
+streamSchema.virtual('thumbnailUrl').get(async function() {
+  // 'this' refers to the Stream document
+  const Message = mongoose.model('Message');
+  const msg = await Message.findOne({ 
+    sessionId: this.sessionId, 
+    content: "STREAM_HEADER" 
+  }).select('thumbnailUrl').lean();
+  
+  return msg?.thumbnailUrl || null;
+});
+
+// Make sure virtuals are included
+streamSchema.set('toJSON', { virtuals: true });
+streamSchema.set('toObject', { virtuals: true });
+
 export default mongoose.model("Stream", streamSchema);
