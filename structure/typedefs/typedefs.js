@@ -204,6 +204,7 @@ const typeDefs = gql`
     isPermanentP2P: Boolean
     chunks: [StreamChunk!]!
     thumbnailUrl: String
+    header: StreamChunk
   }
 
   type StreamChunk {
@@ -219,9 +220,6 @@ const typeDefs = gql`
     mimeType: String
     trackerUrls: [String!]
   }
-  type Query {
-    streamBySessionId(sessionId: String!): Stream
-  }
 
   type Ad {
     id: ID!
@@ -232,6 +230,7 @@ const typeDefs = gql`
   }
 
   type Query {
+    streamBySessionId(sessionId: String!): Stream
     streamChunks(sessionId: String!): [StreamChunk]
     getMyAllNeighborhoodsGallery: GalleryResponse
 

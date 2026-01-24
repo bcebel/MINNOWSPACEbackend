@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 const streamSchema = new mongoose.Schema(
   {
     sessionId: { type: String, unique: true, required: true, index: true }, // The unique session key
+    header: { type: mongoose.Schema.Types.ObjectId, ref: 'StreamChunk' },
     startedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

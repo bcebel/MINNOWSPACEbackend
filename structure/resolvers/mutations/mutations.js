@@ -739,27 +739,31 @@ const resolvers = {
   },
 
   Mutation: {
-completeStream: async (_, { sessionId, archiveUrl, totalChunks }, context) => {
-  if (!context.user) throw new Error("Authentication required");
+    completeStream: async (
+      _,
+      { sessionId, archiveUrl, totalChunks },
+      context
+    ) => {
+      if (!context.user) throw new Error("Authentication required");
 
-  // Determine if this is a "Long Hangout" (P2P only) or a "Clip" (IPFS)
-  // If the frontend didn't send an archiveUrl, we assume it's staying P2P
-  const isPermanentP2P = !archiveUrl; 
+      // Determine if this is a "Long Hangout" (P2P only) or a "Clip" (IPFS)
+      // If the frontend didn't send an archiveUrl, we assume it's staying P2P
+      const isPermanentP2P = !archiveUrl;
 
-  const stream = await Stream.findOneAndUpdate(
-    { sessionId },
-    { 
-      status: 'completed', 
-      archiveUrl: archiveUrl || null, 
-      isPermanentP2P: isPermanentP2P,
-      totalChunks: totalChunks,
-      endedAt: new Date() 
+      const stream = await Stream.findOneAndUpdate(
+        { sessionId },
+        {
+          status: "completed",
+          archiveUrl: archiveUrl || null,
+          isPermanentP2P: isPermanentP2P,
+          totalChunks: totalChunks,
+          endedAt: new Date(),
+        },
+        { new: true }
+      ).populate("startedBy neighborhood");
+
+      return stream;
     },
-    { new: true }
-  ).populate("startedBy neighborhood");
-
-  return stream;
-},
     // Toggle video privacy
     toggleVideoPrivacy: async (_, { videoId }, { user }) => {
       if (!user) throw new Error("Authentication required");
@@ -1910,6 +1914,16 @@ completeStream: async (_, { sessionId, archiveUrl, totalChunks }, context) => {
         username: "Unknown",
         profilePhoto: null,
       };
+    },
+  },
+
+  Stream: {
+    header: async (parent) => {
+      // We use the sessionId from the Stream to find the Chunk -1
+      return await StreamChunk.findOne({
+        sessionId: parent.sessionId,
+        chunkIndex: -1,
+      }).lean();
     },
   },
 };
