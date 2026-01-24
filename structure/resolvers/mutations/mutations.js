@@ -1920,25 +1920,16 @@ const resolvers = {
 
   // In your GraphQL Resolvers file
   Stream: {
-    header: async (parent) => {
-      // 1. Get the Magnet Link from StreamChunks
-      const chunk = await StreamChunk.findOne({
-        stream: parent._id,
-        chunkIndex: -1,
-      }).lean();
-
-      // 2. Get the Base64 Thumbnail from Messages (The missing link!)
-      const message = await Message.findOne({
+    thumbnailUrl: async (parent) => {
+      // parent.sessionId is the key (e.g., "live_1769205497277_dat6zyqfo")
+      const msg = await Message.findOne({
         sessionId: parent.sessionId,
         content: "STREAM_HEADER",
-      }).lean();
+      })
+        .select("thumbnailUrl")
+        .lean();
 
-      // 3. Merge them into one object for the frontend
-      return {
-        magnetLink: chunk?.magnetLink,
-        thumbnailUrl: message?.thumbnailUrl, // This is the base64 string!
-        mimeType: chunk?.mimeType || message?.mimeType,
-      };
+      return msg?.thumbnailUrl || null;
     },
   },
 };
