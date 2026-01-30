@@ -1630,7 +1630,7 @@ const resolvers = {
       return {
         ...savedLink.toObject(),
         id: savedLink._id.toString(),
-        url: `${process.env.APP_URL || "https://yourapp.com"}/join/${savedLink.code
+        url: `${process.env.APP_URL || "https://bubblebase.app"}/join/${savedLink.code
           }`,
       };
     },
@@ -1884,7 +1884,7 @@ const resolvers = {
   // Field resolvers// In resolvers.js - Update the InviteLink field resolver
   InviteLink: {
     url: (parent) => {
-      return `${process.env.APP_URL || "https://yourapp.com"}/join/${parent.code
+      return `${process.env.APP_URL || "https://bubblebase.app"}/join/${parent.code
         }`;
     },
     createdBy: async (parent) => {
