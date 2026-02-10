@@ -72,6 +72,7 @@ const NeighborhoodSchema = new Schema(
           type: String,
           required: true,
           unique: true,
+          sparse: true,
         },
         name: {
           type: String,
@@ -120,7 +121,7 @@ const NeighborhoodSchema = new Schema(
     },
   },
   {
-    timestamps: true,// The preferred place to define all serialization options
+    timestamps: true, // The preferred place to define all serialization options
     toJSON: {
       virtuals: true,
       transform: function (doc, ret) {
@@ -133,7 +134,7 @@ const NeighborhoodSchema = new Schema(
       },
     },
     toObject: { virtuals: true },
-  }
+  },
 );
 
 
