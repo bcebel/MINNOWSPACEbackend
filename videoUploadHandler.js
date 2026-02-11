@@ -10,14 +10,27 @@ import axios from "axios";
 import FormData from "form-data";
 import Video from "./structure/models/Video.js";
 import Image from "./structure/models/Image.js";
-
+import { reactiveBooster } from "./seedService.js";
 dotenv.config();
 
-const client = new WebTorrent();
 const announce = [
+  "wss://tracker-0ad4cca9fd92.herokuapp.com",
+  "wss://tracker.files.fm:7073/announce",
+  "wss://tracker.webtorrent.dev",
   "wss://tracker.openwebtorrent.com",
   "wss://tracker.btorrent.xyz",
-  "wss://tracker.files.fm:7073/announce",
+  "wss://tracker.files.fm:7073",
+  "udp://tracker.opentrackr.org:1337/announce",
+  "udp://open.tracker.cl:1337/announce",
+  "udp://9.rarbg.to:2710/announce",
+  "udp://tracker.coppersurfer.tk:6969/announce",
+  "udp://tracker.leechers-paradise.org:6969/announce",
+  "udp://tracker.internetwarriors.net:1337/announce",
+  "udp://exodus.desync.com:6969/announce",
+  "udp://tracker.moeking.me:6969/announce",
+  "udp://opentor.org:2710/announce",
+  "udp://tracker.cyberia.is:6969/announce",
+  "udp://tracker3.itzmx.com:6961/announce",
 ];
 
 const FILEBASE_ACCESS_KEY = process.env.FILEBASE_ACCESS_KEY;
@@ -249,130 +262,138 @@ export default (app) => {
       fs.writeFileSync(permanentFilePath, req.file.buffer);
 
       // Create torrent
- const webseedUrls = [
-   `https://${PINATA_GATEWAY}/ipfs/${cid}`, // Primary - fastest for you
-   ...PUBLIC_GATEWAYS.map((gw) => `${gw}${cid}`), // Secondary backups for racing/caching
- ];
+      const webseedUrls = [
+        `https://${PINATA_GATEWAY}/ipfs/${cid}`, // Primary - fastest for you
+        ...PUBLIC_GATEWAYS.map((gw) => `${gw}${cid}`), // Secondary backups for racing/caching
+      ];
 
- createTorrent(
-   permanentFilePath,
-   {
-     announce, // your existing trackers
-     urlList: webseedUrls, // ← THIS IS THE KEY ADDITION
-     private: false, // optional but recommended for public content
-   },
-   async (err, torrent) => {
-     if (err) {
-       console.error("❌ Torrent creation failed:", err);
-       return res.status(500).send("Torrent creation failed.");
-     }
+      // ... inside createTorrent callback ...
+      createTorrent(
+        permanentFilePath,
+        {
+          announce,
+          urlList: webseedUrls,
+          private: false,
+        },
+        async (err, torrent) => {
+          if (err) {
+            console.error("❌ Torrent creation failed:", err);
+            return res.status(500).send("Torrent creation failed.");
+          }
 
-     // Seed the torrent
-     client.seed(permanentFilePath, { announce }, async (torrentData) => {
-       console.log("✅ Torrent seeded:", torrentData.magnetURI);
+          try {
+            // 🚀 SWAP: Instead of client.seed(), call your booster
+            // This uses your optimized, persistent WebTorrent instance
+            const magnetLink = await reactiveBooster.boostChunkIfNeeded(
+              permanentFilePath,
+              `gallery-${cid}`, // Unique ID for the booster map
+              announce
+            );
 
-       // Handle thumbnails
-       if (isThumbnail === "true" || isThumbnail === true) {
-         console.log("📸 Saving thumbnail for video:", originalFileName);
+            console.log("✅ Torrent boosted via Service:", magnetLink);
 
-         const newImage = new Image({
-           title: title || req.file.originalname,
-           description: description || "Thumbnail",
-           user: uid,
-           fileName: req.file.originalname,
-           fileSize: req.file.size,
-           fileType: "image",
-           mimetype: req.file.mimetype,
-           cid,
-           ipfsUrl,
-           magnetLink: torrentData.magnetURI,
-           strategy: "rarest",
-           neighborhood: neighborhoodId || null,
-           isThumbnail: true,
-           videoId: null,
-           originalVideoFileName: originalFileName,
-         });
+            // --- START YOUR EXISTING LOGIC ---
+            // We just use the 'magnetLink' variable we just got back
+      
+            if (isThumbnail === "true" || isThumbnail === true) {
+              console.log("📸 Saving thumbnail for video:", originalFileName);
+              const newImage = new Image({
+                title: title || req.file.originalname,
+                description: description || "Thumbnail",
+                user: uid,
+                fileName: req.file.originalname,
+                fileSize: req.file.size,
+                fileType: "image",
+                mimetype: req.file.mimetype,
+                cid,
+                ipfsUrl,
+                magnetLink: magnetLink, // 🎯 Use the boosted link
+                strategy: "rarest",
+                neighborhood: neighborhoodId || null,
+                isThumbnail: true,
+                videoId: null,
+                originalVideoFileName: originalFileName,
+              });
 
-         await newImage.save();
+              await newImage.save();
+              return res.json({
+                ipfsUrl,
+                magnetLink: magnetLink,
+                fileType: "image",
+                isThumbnail: true,
+                videoId: null,
+                neighborhoodId: neighborhoodId || null,
+              });
 
-         res.json({
-           ipfsUrl,
-           magnetLink: torrentData.magnetURI,
-           fileType: "image",
-           isThumbnail: true,
-           videoId: null,
-           neighborhoodId: neighborhoodId || null,
-         });
-       } else if (isImage) {
-         // Save as regular Image
-         const newImage = new Image({
-           title: title || req.file.originalname,
-           description: description || "",
-           user: uid,
-           fileName: req.file.originalname,
-           fileSize: req.file.size,
-           fileType: "image",
-           mimetype: req.file.mimetype,
-           cid,
-           ipfsUrl,
-           magnetLink: torrentData.magnetURI,
-           strategy: "rarest",
-           neighborhood: neighborhoodId || null,
-           isThumbnail: false,
-         });
+            } else if (isImage) {
+              const newImage = new Image({
+                title: title || req.file.originalname,
+                description: description || "",
+                user: uid,
+                fileName: req.file.originalname,
+                fileSize: req.file.size,
+                fileType: "image",
+                mimetype: req.file.mimetype,
+                cid,
+                ipfsUrl,
+                magnetLink: magnetLink, // 🎯 Use the boosted link
+                strategy: "rarest",
+                neighborhood: neighborhoodId || null,
+                isThumbnail: false,
+              });
 
-         await newImage.save();
+              await newImage.save();
+              return res.json({
+                ipfsUrl,
+                magnetLink: magnetLink,
+                fileType: "image",
+                strategy: "rarest",
+                neighborhoodId: neighborhoodId || null,
+              });
 
-         res.json({
-           ipfsUrl,
-           magnetLink: torrentData.magnetURI,
-           fileType: "image",
-           strategy: "rarest",
-           neighborhoodId: neighborhoodId || null,
-         });
-       } else {
-         // Save as Video or other media
-         const newVideo = new Video({
-           title: title || req.file.originalname,
-           description: description || "",
-           user: uid,
-           fileName: req.file.originalname,
-           fileSize: req.file.size,
-           fileType: fileType,
-           mimetype: req.file.mimetype,
-           cid,
-           ipfsUrl,
-           magnetLink: torrentData.magnetURI,
-           strategy: isVideo ? "sequential" : "rarest",
-           videoMetadata: isVideo
-             ? {
-                 hasFastStart: req.file.originalname
-                   .toLowerCase()
-                   .endsWith(".mp4"),
-               }
-             : null,
-           neighborhood: neighborhoodId || null,
-         });
+            } else {
+              const newVideo = new Video({
+                title: title || req.file.originalname,
+                description: description || "",
+                user: uid,
+                fileName: req.file.originalname,
+                fileSize: req.file.size,
+                fileType: fileType,
+                mimetype: req.file.mimetype,
+                cid,
+                ipfsUrl,
+                magnetLink: magnetLink, // 🎯 Use the boosted link
+                strategy: isVideo ? "sequential" : "rarest",
+                videoMetadata: isVideo ? { hasFastStart: req.file.originalname.toLowerCase().endsWith(".mp4") } : null,
+                neighborhood: neighborhoodId || null,
+              });
 
-         await newVideo.save();
+              await newVideo.save();
+              return res.json({
+                ipfsUrl,
+                magnetLink: magnetLink,
+                fileType: fileType,
+                strategy: isVideo ? "sequential" : "rarest",
+                optimizedFor: isVideo ? "streaming" : "quick load",
+                neighborhoodId: neighborhoodId || null,
+              });
+            }
+            // --- END YOUR EXISTING LOGIC ---
 
-         res.json({
-           ipfsUrl,
-           magnetLink: torrentData.magnetURI,
-           fileType: fileType,
-           strategy: isVideo ? "sequential" : "rarest",
-           optimizedFor: isVideo ? "streaming" : "quick load",
-           neighborhoodId: neighborhoodId || null,
-         });
-       }
-     });
-   }
- );
-    } catch (error) {
+          } catch (boostError) {
+            console.error("❌ Seeding/Database error:", boostError);
+            res.status(500).send("Failed to save media metadata.");
+          }
+        }
+      );
+    }
+    catch (error) {
       console.error("❌ Upload error:", error);
       res.status(500).send(`Upload failed: ${error.message}`);
     }
   }
+
+
 
   app.post("/upload", authenticateUser, uploadHandler, handleUpload);
 };

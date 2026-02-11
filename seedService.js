@@ -34,15 +34,19 @@ class ReactiveSeedBooster {
    * For livestreams, we NEVER stop seeding automatically
    */
   async boostChunkIfNeeded(filePath, chunkId, announceUrls) {
-    // If already boosting, just return the magnet URI
     if (this.activeTorrents.has(chunkId)) {
       const job = this.activeTorrents.get(chunkId);
       return job.torrent.magnetURI;
     }
 
+    const isGallery = chunkId.startsWith("gallery-");
+
     const torrentOptions = {
       announce: announceUrls || this.trackers,
-      name: `livestream-${chunkId}-${Date.now()}`, // Unique name
+      // 🎯 If it's a gallery item, give it a clean name, otherwise use livestream
+      name: isGallery
+        ? `bubble-media-${chunkId}`
+        : `livestream-${chunkId}-${Date.now()}`,
     };
 
     return new Promise((resolve, reject) => {
@@ -50,8 +54,8 @@ class ReactiveSeedBooster {
         console.log(
           `📤 Seeding chunk ${chunkId}. InfoHash: ${torrent.infoHash.substring(
             0,
-            8
-          )}...`
+            8,
+          )}...`,
         );
 
         // Log peer connections
@@ -113,7 +117,7 @@ class ReactiveSeedBooster {
     }
 
     console.log(
-      `🧼 Stopping ${chunksToRemove.length} chunks from stream ${sessionId}`
+      `🧼 Stopping ${chunksToRemove.length} chunks from stream ${sessionId}`,
     );
 
     for (const chunkId of chunksToRemove) {
