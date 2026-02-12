@@ -5,8 +5,6 @@ const videoSchema = new mongoose.Schema(
     title: { type: String, required: true },
     description: { type: String },
     youtubeVideoId: { type: String },
-    // NOTE: You have 'thumbnail' defined twice. I'm keeping the ref: "Image" one.
-    // Ensure you only have one definition in your actual code.
     thumbnail: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Image",
@@ -16,6 +14,19 @@ const videoSchema = new mongoose.Schema(
     fileName: { type: String, required: true },
     fileSize: { type: Number, required: true },
     fileType: { type: String, required: true },
+
+    // --- ADDITIVE SECTION START: Slicing for Browser/Memory support ---
+    isSliced: { type: Boolean, default: false },
+    slices: [
+      {
+        index: Number,
+        cid: String,
+        magnetLink: String,
+        size: Number,
+      },
+    ],
+    // --- ADDITIVE SECTION END ---
+
     cid: { type: String, required: true },
     ipfsUrl: { type: String, required: true },
     magnetLink: { type: String, required: true },
@@ -40,23 +51,19 @@ const videoSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-    // 🔑 CRITICAL FIX: Add serialization options for GraphQL compatibility
     toJSON: {
       virtuals: true,
       transform: function (doc, ret) {
-        // Ensure the root ID is a string
         ret.id = ret._id.toString();
-        // Clean up internal fields
         delete ret._id;
         delete ret.__v;
-        return ret; // Return the cleaned object
+        return ret;
       },
     },
     toObject: { virtuals: true },
-  }
+  },
 );
 
-// Middleware to update `updatedAt` on save (This is correct)
 videoSchema.pre("save", function (next) {
   this.updatedAt = new Date();
   next();
