@@ -174,226 +174,95 @@ async function uploadToFilebase(fileBuffer, fileName, mimeType) {
   }
 }
 
+
 export default (app) => {
   const uploadHandler = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 50 * 1024 * 1024 },
+    limits: { fileSize: 100 * 1024 * 1024 }, // Increased limit for slicing
   }).single("video");
 
   async function handleUpload(req, res) {
-    console.log("📥 Upload request received:", {
-      user: req.user?.userId,
-      fileName: req.file?.originalname,
-      fileSize: req.file?.size,
-      contentType: req.file?.mimetype,
-      body: req.body,
-    });
-
-    const {
-      title,
-      description,
-      neighborhoodId,
-      isThumbnail,
-      originalFileName,
-    } = req.body;
+    const { title, description, neighborhoodId } = req.body;
     const uid = req.user?.userId;
+    const SLICE_SIZE = 5 * 1024 * 1024; // 🎯 5MB manageable slices
 
-    if (!uid) {
-      return res.status(400).send("UID is required.");
-    }
-
-    if (!req.file) {
-      return res.status(400).send("No file uploaded.");
-    }
+    if (!req.file) return res.status(400).send("No file uploaded.");
 
     try {
-      const fileType = getFileType(req.file.mimetype, req.file.originalname);
-      const isImage = fileType === "image";
-      const isVideo = fileType === "video";
+      const fullBuffer = req.file.buffer;
+      const totalSlices = Math.ceil(fullBuffer.length / SLICE_SIZE);
+      const sliceRecords = [];
 
-      console.log("📊 File analysis:", { fileType, isImage, isVideo });
+      console.log(`🔪 Slicing ${req.file.originalname} into ${totalSlices} pieces...`);
 
-      let cid, ipfsUrl;
+      for (let i = 0; i < totalSlices; i++) {
+        const start = i * SLICE_SIZE;
+        const end = Math.min(start + SLICE_SIZE, fullBuffer.length);
+        const chunkBuffer = fullBuffer.slice(start, end);
 
-      // DECIDE WHICH SERVICE TO USE BASED ON ENV VARS
-      const usePinata = !!PINATA_JWT;
-      const useFilebase = !!(
-        FILEBASE_ACCESS_KEY &&
-        FILEBASE_SECRET_KEY &&
-        FILEBASE_BUCKET_NAME
-      );
-
-      if (usePinata) {
-        console.log("🔄 Using Pinata for IPFS upload");
-        const result = await uploadToPinata(
-          req.file.buffer,
-          req.file.originalname,
+        // 1. Upload Slice to IPFS (using your existing Pinata logic)
+        // Note: For speed, you could only upload slice 0 to Pinata 
+        // and keep others on Heroku/Local, but let's keep it simple for now.
+        const { cid, ipfsUrl } = await uploadToPinata(
+          chunkBuffer, 
+          `slice-${i}-${req.file.originalname}`, 
           req.file.mimetype
         );
-        cid = result.cid;
-        ipfsUrl = result.ipfsUrl;
-      } else if (useFilebase) {
-        console.log("🔄 Using Filebase for IPFS upload");
-        const result = await uploadToFilebase(
-          req.file.buffer,
-          req.file.originalname,
-          req.file.mimetype
-        );
-        cid = result.cid;
-        ipfsUrl = result.ipfsUrl;
-      } else {
-        throw new Error(
-          "No IPFS service configured. Set either PINATA_JWT or FILEBASE credentials."
-        );
-      }
 
-      console.log("✅ IPFS Upload Complete:", { cid, ipfsUrl });
-
-      // Save file locally for torrent creation
-      const uploadsDir = path.join(process.cwd(), "uploads");
-      if (!fs.existsSync(uploadsDir)) {
-        fs.mkdirSync(uploadsDir, { recursive: true });
-      }
-
-      const permanentFilePath = path.join(
-        uploadsDir,
-        `${cid}_${req.file.originalname}`
-      );
-      fs.writeFileSync(permanentFilePath, req.file.buffer);
-
-      // Create torrent
-      const webseedUrls = [
-        `https://${PINATA_GATEWAY}/ipfs/${cid}`, // Primary - fastest for you
-        ...PUBLIC_GATEWAYS.map((gw) => `${gw}${cid}`), // Secondary backups for racing/caching
-      ];
-
-      // ... inside createTorrent callback ...
-      createTorrent(
-        permanentFilePath,
-        {
-          announce,
-          urlList: webseedUrls,
-          private: false,
-        },
-        async (err, torrent) => {
-          if (err) {
-            console.error("❌ Torrent creation failed:", err);
-            return res.status(500).send("Torrent creation failed.");
-          }
-
-          try {
-            // 🚀 SWAP: Instead of client.seed(), call your booster
-            // This uses your optimized, persistent WebTorrent instance
-            const magnetLink = await reactiveBooster.boostChunkIfNeeded(
-              permanentFilePath,
-              `gallery-${cid}`, // Unique ID for the booster map
+        // 2. Create Torrent for this slice
+        const magnetLink = await new Promise((resolve, reject) => {
+          createTorrent(chunkBuffer, { announce, name: `slice-${i}` }, async (err, torrentBuf) => {
+            if (err) return reject(err);
+            // Boost via your SeedService
+            const mLink = await reactiveBooster.boostChunkIfNeeded(
+              chunkBuffer, 
+              `gallery-${cid}`, 
               announce
             );
+            resolve(mLink);
+          });
+        });
 
-            console.log("✅ Torrent boosted via Service:", magnetLink);
+        sliceRecords.push({
+          index: i,
+          cid: cid,
+          magnetLink: magnetLink,
+          size: chunkBuffer.length
+        });
+        
+        console.log(`✅ Slice ${i} complete.`);
+      }
 
-            // --- START YOUR EXISTING LOGIC ---
-            // We just use the 'magnetLink' variable we just got back
-      
-            if (isThumbnail === "true" || isThumbnail === true) {
-              console.log("📸 Saving thumbnail for video:", originalFileName);
-              const newImage = new Image({
-                title: title || req.file.originalname,
-                description: description || "Thumbnail",
-                user: uid,
-                fileName: req.file.originalname,
-                fileSize: req.file.size,
-                fileType: "image",
-                mimetype: req.file.mimetype,
-                cid,
-                ipfsUrl,
-                magnetLink: magnetLink, // 🎯 Use the boosted link
-                strategy: "rarest",
-                neighborhood: neighborhoodId || null,
-                isThumbnail: true,
-                videoId: null,
-                originalVideoFileName: originalFileName,
-              });
+      // 3. Save the Master Video Document
+      const newVideo = new Video({
+        title: title || req.file.originalname,
+        description,
+        user: uid,
+        fileName: req.file.originalname,
+        fileSize: req.file.size,
+        fileType: "video",
+        cid: sliceRecords[0].cid, // Master CID is the first slice
+        ipfsUrl: `https://${PINATA_GATEWAY}/ipfs/${sliceRecords[0].cid}`,
+        magnetLink: sliceRecords[0].magnetLink,
+        neighborhood: neighborhoodId || null,
+        isSliced: true,
+        slices: sliceRecords, // 🚀 THE DATASET FOR YOUR FRONTEND
+      });
 
-              await newImage.save();
-              return res.json({
-                ipfsUrl,
-                magnetLink: magnetLink,
-                fileType: "image",
-                isThumbnail: true,
-                videoId: null,
-                neighborhoodId: neighborhoodId || null,
-              });
+      await newVideo.save();
 
-            } else if (isImage) {
-              const newImage = new Image({
-                title: title || req.file.originalname,
-                description: description || "",
-                user: uid,
-                fileName: req.file.originalname,
-                fileSize: req.file.size,
-                fileType: "image",
-                mimetype: req.file.mimetype,
-                cid,
-                ipfsUrl,
-                magnetLink: magnetLink, // 🎯 Use the boosted link
-                strategy: "rarest",
-                neighborhood: neighborhoodId || null,
-                isThumbnail: false,
-              });
+      res.json({
+        success: true,
+        videoId: newVideo._id,
+        totalSlices: totalSlices,
+        slices: sliceRecords
+      });
 
-              await newImage.save();
-              return res.json({
-                ipfsUrl,
-                magnetLink: magnetLink,
-                fileType: "image",
-                strategy: "rarest",
-                neighborhoodId: neighborhoodId || null,
-              });
-
-            } else {
-              const newVideo = new Video({
-                title: title || req.file.originalname,
-                description: description || "",
-                user: uid,
-                fileName: req.file.originalname,
-                fileSize: req.file.size,
-                fileType: fileType,
-                mimetype: req.file.mimetype,
-                cid,
-                ipfsUrl,
-                magnetLink: magnetLink, // 🎯 Use the boosted link
-                strategy: isVideo ? "sequential" : "rarest",
-                videoMetadata: isVideo ? { hasFastStart: req.file.originalname.toLowerCase().endsWith(".mp4") } : null,
-                neighborhood: neighborhoodId || null,
-              });
-
-              await newVideo.save();
-              return res.json({
-                ipfsUrl,
-                magnetLink: magnetLink,
-                fileType: fileType,
-                strategy: isVideo ? "sequential" : "rarest",
-                optimizedFor: isVideo ? "streaming" : "quick load",
-                neighborhoodId: neighborhoodId || null,
-              });
-            }
-            // --- END YOUR EXISTING LOGIC ---
-
-          } catch (boostError) {
-            console.error("❌ Seeding/Database error:", boostError);
-            res.status(500).send("Failed to save media metadata.");
-          }
-        }
-      );
-    }
-    catch (error) {
-      console.error("❌ Upload error:", error);
-      res.status(500).send(`Upload failed: ${error.message}`);
+    } catch (error) {
+      console.error("❌ Slicing failed:", error);
+      res.status(500).send(`Slicing failed: ${error.message}`);
     }
   }
-
-
 
   app.post("/upload", authenticateUser, uploadHandler, handleUpload);
 };
