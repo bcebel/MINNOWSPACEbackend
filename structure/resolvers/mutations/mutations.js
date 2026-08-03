@@ -739,27 +739,24 @@ const resolvers = {
 
   Mutation: {
 createPost: async (_, { input }, context) => {
-  // 1. Check if user exists in context
   if (!context.user) {
     throw new Error('You must be logged in to create a post.');
   }
 
-  // 2. Grab the user ID (checking for id, userId, or userld)
   const authorId = context.user.id || context.user.userId || context.user.userld;
 
-  if (!authorId) {
-    throw new Error('User context missing valid ID.');
-  }
-
-  // 3. Pass authorId into your post creation
   const post = new Post({
     ...input,
     author: authorId,
   });
 
   await post.save();
+  
+  // 👈 FIX: Populates user fields (username, profilePhoto, etc.) so GraphQL can serialize it
+  await post.populate('author');
+
   return post;
-    },
+},
       
     completeStream: async (
       _,
