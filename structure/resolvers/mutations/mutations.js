@@ -738,6 +738,70 @@ const resolvers = {
   },
 
   Mutation: {
+    createPost: async (_, { input }, context) => {
+      if (!context.user) {
+        throw new Error("Authentication required to create a post.");
+      }
+
+      const {
+        content,
+        feedType = "universal",
+        neighborhoodId,
+        groupId,
+        media = [],
+        affiliateHtml,
+        affiliateUrl,
+      } = input;
+
+      // 2. Parse Affiliate Link/Snippet on insertion
+      let affiliateData = null;
+
+      if (affiliateHtml) {
+        const extracted = validateAndExtractAffiliateHtml(affiliateHtml);
+        if (extracted) {
+          affiliateData = {
+            targetUrl: extracted.targetUrl,
+            bannerUrl: extracted.bannerUrl,
+            title: extracted.title,
+            network: extracted.network || "Custom",
+            rawHtml: affiliateHtml,
+            isSponsored: true,
+          };
+        }
+      } else if (affiliateUrl) {
+        affiliateData = {
+          targetUrl: affiliateUrl,
+          isSponsored: true,
+        };
+      }
+
+      // 3. Instantiate and save the new post
+      const newPost = new Post({
+        content,
+        author: context.user._id,
+        feedType,
+        neighborhood: neighborhoodId || null,
+        group: groupId || null,
+        media,
+        affiliate: affiliateData,
+      });
+
+      await newPost.save();
+
+      // 4. Populate references for instant frontend update
+      await newPost.populate([
+        { path: "author", select: "username avatar" },
+        { path: "neighborhood", select: "name" },
+      ]);
+
+      // 5. Optional PubSub trigger for live feed updates
+      if (context.pubsub) {
+        context.pubsub.publish(`NEW_POST_${feedType.toUpperCase()}`, {
+          newPostAdded: newPost,
+        });
+      }
+    },
+      
     completeStream: async (
       _,
       { sessionId, archiveUrl, totalChunks },
@@ -1073,7 +1137,7 @@ const resolvers = {
         }
 
         // Validate the affiliate link (make sure this function is defined)
-        if (!validateAffiliateHtml(html)) {
+        if (!validateAndExtractAffiliateHtml(html)) {
           throw new Error(
             "Invalid affiliate link. Must be from approved networks (impact.com, cj.com, rakuten.com, shareasale.com, awin.com, webgains.com)",
           );

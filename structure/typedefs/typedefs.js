@@ -146,16 +146,53 @@ const typeDefs = gql`
     createdAt: String!
   }
 
+  input MediaInput {
+    url: String
+    cid: String
+    magnetURI: String
+    mediaType: String # "image", "video", "audio", "file"
+  }
+
+  input CreatePostInput {
+    content: String!
+    feedType: String # "universal", "neighborhood", "group", "individual"
+    neighborhoodId: ID
+    groupId: ID
+    media: [MediaInput]
+    affiliateHtml: String # Raw HTML snippet pasted from CJ, Impact, Awin, etc.
+    affiliateUrl: String # Direct target URL if pasted without HTML
+  }
+
+  type AffiliateData {
+    targetUrl: String
+    bannerUrl: String
+    title: String
+    network: String
+    rawHtml: String
+    isSponsored: Boolean
+  }
+
+  type PostMedia {
+    url: String
+    cid: String
+    magnetURI: String
+    mediaType: String
+  }
+
   type Post {
     id: ID!
     content: String!
     author: User!
-    likes: [User!]!
-    comments: [Comment!]!
-    createdAt: String!
-    updatedAt: String!
-    feedType: String! # 'universal', 'group', or 'individual'
-    group: Group # Optional, for group-specific posts
+    media: [PostMedia]
+    affiliate: AffiliateData
+    feedType: String!
+    neighborhood: Neighborhood
+    group: Group
+    likes: [User]
+    comments: [Comment]
+    isPinned: Boolean
+    createdAt: String
+    updatedAt: String
   }
 
   type Comment {
@@ -420,12 +457,11 @@ const typeDefs = gql`
       totalChunks: Int
       neighborhoodId: ID
     ): Message!
+}
 
-    # Post mutations
-    createPost(content: String!, feedType: String!, groupId: ID): Post!
-    likePost(postId: ID!): Post!
-    unlikePost(postId: ID!): Post!
-    addComment(postId: ID!, content: String!): Post!
+ type Mutation {
+  createPost(input: CreatePostInput!): Post!
+
 
     # Group mutations
     createGroup(name: String!, description: String!): Group!
