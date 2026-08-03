@@ -738,68 +738,27 @@ const resolvers = {
   },
 
   Mutation: {
-    createPost: async (_, { input }, context) => {
-      if (!context.user) {
-        throw new Error("Authentication required to create a post.");
-      }
+createPost: async (_, { input }, context) => {
+  // 1. Check if user exists in context
+  if (!context.user) {
+    throw new Error('You must be logged in to create a post.');
+  }
 
-      const {
-        content,
-        feedType = "universal",
-        neighborhoodId,
-        groupId,
-        media = [],
-        affiliateHtml,
-        affiliateUrl,
-      } = input;
+  // 2. Grab the user ID (checking for id, userId, or userld)
+  const authorId = context.user.id || context.user.userId || context.user.userld;
 
-      // 2. Parse Affiliate Link/Snippet on insertion
-      let affiliateData = null;
+  if (!authorId) {
+    throw new Error('User context missing valid ID.');
+  }
 
-      if (affiliateHtml) {
-        const extracted = validateAndExtractAffiliateHtml(affiliateHtml);
-        if (extracted) {
-          affiliateData = {
-            targetUrl: extracted.targetUrl,
-            bannerUrl: extracted.bannerUrl,
-            title: extracted.title,
-            network: extracted.network || "Custom",
-            rawHtml: affiliateHtml,
-            isSponsored: true,
-          };
-        }
-      } else if (affiliateUrl) {
-        affiliateData = {
-          targetUrl: affiliateUrl,
-          isSponsored: true,
-        };
-      }
+  // 3. Pass authorId into your post creation
+  const post = new Post({
+    ...input,
+    author: authorId,
+  });
 
-      // 3. Instantiate and save the new post
-      const newPost = new Post({
-        content,
-        author: context.user._id,
-        feedType,
-        neighborhood: neighborhoodId || null,
-        group: groupId || null,
-        media,
-        affiliate: affiliateData,
-      });
-
-      await newPost.save();
-
-      // 4. Populate references for instant frontend update
-      await newPost.populate([
-        { path: "author", select: "username avatar" },
-        { path: "neighborhood", select: "name" },
-      ]);
-
-      // 5. Optional PubSub trigger for live feed updates
-      if (context.pubsub) {
-        context.pubsub.publish(`NEW_POST_${feedType.toUpperCase()}`, {
-          newPostAdded: newPost,
-        });
-      }
+  await post.save();
+  return post;
     },
       
     completeStream: async (
