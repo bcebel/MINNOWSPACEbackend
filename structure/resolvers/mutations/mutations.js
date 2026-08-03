@@ -319,12 +319,30 @@ const resolvers = {
     },
 
     // Post queries
-    posts: async (_, { feedType, groupId }) => {
-      let query = {};
-      if (feedType) query.feedType = feedType;
-      if (groupId) query.group = groupId;
-      return await Post.find(query).populate("author").populate("group");
-    },
+    posts: async (_, { feedType, neighborhoodId, groupId, limit = 10, offset = 0 }, context) => {
+  const filter = {};
+
+  // Filter by feed type if provided
+  if (feedType) {
+    filter.feedType = feedType;
+  }
+
+  // Filter by neighborhood if scoped
+  if (neighborhoodId) {
+    filter.neighborhood = neighborhoodId; // Make sure this matches your Post model field name
+  }
+
+  // Filter by group if scoped
+  if (groupId) {
+    filter.group = groupId;
+  }
+
+  return await Post.find(filter)
+    .sort({ createdAt: -1 })
+    .skip(offset)
+    .limit(limit)
+    .populate('author'); // Ensures author is populated for all feed items!
+},
     post: async (_, { id }) =>
       await Post.findById(id).populate("author").populate("group"),
 

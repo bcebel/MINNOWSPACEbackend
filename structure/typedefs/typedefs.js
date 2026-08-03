@@ -304,7 +304,13 @@ const typeDefs = gql`
     message(id: ID!): Message
 
     # Post queries
-    posts(feedType: String, groupId: ID): [Post!]
+    posts(
+      feedType: String
+      neighborhoodId: ID
+      groupId: ID
+      limit: Int
+      offset: Int
+    ): [Post!]!
     post(id: ID!): Post
 
     # Group queries
@@ -457,11 +463,10 @@ const typeDefs = gql`
       totalChunks: Int
       neighborhoodId: ID
     ): Message!
-}
+  }
 
- type Mutation {
-  createPost(input: CreatePostInput!): Post!
-
+  type Mutation {
+    createPost(input: CreatePostInput!): Post!
 
     # Group mutations
     createGroup(name: String!, description: String!): Group!
