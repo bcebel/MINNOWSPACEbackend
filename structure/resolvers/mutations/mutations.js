@@ -906,6 +906,9 @@ const resolvers = {
     sendMessage: async (_, args, context) => {
       if (!context.user) throw new Error("Authentication required");
 
+      // 1. EXTRACT USERID HERE
+      const userId = context.user.userId || context.user.id;
+
       // Fall back to args directly if 'input' wasn't passed as a sub-object
       const input = args.input || args;
 
@@ -935,7 +938,7 @@ const resolvers = {
         room,
       );
 
-      // 1. Verify neighborhood access if specified
+      // 2. Now userId is valid here:
       if (neighborhoodId) {
         if (!mongoose.Types.ObjectId.isValid(neighborhoodId)) {
           throw new Error("Invalid neighborhood ID");
