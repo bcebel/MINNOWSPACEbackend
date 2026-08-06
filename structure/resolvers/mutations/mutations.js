@@ -903,10 +903,11 @@ const resolvers = {
     },
 
     // Mutation: sendMessage(input: MessageInput!): Message!
-    sendMessage: async (_, { input }, context) => {
+    sendMessage: async (_, args, context) => {
       if (!context.user) throw new Error("Authentication required");
 
-      const userId = context.user.userId || context.user.id;
+      // Fall back to args directly if 'input' wasn't passed as a sub-object
+      const input = args.input || args;
 
       const {
         content,
