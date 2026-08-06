@@ -300,7 +300,7 @@ const typeDefs = gql`
     chat(id: ID!): Chat
 
     # Message queries
-    messages(room: String): [Message!]
+    messages(neighborhood: ID!, room: String): [Message!]!
     message(id: ID!): Message
 
     # Post queries

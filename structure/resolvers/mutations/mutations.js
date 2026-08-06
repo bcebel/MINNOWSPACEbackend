@@ -296,17 +296,44 @@ const resolvers = {
     chat: async (_, { id }) => await Chat.findById(id).populate("participants"),
 
     // Message queries
-    messages: async (_, { room }, context) => {
+    // Query: messages(neighborhood: ID!, room: String): [Message!]!
+    messages: async (_, { neighborhood, room }, context) => {
       if (!context.user) throw new Error("Authentication required");
-      console.log("🔍 Backend: Fetching messages for room:", room);
 
-      const query = room ? { room } : {};
+      const userId = context.user.userId || context.user.id;
+
+      // 1. Validate Neighborhood ID format
+      if (!neighborhood || !mongoose.Types.ObjectId.isValid(neighborhood)) {
+        throw new Error("Invalid neighborhood ID provided");
+      }
+
+      // 2. Check Neighborhood access / membership
+      const targetNeighborhood = await Neighborhood.findById(neighborhood);
+      if (!targetNeighborhood) {
+        throw new Error(`Neighborhood ID ${neighborhood} not found`);
+      }
+
+      const isMember = targetNeighborhood.members.some(
+        (member) => member.user.toString() === userId,
+      );
+      if (!isMember) {
+        throw new Error("Not a member of this neighborhood");
+      }
+
+      // 3. Construct query filter
+      const query = { neighborhood };
+      if (room) {
+        query.room = room;
+      }
+
+      console.log("Backend: Fetching messages with filter:", query);
+
       const messages = await Message.find(query)
         .populate("sender", "username profilePhoto")
         .sort({ createdAt: 1 })
         .limit(50);
 
-      console.log("✅ Backend: Found", messages.length, "messages");
+      console.log("Backend: Found", messages.length, "messages");
       return messages;
     },
 
@@ -319,30 +346,34 @@ const resolvers = {
     },
 
     // Post queries
-    posts: async (_, { feedType, neighborhoodId, groupId, limit = 10, offset = 0 }, context) => {
-  const filter = {};
+    posts: async (
+      _,
+      { feedType, neighborhoodId, groupId, limit = 10, offset = 0 },
+      context,
+    ) => {
+      const filter = {};
 
-  // Filter by feed type if provided
-  if (feedType) {
-    filter.feedType = feedType;
-  }
+      // Filter by feed type if provided
+      if (feedType) {
+        filter.feedType = feedType;
+      }
 
-  // Filter by neighborhood if scoped
-  if (neighborhoodId) {
-    filter.neighborhood = neighborhoodId; // Make sure this matches your Post model field name
-  }
+      // Filter by neighborhood if scoped
+      if (neighborhoodId) {
+        filter.neighborhood = neighborhoodId; // Make sure this matches your Post model field name
+      }
 
-  // Filter by group if scoped
-  if (groupId) {
-    filter.group = groupId;
-  }
+      // Filter by group if scoped
+      if (groupId) {
+        filter.group = groupId;
+      }
 
-  return await Post.find(filter)
-    .sort({ createdAt: -1 })
-    .skip(offset)
-    .limit(limit)
-    .populate('author'); // Ensures author is populated for all feed items!
-},
+      return await Post.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(offset)
+        .limit(limit)
+        .populate("author"); // Ensures author is populated for all feed items!
+    },
     post: async (_, { id }) =>
       await Post.findById(id).populate("author").populate("group"),
 
@@ -713,8 +744,9 @@ const resolvers = {
         const transformedLink = {
           ...link.toObject(),
           id: link._id.toString(),
-          url: `${process.env.APP_URL || "http://bubblebase.app"}/join/${link.code
-            }`,
+          url: `${process.env.APP_URL || "http://bubblebase.app"}/join/${
+            link.code
+          }`,
         };
 
         // Ensure createdBy has proper id field
@@ -756,26 +788,27 @@ const resolvers = {
   },
 
   Mutation: {
-createPost: async (_, { input }, context) => {
-  if (!context.user) {
-    throw new Error('You must be logged in to create a post.');
-  }
+    createPost: async (_, { input }, context) => {
+      if (!context.user) {
+        throw new Error("You must be logged in to create a post.");
+      }
 
-  const authorId = context.user.id || context.user.userId || context.user.userld;
+      const authorId =
+        context.user.id || context.user.userId || context.user.userld;
 
-  const post = new Post({
-    ...input,
-    author: authorId,
-  });
+      const post = new Post({
+        ...input,
+        author: authorId,
+      });
 
-  await post.save();
-  
-  // 👈 FIX: Populates user fields (username, profilePhoto, etc.) so GraphQL can serialize it
-  await post.populate('author');
+      await post.save();
 
-  return post;
-},
-      
+      // 👈 FIX: Populates user fields (username, profilePhoto, etc.) so GraphQL can serialize it
+      await post.populate("author");
+
+      return post;
+    },
+
     completeStream: async (
       _,
       { sessionId, archiveUrl, totalChunks },
@@ -869,72 +902,78 @@ createPost: async (_, { input }, context) => {
         .populate("neighborhood");
     },
 
-    sendMessage: async (
-      _,
-      {
+    // Mutation: sendMessage(input: MessageInput!): Message!
+    sendMessage: async (_, { input }, context) => {
+      if (!context.user) throw new Error("Authentication required");
+
+      const userId = context.user.userId || context.user.id;
+
+      const {
         content,
-        room,
+        room = "neighborhood",
         imageUrl,
         videoUrl,
         fileUrl,
         fileName,
         fileType,
         fileSize,
-        thumbnailUrl,
         magnetLink,
         mimeType,
-        neighborhoodId,
+        ipfsHash,
+        ipfsData,
         sessionId,
         chunkIndex,
         totalChunks,
-      },
-      context,
-    ) => {
-      if (!context.user) throw new Error("Authentication required");
+        neighborhoodId,
+      } = input;
 
-      console.log("🔍 Backend: Sending message:", {
-        content,
+      console.log(
+        "Backend: Sending message for neighborhood:",
+        neighborhoodId,
+        "room:",
         room,
-        imageUrl,
-        videoUrl,
-        neighborhoodId,
-        thumbnailUrl,
-        sessionId,
-        chunkIndex,
-        totalChunks,
-      });
+      );
 
-      let neighborhood = null;
+      // 1. Verify neighborhood access if specified
       if (neighborhoodId) {
-        neighborhood = await Neighborhood.findById(neighborhoodId);
+        if (!mongoose.Types.ObjectId.isValid(neighborhoodId)) {
+          throw new Error("Invalid neighborhood ID");
+        }
+        const neighborhood = await Neighborhood.findById(neighborhoodId);
+        if (!neighborhood) throw new Error("Neighborhood not found");
+
         const isMember = neighborhood.members.some(
-          (member) => member.user.toString() === context.user.userId,
+          (member) => member.user.toString() === userId,
         );
         if (!isMember) throw new Error("Not a member of this neighborhood");
       }
 
+      // 2. Create message document
       const message = new Message({
-        sender: context.user.userId,
+        sender: userId,
         content,
+        room: room || "neighborhood",
         imageUrl: imageUrl || null,
         videoUrl: videoUrl || null,
         fileUrl: fileUrl || null,
-        magnetLink: magnetLink,
         fileName: fileName || null,
-        fileType: fileType,
-        thumbnailUrl: thumbnailUrl || null,
+        fileType: fileType || null,
         fileSize: fileSize || null,
+        magnetLink: magnetLink || null,
         mimeType: mimeType || null,
-        room: room || "neighborhood",
+        ipfsHash: ipfsHash || null,
+        ipfsData: ipfsData || null,
         neighborhood: neighborhoodId || null,
         sessionId: sessionId || null,
         chunkIndex: typeof chunkIndex === "number" ? chunkIndex : undefined,
         totalChunks: typeof totalChunks === "number" ? totalChunks : undefined,
-        createdAt: new Date(), // ✅ Explicitly set date
+        createdAt: new Date(),
       });
+
       await message.save();
-      console.log("✅ Backend: Message saved with ID:", message._id);
-      // Inside your sendMessage resolver, replace the StreamChunk.create block:
+      console.log("Backend: Message saved with ID:", message._id);
+
+      // 3. Sync video chunk to StreamChunk model if streaming
       if (
         sessionId &&
         (fileType === "video_chunk" || fileType === "video_header")
@@ -942,28 +981,26 @@ createPost: async (_, { input }, context) => {
         try {
           const parentStream = await Stream.findOne({ sessionId });
           if (parentStream) {
-            // 🔄 THE FIX: Use findOneAndUpdate to prevent duplicates
             await StreamChunk.findOneAndUpdate(
               {
                 stream: parentStream._id,
                 chunkIndex: typeof chunkIndex === "number" ? chunkIndex : -1,
               },
               {
-                sessionId: sessionId,
-                magnetLink: magnetLink,
+                sessionId,
+                magnetLink,
                 fileName: fileName || "blob",
                 mimeType: mimeType || "video/mp4",
                 fileSize: fileSize || 0,
-                thumbnailUrl: thumbnailUrl || null,
               },
               {
-                upsert: true, // Create if doesn't exist
-                new: true, // Return the updated doc
+                upsert: true,
+                new: true,
                 setDefaultsOnInsert: true,
               },
             );
 
-            if (chunkIndex === -1 && thumbnailUrl) {
+            if (chunkIndex === -1 && input.thumbnailUrl) {
               parentStream.status = "live";
               await parentStream.save();
             }
@@ -972,17 +1009,16 @@ createPost: async (_, { input }, context) => {
           console.error("Error syncing message to StreamChunk:", err);
         }
       }
-      // 🚨 SIMPLIFIED: Only populate sender, don't populate neighborhood
+
+      // 4. Populate sender user info
       const populatedMessage = await Message.findById(message._id)
         .populate("sender", "username profilePhoto")
         .exec();
 
-      console.log("🚨 Raw populated message:", populatedMessage);
-
       const result = populatedMessage.toObject();
+      result.id = result._id.toString();
 
-      console.log("🚨 Fixed result:", result);
-
+      // 5. Emit real-time updates via Socket.io
       if (context.io) {
         const emitRoom = neighborhoodId
           ? `neighborhood-${neighborhoodId}`
@@ -990,26 +1026,21 @@ createPost: async (_, { input }, context) => {
         context.io.to(emitRoom).emit("message", result);
       }
 
-      // Publish to livestreamChunkAdded subscription if it's a video chunk
+      // 6. Publish chunk updates via GraphQL Subscriptions
       if (
-        (result.fileType === "video_chunk" ||
-          result.fileType === "video_header") &&
-        result.sessionId
+        (fileType === "video_chunk" || fileType === "video_header") &&
+        sessionId
       ) {
-        const topic = `LIVESTREAM_CHUNK_ADDED_${result.sessionId}`;
-
+        const topic = `LIVESTREAM_CHUNK_ADDED_${sessionId}`;
         const cleanChunk = {
           ...result,
           id: result._id.toString(),
-          // Ensure index is a number (Header is -1, Chunks are 0, 1, 2...)
-          chunkIndex:
-            typeof result.chunkIndex === "number" ? result.chunkIndex : -1,
+          chunkIndex: typeof chunkIndex === "number" ? chunkIndex : -1,
         };
 
         console.log(
-          `📡 [PUB] Sending ${result.fileType} #${cleanChunk.chunkIndex} to ${topic}`,
+          `[PUB] Sending ${fileType} #${cleanChunk.chunkIndex} to ${topic}`,
         );
-
         pubsub.publish(topic, {
           livestreamChunkAdded: cleanChunk,
         });
@@ -1598,22 +1629,23 @@ createPost: async (_, { input }, context) => {
             : null,
           role: savedLink.role || "member",
           isActive: savedLink.isActive !== false,
-          url: `${process.env.APP_URL || "http://bubblebase.app"}/join/${savedLink.code
-            }`,
+          url: `${process.env.APP_URL || "http://bubblebase.app"}/join/${
+            savedLink.code
+          }`,
           createdAt: savedLink.createdAt
             ? savedLink.createdAt.toISOString()
             : new Date().toISOString(),
           createdBy: savedLink.createdBy
             ? {
-              id: savedLink.createdBy._id.toString(), // ✅ Ensure id is string
-              username: savedLink.createdBy.username,
-              profilePhoto: savedLink.createdBy.profilePhoto,
-            }
+                id: savedLink.createdBy._id.toString(), // ✅ Ensure id is string
+                username: savedLink.createdBy.username,
+                profilePhoto: savedLink.createdBy.profilePhoto,
+              }
             : {
-              id: context.user.userId,
-              username: "Unknown",
-              profilePhoto: null,
-            },
+                id: context.user.userId,
+                username: "Unknown",
+                profilePhoto: null,
+              },
         };
 
         console.log("✅ Returning result with createdBy:", result.createdBy);
@@ -1668,8 +1700,9 @@ createPost: async (_, { input }, context) => {
       return {
         ...savedLink.toObject(),
         id: savedLink._id.toString(),
-        url: `${process.env.APP_URL || "https://bubblebase.app"}/join/${savedLink.code
-          }`,
+        url: `${process.env.APP_URL || "https://bubblebase.app"}/join/${
+          savedLink.code
+        }`,
       };
     },
 
@@ -1922,8 +1955,9 @@ createPost: async (_, { input }, context) => {
   // Field resolvers// In resolvers.js - Update the InviteLink field resolver
   InviteLink: {
     url: (parent) => {
-      return `${process.env.APP_URL || "https://bubblebase.app"}/join/${parent.code
-        }`;
+      return `${process.env.APP_URL || "https://bubblebase.app"}/join/${
+        parent.code
+      }`;
     },
     createdBy: async (parent) => {
       // If already populated, return it
@@ -1961,21 +1995,23 @@ createPost: async (_, { input }, context) => {
       // Look for the message with the same sessionId that acts as the header
       return await Message.findOne({
         sessionId: parent.sessionId,
-        content: "STREAM_HEADER" // or check for the one that has the thumbnail
+        content: "STREAM_HEADER", // or check for the one that has the thumbnail
       }).lean();
     },
-  
+
     // This gives you a direct shortcut to the thumbnail
     thumbnailUrl: async (parent) => {
       const Message = mongoose.model("Message");
       const msg = await Message.findOne({
         sessionId: parent.sessionId,
-        thumbnailUrl: { $ne: null }
-      }).select('thumbnailUrl').lean();
-    
+        thumbnailUrl: { $ne: null },
+      })
+        .select("thumbnailUrl")
+        .lean();
+
       return msg?.thumbnailUrl || null;
-    }
-  }
-}
+    },
+  },
+};
 
 export default resolvers;

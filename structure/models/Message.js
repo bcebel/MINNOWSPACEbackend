@@ -17,9 +17,8 @@ const messageSchema = new mongoose.Schema(
     thumbnailUrl: String,
     sessionId: {
       type: String,
-      // Optional, as only live stream and chunk messages use it
       required: false,
-      index: true, // Indexing this will help greatly with chat queries
+      index: true,
     },
     chunkIndex: {
       type: Number,
@@ -45,26 +44,19 @@ const messageSchema = new mongoose.Schema(
     createdAt: { type: Date, default: Date.now },
   },
   {
-    // The preferred place to define all serialization options
     toJSON: {
       virtuals: true,
       transform: function (doc, ret) {
-        // 🔑 THE FIX: Explicitly call .toString() on _id
         ret.id = ret._id.toString();
-        // Remove the MongoDB internal fields
         delete ret._id;
         delete ret.__v;
-        // The result will be a plain JS object with 'id' as a string
       },
     },
     toObject: { virtuals: true },
-  }
+  },
 );
 
-// 🛑 REMOVE the redundant messageSchema.set("toJSON", ...) block that was causing the conflict
-
-// Optional: You can keep the manual virtual if you like, but it's redundant.
-// If you remove the manual virtual, Mongoose still creates one based on your toJSON settings.
-// For simplicity, let's remove the manual virtual and the conflicting .set block.
+// Compound index for instant filtering between feeds, chats, and galleries
+messageSchema.index({ neighborhood: 1, room: 1, createdAt: -1 });
 
 export default mongoose.model("Message", messageSchema);
