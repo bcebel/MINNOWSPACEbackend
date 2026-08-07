@@ -348,30 +348,18 @@ const resolvers = {
 
     // Post queries
 posts: async (_, { neighborhoodId }, context) => {
-      const userId = context.user?.userId || context.user?.id;
-      if (!userId) throw new Error("Unauthenticated.");
+  const userId = context.user?.userId || context.user?.id;
+  if (!userId) throw new Error("Unauthenticated.");
 
-      // Case 1: Fetch posts for a specific targeted neighborhood
-      if (neighborhoodId) {
-        await requireNeighborhoodAccess(neighborhoodId, userId);
-        return Post.find({ neighborhood: neighborhoodId }).sort({ createdAt: -1 });
-      }
+  // 1. Same membership check chat uses before reading
+  await requireNeighborhoodAccess(neighborhoodId, userId);
 
-      // Case 2: Main Feed — Get user's joined neighborhood IDs
-      const userNeighborhoods = await Neighborhood.find({
-        "members.user": new mongoose.Types.ObjectId(userId)
-      }).select("_id");
-
-      const joinedIds = userNeighborhoods.map((n) => n._id);
-
-      // Match posts in joined neighborhoods OR posts marked as universal
-      return Post.find({
-        $or: [
-          { neighborhood: { $in: joinedIds } },
-          { feedType: "universal" }
-        ]
-      }).sort({ createdAt: -1 });
-    },
+  // 2. Same simple find & populate chat uses, with .lean() so IDs return as clean strings
+  return Post.find({ neighborhood: neighborhoodId })
+    .populate("author")
+    .sort({ createdAt: -1 })
+    .lean();
+},
   
     
     post: async (_, { id }) =>
