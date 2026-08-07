@@ -779,21 +779,32 @@ posts: async (_, { neighborhoodId }, context) => {
   },
 
   Mutation: {
- createPost: async (_, { neighborhoodId, content }, context) => {
+createPost: async (_, { input }, context) => {
   const userId = context.user?.userId || context.user?.id;
   if (!userId) throw new Error("Unauthenticated.");
 
-  // Check access for this single room
-  await requireNeighborhoodAccess(neighborhoodId, userId);
+  const { content, feedType, neighborhoodId, groupId, media, affiliate } = input;
 
-  return Post.create({
+  // 1. Only run access check IF a neighborhoodId is actually provided
+  if (neighborhoodId) {
+    await requireNeighborhoodAccess(neighborhoodId, userId);
+  }
+
+  // 2. Create the post matching your schema
+  const newPost = await Post.create({
     author: userId,
-    neighborhood: neighborhoodId,
     content,
-    feedType: "neighborhood",
+    feedType: feedType || (neighborhoodId ? "neighborhood" : "universal"),
+    neighborhood: neighborhoodId || null,
+    group: groupId || null,
+    media: media || [],
+    affiliate: affiliate || {},
   });
-},
 
+  // Populate author so GraphQL returns the requested user fields immediately
+  return await newPost.populate("author");
+}
+,
     completeStream: async (
       _,
       { sessionId, archiveUrl, totalChunks },
