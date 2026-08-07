@@ -82,8 +82,6 @@ const validateAndExtractAffiliateHtml = (html) => {
 };
 
 const resolvers = {
-
-
   Query: {
     streamChunks: async (_, { sessionId }) => {
       try {
@@ -350,45 +348,60 @@ const resolvers = {
 
     // Post queries
     // In your GraphQL resolver
+    // In your GraphQL resolvers - KEEP THEM SEPARATE
+
+    // ✅ POSTS resolver - ONLY for feed posts
+    // In your resolvers - POSTS (COPY the working pattern)
     posts: async (_, { neighborhoodId, feedType }, context) => {
-      const userId = context.user?.userId || context.user?.id;
-      if (!userId) throw new Error("Unauthenticated.");
+      if (!context.user) throw new Error("Authentication required");
 
-      let filter = {};
+      const userId = context.user.userId || context.user.id;
 
-      // 🔥 CRITICAL FIX: If neighborhoodId is provided, ONLY return posts for that neighborhood
+      // 1. Validate Neighborhood ID (if provided)
       if (neighborhoodId) {
-        // Verify user has access to this neighborhood
-        await requireNeighborhoodAccess(neighborhoodId, userId);
+        if (!mongoose.Types.ObjectId.isValid(neighborhoodId)) {
+          throw new Error("Invalid neighborhood ID provided");
+        }
 
-        // 🔥 ONLY posts that belong to this neighborhood
-        filter = {
-          neighborhood: neighborhoodId,
-          // Don't include universal posts in neighborhood feeds
-          feedType: { $ne: "universal" },
-        };
+        // 2. Check Neighborhood access / membership
+        const targetNeighborhood = await Neighborhood.findById(neighborhoodId);
+        if (!targetNeighborhood) {
+          throw new Error(`Neighborhood ID ${neighborhoodId} not found`);
+        }
+
+        const isMember = targetNeighborhood.members.some(
+          (member) => member.user.toString() === userId,
+        );
+        if (!isMember) {
+          throw new Error("Not a member of this neighborhood");
+        }
+      }
+
+      // 3. Construct query filter
+      const query = {};
+
+      if (neighborhoodId) {
+        // ✅ ONLY posts from this neighborhood
+        query.neighborhood = neighborhoodId;
+        query.feedType = "neighborhood"; // Force neighborhood type
       } else {
-        // If no neighborhoodId, only show universal posts
-        filter = { feedType: "universal" };
+        // ✅ Only universal posts for global feed
+        query.feedType = "universal";
       }
 
-      // If feedType is explicitly provided, use it
+      // 4. If feedType is explicitly provided, override
       if (feedType) {
-        filter.feedType = feedType;
+        query.feedType = feedType;
       }
 
-      console.log("🔍 Posts filter:", JSON.stringify(filter));
+      console.log("Backend: Fetching posts with filter:", query);
 
-      const posts = await Post.find(filter)
-        .populate("author")
+      const posts = await Post.find(query)
+        .populate("author", "username profilePhoto")
         .sort({ createdAt: -1 })
-        .lean();
+        .limit(50);
 
-      console.log(
-        `📊 Found ${posts.length} posts for neighborhood:`,
-        neighborhoodId || "universal",
-      );
-
+      console.log("Backend: Found", posts.length, "posts");
       return posts;
     },
 
@@ -807,27 +820,39 @@ const resolvers = {
 
   Mutation: {
     // In your createPost resolver
+    // CREATE_POST mutation resolver
     createPost: async (_, { input }, context) => {
-      const userId = context.user?.userId || context.user?.id;
-      if (!userId) throw new Error("Unauthenticated.");
+      if (!context.user) throw new Error("Authentication required");
 
-      // Determine feed type
-      let feedType = input.feedType || "universal";
-      let neighborhoodId = input.neighborhoodId;
+      const userId = context.user.userId || context.user.id;
 
-      // If neighborhoodId is provided, validate and set feedType
-      if (neighborhoodId) {
-        await requireNeighborhoodAccess(neighborhoodId, userId);
-        feedType = "neighborhood"; // Force to neighborhood type
-      } else {
-        feedType = "universal";
+      // 1. If neighborhood is provided, validate access
+      if (input.neighborhoodId) {
+        if (!mongoose.Types.ObjectId.isValid(input.neighborhoodId)) {
+          throw new Error("Invalid neighborhood ID provided");
+        }
+
+        const targetNeighborhood = await Neighborhood.findById(
+          input.neighborhoodId,
+        );
+        if (!targetNeighborhood) {
+          throw new Error(`Neighborhood ${input.neighborhoodId} not found`);
+        }
+
+        const isMember = targetNeighborhood.members.some(
+          (member) => member.user.toString() === userId,
+        );
+        if (!isMember) {
+          throw new Error("Not a member of this neighborhood");
+        }
       }
 
+      // 2. Create the post
       const post = new Post({
         content: input.content,
         author: userId,
-        feedType: feedType,
-        neighborhood: neighborhoodId || null, // Store the ID
+        feedType: input.neighborhoodId ? "neighborhood" : "universal",
+        neighborhood: input.neighborhoodId || null,
         group: input.groupId || null,
         media: input.media || [],
         affiliate: input.affiliate || null,
@@ -836,7 +861,11 @@ const resolvers = {
 
       await post.save();
 
-      return post.populate("author");
+      // 3. Populate author before returning
+      const populated = await post.populate("author", "username profilePhoto");
+
+      console.log("✅ Post created:", populated.id);
+      return populated;
     },
 
     completeStream: async (

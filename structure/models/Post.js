@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 
+// postSchema.js - Updated to match message patterns
 const postSchema = new mongoose.Schema(
   {
     content: {
@@ -13,37 +14,41 @@ const postSchema = new mongoose.Schema(
       required: true,
     },
 
-    // 1. Swarmable P2P Media Support
+    // ✅ MATCH MESSAGE STRUCTURE
     media: [
       {
-        url: { type: String }, // Standard direct URL or CDN fallback
-        cid: { type: String }, // IPFS / WebTorrent CID for P2P distribution
-        magnetURI: { type: String }, // WebTorrent Magnet Link
+        url: { type: String },
+        cid: { type: String },
+        magnetURI: { type: String },
         mediaType: {
           type: String,
           enum: ["image", "video", "audio", "file"],
           default: "image",
         },
+        // ✅ Add these to match message structure
+        fileName: { type: String },
+        fileSize: { type: Number },
+        mimeType: { type: String },
+        thumbnailUrl: { type: String },
       },
     ],
 
-    // 2. Affiliate & Ad Integration (Parsed on creation for zero React chaos)
+    // ✅ Keep affiliate separate (posts-only feature)
     affiliate: {
-      targetUrl: { type: String }, // Destination URL with affiliate tracking ID
-      bannerUrl: { type: String }, // Extracted product / banner image URL
-      title: { type: String }, // Product or campaign title
-      network: { type: String }, // e.g., "CJ", "Impact", "Awin", "Amazon", "Custom"
-      rawHtml: { type: String }, // Optional raw snippet fallback if needed
+      targetUrl: { type: String },
+      bannerUrl: { type: String },
+      title: { type: String },
+      network: { type: String },
+      rawHtml: { type: String },
       isSponsored: { type: Boolean, default: false },
     },
 
+    // ✅ MATCH MESSAGE FIELD NAMES
     feedType: {
       type: String,
       enum: ["universal", "neighborhood", "group", "individual"],
       default: "universal",
-      required: true,
     },
-
     neighborhood: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Neighborhood",
@@ -53,26 +58,13 @@ const postSchema = new mongoose.Schema(
       ref: "Group",
     },
 
-    likes: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-      },
-    ],
-    comments: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Comment",
-      },
-    ],
-
-    isPinned: {
-      type: Boolean,
-      default: false,
-    },
+    // ✅ Match message fields
+    isPinned: { type: Boolean, default: false },
+    likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    comments: [{ type: mongoose.Schema.Types.ObjectId, ref: "Comment" }],
   },
   {
-    timestamps: true, // Auto-manages createdAt & updatedAt
+    timestamps: true,
     toJSON: {
       virtuals: true,
       transform: function (doc, ret) {
@@ -82,7 +74,6 @@ const postSchema = new mongoose.Schema(
         return ret;
       },
     },
-    toObject: { virtuals: true },
   },
 );
 

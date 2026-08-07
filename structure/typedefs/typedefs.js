@@ -304,13 +304,7 @@ const typeDefs = gql`
     message(id: ID!): Message
 
     # Post queries
-    posts(
-      feedType: String
-      neighborhoodId: ID
-      groupId: ID
-      limit: Int
-      offset: Int
-    ): [Post!]!
+    posts(neighborhoodId: ID, feedType: String): [Post!]!
     post(id: ID!): Post
 
     # Group queries
