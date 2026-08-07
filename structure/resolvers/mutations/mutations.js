@@ -83,10 +83,16 @@ const validateAndExtractAffiliateHtml = (html) => {
 
 const resolvers = {
   Post: {
-    id: (post) => (post.id || post._id)?.toString(),
+    id: (post) => {
+      if (typeof post === "string") return post;
+      return (post._id || post.id || post)?.toString();
+    },
   },
   User: {
-    id: (user) => (user.id || user._id)?.toString(),
+    id: (user) => {
+      if (typeof user === "string") return user;
+      return (user._id || user.id || user)?.toString();
+    },
   },
 
   Query: {
@@ -354,7 +360,7 @@ const resolvers = {
     },
 
     // Post queries
- posts: async (_, { neighborhoodId }, context) => {
+    posts: async (_, { neighborhoodId }, context) => {
       const userId = context.user?.userId || context.user?.id;
       if (!userId) throw new Error("Unauthenticated.");
 
@@ -371,7 +377,6 @@ const resolvers = {
         .sort({ createdAt: -1 })
         .lean();
     },
-
 
     post: async (_, { id }) =>
       await Post.findById(id).populate("author").populate("group"),
