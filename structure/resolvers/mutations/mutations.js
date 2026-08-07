@@ -13,6 +13,7 @@ import Image from "../../models/Image.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
+import { requireNeighborhoodAccess } from "../../../utils/authHelpers.js";
 
 import StreamChunk from "../../models/StreamChunk.js";
 
@@ -346,47 +347,32 @@ const resolvers = {
     },
 
     // Post queries
-    posts: async (
-      _,
-      { feedType, neighborhoodId, groupId, limit = 10, offset = 0 },
-      context,
-    ) => {
-      const filter = {};
+posts: async (_, { neighborhoodId }, context) => {
+      const userId = context.user?.userId || context.user?.id;
+      if (!userId) throw new Error("Unauthenticated.");
 
-      if (feedType) {
-        filter.feedType = feedType;
-      }
-
-      if (groupId) {
-        filter.group = groupId;
-      }
-
-      // 1. Specific Neighborhood Selected
+      // Case 1: Fetch posts for a specific targeted neighborhood
       if (neighborhoodId) {
-        filter.neighborhood = neighborhoodId;
-      }
-      // 2. "All Joined" Mode (fallback to only the user's joined bubbles)
-      else if (context.user) {
-        const user = await User.findById(context.user.id || context.user._id);
-
-        // Replace 'neighborhoods' with your User model's actual joined array field name
-        const joinedIds =
-          user?.neighborhoods || user?.joinedNeighborhoods || [];
-
-        if (joinedIds.length > 0) {
-          filter.neighborhood = { $in: joinedIds };
-        } else {
-          // User hasn't joined any bubbles yet
-          return [];
-        }
+        await requireNeighborhoodAccess(neighborhoodId, userId);
+        return Post.find({ neighborhood: neighborhoodId }).sort({ createdAt: -1 });
       }
 
-      return await Post.find(filter)
-        .sort({ createdAt: -1 })
-        .skip(offset)
-        .limit(limit)
-        .populate("author");
+      // Case 2: Main Feed — Get user's joined neighborhood IDs
+      const userNeighborhoods = await Neighborhood.find({
+        "members.user": new mongoose.Types.ObjectId(userId)
+      }).select("_id");
+
+      const joinedIds = userNeighborhoods.map((n) => n._id);
+
+      // Match posts in joined neighborhoods OR posts marked as universal
+      return Post.find({
+        $or: [
+          { neighborhood: { $in: joinedIds } },
+          { feedType: "universal" }
+        ]
+      }).sort({ createdAt: -1 });
     },
+  
     
     post: async (_, { id }) =>
       await Post.findById(id).populate("author").populate("group"),
