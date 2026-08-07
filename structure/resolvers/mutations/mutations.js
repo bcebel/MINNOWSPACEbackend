@@ -82,18 +82,7 @@ const validateAndExtractAffiliateHtml = (html) => {
 };
 
 const resolvers = {
-  Post: {
-    id: (post) => {
-      if (typeof post === "string") return post;
-      return (post._id || post.id || post)?.toString();
-    },
-  },
-  User: {
-    id: (user) => {
-      if (typeof user === "string") return user;
-      return (user._id || user.id || user)?.toString();
-    },
-  },
+
 
   Query: {
     streamChunks: async (_, { sessionId }) => {
