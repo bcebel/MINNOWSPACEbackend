@@ -352,66 +352,17 @@ const resolvers = {
 
     // ✅ POSTS resolver - ONLY for feed posts
     // In your resolvers - POSTS (COPY the working pattern)
+    // TEMPORARY - Show all posts
     posts: async (_, { neighborhoodId, feedType }, context) => {
       if (!context.user) throw new Error("Authentication required");
 
-      const userId = context.user.userId || context.user.id;
-
-      console.log("🔍 RESOLVER CALLED WITH:", { neighborhoodId, feedType });
-
-      // 1. Validate Neighborhood ID (if provided)
-      if (neighborhoodId) {
-        if (!mongoose.Types.ObjectId.isValid(neighborhoodId)) {
-          throw new Error("Invalid neighborhood ID provided");
-        }
-
-        const targetNeighborhood = await Neighborhood.findById(neighborhoodId);
-        if (!targetNeighborhood) {
-          throw new Error(`Neighborhood ID ${neighborhoodId} not found`);
-        }
-
-        const isMember = targetNeighborhood.members.some(
-          (member) => member.user.toString() === userId,
-        );
-        if (!isMember) {
-          throw new Error("Not a member of this neighborhood");
-        }
-        console.log("✅ User is a member of neighborhood:", neighborhoodId);
-      }
-
-      // 3. Construct query filter
-      const query = {};
-
-      if (neighborhoodId) {
-        query.neighborhood = neighborhoodId;
-        query.feedType = "neighborhood";
-      } else {
-        query.feedType = "universal";
-      }
-
-      if (feedType) {
-        query.feedType = feedType;
-      }
-
-      console.log("🔍 FINAL MONGO QUERY:", JSON.stringify(query));
-
-      const posts = await Post.find(query)
-      //  .populate("author", "username profilePhoto")
+      // ✅ TEMPORARY: Return all posts
+      const posts = await Post.find({})
+        .populate("author", "username profilePhoto")
         .sort({ createdAt: -1 })
         .limit(50);
 
-      console.log(`📊 Found ${posts.length} posts matching query`);
-
-      // Log the first post if found
-      if (posts.length > 0) {
-        console.log("📝 First post:", {
-          id: posts[0]._id,
-          content: posts[0].content,
-          feedType: posts[0].feedType,
-          neighborhood: posts[0].neighborhood,
-        });
-      }
-
+      console.log(`📊 Found ${posts.length} total posts`);
       return posts;
     },
 
