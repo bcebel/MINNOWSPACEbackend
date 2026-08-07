@@ -351,14 +351,17 @@ posts: async (_, { neighborhoodId }, context) => {
   const userId = context.user?.userId || context.user?.id;
   if (!userId) throw new Error("Unauthenticated.");
 
-  // 1. Same membership check chat uses before reading
-  await requireNeighborhoodAccess(neighborhoodId, userId);
+  // Option A: User opened 1 specific neighborhood page -> require neighborhoodId
+  if (neighborhoodId) {
+    await requireNeighborhoodAccess(neighborhoodId, userId);
+    return Post.find({ neighborhood: neighborhoodId }).populate("author").lean();
+  }
 
-  // 2. Same simple find & populate chat uses, with .lean() so IDs return as clean strings
-  return Post.find({ neighborhood: neighborhoodId })
-    .populate("author")
-    .sort({ createdAt: -1 })
-    .lean();
+  // Option B: User opened the main feed -> no neighborhoodId passed, show all joined
+  const userNeighborhoods = await Neighborhood.find({ "members.user": userId }).select("_id");
+  const joinedIds = userNeighborhoods.map((n) => n._id);
+
+  return Post.find({ neighborhood: { $in: joinedIds } }).populate("author").lean();
 },
   
     
@@ -776,26 +779,20 @@ posts: async (_, { neighborhoodId }, context) => {
   },
 
   Mutation: {
-    createPost: async (_, { input }, context) => {
-      if (!context.user) {
-        throw new Error("You must be logged in to create a post.");
-      }
+ createPost: async (_, { neighborhoodId, content }, context) => {
+  const userId = context.user?.userId || context.user?.id;
+  if (!userId) throw new Error("Unauthenticated.");
 
-      const authorId =
-        context.user.id || context.user.userId || context.user.userld;
+  // Check access for this single room
+  await requireNeighborhoodAccess(neighborhoodId, userId);
 
-      const post = new Post({
-        ...input,
-        author: authorId,
-      });
-
-      await post.save();
-
-      // 👈 FIX: Populates user fields (username, profilePhoto, etc.) so GraphQL can serialize it
-      await post.populate("author");
-
-      return post;
-    },
+  return Post.create({
+    author: userId,
+    neighborhood: neighborhoodId,
+    content,
+    feedType: "neighborhood",
+  });
+},
 
     completeStream: async (
       _,
