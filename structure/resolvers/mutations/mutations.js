@@ -809,16 +809,23 @@ const resolvers = {
       }
 
       // 2. Create the post
-      const post = new Post({
-        content: input.content,
-        author: userId,
-        feedType: input.neighborhoodId ? "neighborhood" : "universal",
-        neighborhood: input.neighborhoodId || null,
-        group: input.groupId || null,
-        media: input.media || [],
-        affiliate: input.affiliate || null,
-        isPinned: input.isPinned || false,
-      });
+     const post = new Post({
+       content: input.content,
+       author: userId,
+       feedType: input.neighborhoodId ? "neighborhood" : "universal",
+       neighborhood: input.neighborhoodId || null,
+       group: input.groupId || null,
+       // 🔥 CRITICAL FIX: Ensure media also gets the neighborhood
+       media:
+         input.media?.map((m) => ({
+           ...m,
+           neighborhood: input.neighborhoodId || null, // ← Add this!
+         })) || [],
+       affiliate: input.affiliate || null,
+       isPinned: input.isPinned || false,
+     });
+
+     await post.save();
 
       await post.save();
 
