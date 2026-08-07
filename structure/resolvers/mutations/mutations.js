@@ -351,17 +351,22 @@ posts: async (_, { neighborhoodId }, context) => {
   const userId = context.user?.userId || context.user?.id;
   if (!userId) throw new Error("Unauthenticated.");
 
-  // Option A: User opened 1 specific neighborhood page -> require neighborhoodId
+  let filter = {};
+
   if (neighborhoodId) {
+    // 1. Same inline security check chat uses
     await requireNeighborhoodAccess(neighborhoodId, userId);
-    return Post.find({ neighborhood: neighborhoodId }).populate("author").lean();
+    filter = { neighborhood: neighborhoodId };
+  } else {
+    // 2. Main feed fallback if no neighborhoodId is passed
+    filter = { feedType: "universal" };
   }
 
-  // Option B: User opened the main feed -> no neighborhoodId passed, show all joined
-  const userNeighborhoods = await Neighborhood.find({ "members.user": userId }).select("_id");
-  const joinedIds = userNeighborhoods.map((n) => n._id);
-
-  return Post.find({ neighborhood: { $in: joinedIds } }).populate("author").lean();
+  // 3. Same find, populate, sort, and .lean() execution chat uses
+  return Post.find(filter)
+    .populate("author")
+    .sort({ createdAt: -1 })
+    .lean();
 },
   
     
