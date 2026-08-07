@@ -82,6 +82,13 @@ const validateAndExtractAffiliateHtml = (html) => {
 };
 
 const resolvers = {
+  Post: {
+    id: (post) => (post.id || post._id)?.toString(),
+  },
+  User: {
+    id: (user) => (user.id || user._id)?.toString(),
+  },
+
   Query: {
     streamChunks: async (_, { sessionId }) => {
       try {
@@ -347,29 +354,25 @@ const resolvers = {
     },
 
     // Post queries
-posts: async (_, { neighborhoodId }, context) => {
-  const userId = context.user?.userId || context.user?.id;
-  if (!userId) throw new Error("Unauthenticated.");
+ posts: async (_, { neighborhoodId }, context) => {
+      const userId = context.user?.userId || context.user?.id;
+      if (!userId) throw new Error("Unauthenticated.");
 
-  let filter = {};
+      let filter = {};
+      if (neighborhoodId) {
+        await requireNeighborhoodAccess(neighborhoodId, userId);
+        filter = { neighborhood: neighborhoodId };
+      } else {
+        filter = { feedType: "universal" };
+      }
 
-  if (neighborhoodId) {
-    // 1. Same inline security check chat uses
-    await requireNeighborhoodAccess(neighborhoodId, userId);
-    filter = { neighborhood: neighborhoodId };
-  } else {
-    // 2. Main feed fallback if no neighborhoodId is passed
-    filter = { feedType: "universal" };
-  }
+      return Post.find(filter)
+        .populate("author")
+        .sort({ createdAt: -1 })
+        .lean();
+    },
 
-  // 3. Same find, populate, sort, and .lean() execution chat uses
-  return Post.find(filter)
-    .populate("author")
-    .sort({ createdAt: -1 })
-    .lean();
-},
-  
-    
+
     post: async (_, { id }) =>
       await Post.findById(id).populate("author").populate("group"),
 
@@ -784,32 +787,32 @@ posts: async (_, { neighborhoodId }, context) => {
   },
 
   Mutation: {
-createPost: async (_, { input }, context) => {
-  const userId = context.user?.userId || context.user?.id;
-  if (!userId) throw new Error("Unauthenticated.");
+    createPost: async (_, { input }, context) => {
+      const userId = context.user?.userId || context.user?.id;
+      if (!userId) throw new Error("Unauthenticated.");
 
-  const { content, feedType, neighborhoodId, groupId, media, affiliate } = input;
+      const { content, feedType, neighborhoodId, groupId, media, affiliate } =
+        input;
 
-  // 1. Only run access check IF a neighborhoodId is actually provided
-  if (neighborhoodId) {
-    await requireNeighborhoodAccess(neighborhoodId, userId);
-  }
+      // 1. Only run access check IF a neighborhoodId is actually provided
+      if (neighborhoodId) {
+        await requireNeighborhoodAccess(neighborhoodId, userId);
+      }
 
-  // 2. Create the post matching your schema
-  const newPost = await Post.create({
-    author: userId,
-    content,
-    feedType: feedType || (neighborhoodId ? "neighborhood" : "universal"),
-    neighborhood: neighborhoodId || null,
-    group: groupId || null,
-    media: media || [],
-    affiliate: affiliate || {},
-  });
+      // 2. Create the post matching your schema
+      const newPost = await Post.create({
+        author: userId,
+        content,
+        feedType: feedType || (neighborhoodId ? "neighborhood" : "universal"),
+        neighborhood: neighborhoodId || null,
+        group: groupId || null,
+        media: media || [],
+        affiliate: affiliate || {},
+      });
 
-  // Populate author so GraphQL returns the requested user fields immediately
-  return await newPost.populate("author");
-}
-,
+      // Populate author so GraphQL returns the requested user fields immediately
+      return await newPost.populate("author");
+    },
     completeStream: async (
       _,
       { sessionId, archiveUrl, totalChunks },
