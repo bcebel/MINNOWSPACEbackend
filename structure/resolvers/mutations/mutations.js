@@ -360,22 +360,47 @@ const resolvers = {
     },
 
     // Post queries
-    posts: async (_, { neighborhoodId }, context) => {
+    // In your GraphQL resolver
+    posts: async (_, { neighborhoodId, feedType }, context) => {
       const userId = context.user?.userId || context.user?.id;
       if (!userId) throw new Error("Unauthenticated.");
 
       let filter = {};
+
+      // 🔥 CRITICAL FIX: If neighborhoodId is provided, ONLY return posts for that neighborhood
       if (neighborhoodId) {
+        // Verify user has access to this neighborhood
         await requireNeighborhoodAccess(neighborhoodId, userId);
-        filter = { neighborhood: neighborhoodId };
+
+        // 🔥 ONLY posts that belong to this neighborhood
+        filter = {
+          neighborhood: neighborhoodId,
+          // Don't include universal posts in neighborhood feeds
+          feedType: { $ne: "universal" },
+        };
       } else {
+        // If no neighborhoodId, only show universal posts
         filter = { feedType: "universal" };
       }
 
-      return Post.find(filter)
+      // If feedType is explicitly provided, use it
+      if (feedType) {
+        filter.feedType = feedType;
+      }
+
+      console.log("🔍 Posts filter:", JSON.stringify(filter));
+
+      const posts = await Post.find(filter)
         .populate("author")
         .sort({ createdAt: -1 })
         .lean();
+
+      console.log(
+        `📊 Found ${posts.length} posts for neighborhood:`,
+        neighborhoodId || "universal",
+      );
+
+      return posts;
     },
 
     post: async (_, { id }) =>
@@ -792,32 +817,39 @@ const resolvers = {
   },
 
   Mutation: {
+    // In your createPost resolver
     createPost: async (_, { input }, context) => {
       const userId = context.user?.userId || context.user?.id;
       if (!userId) throw new Error("Unauthenticated.");
 
-      const { content, feedType, neighborhoodId, groupId, media, affiliate } =
-        input;
+      // Determine feed type
+      let feedType = input.feedType || "universal";
+      let neighborhoodId = input.neighborhoodId;
 
-      // 1. Only run access check IF a neighborhoodId is actually provided
+      // If neighborhoodId is provided, validate and set feedType
       if (neighborhoodId) {
         await requireNeighborhoodAccess(neighborhoodId, userId);
+        feedType = "neighborhood"; // Force to neighborhood type
+      } else {
+        feedType = "universal";
       }
 
-      // 2. Create the post matching your schema
-      const newPost = await Post.create({
+      const post = new Post({
+        content: input.content,
         author: userId,
-        content,
-        feedType: feedType || (neighborhoodId ? "neighborhood" : "universal"),
-        neighborhood: neighborhoodId || null,
-        group: groupId || null,
-        media: media || [],
-        affiliate: affiliate || {},
+        feedType: feedType,
+        neighborhood: neighborhoodId || null, // Store the ID
+        group: input.groupId || null,
+        media: input.media || [],
+        affiliate: input.affiliate || null,
+        isPinned: input.isPinned || false,
       });
 
-      // Populate author so GraphQL returns the requested user fields immediately
-      return await newPost.populate("author");
+      await post.save();
+
+      return post.populate("author");
     },
+
     completeStream: async (
       _,
       { sessionId, archiveUrl, totalChunks },
