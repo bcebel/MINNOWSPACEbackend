@@ -353,27 +353,41 @@ const resolvers = {
     ) => {
       const filter = {};
 
-      // Filter by feed type if provided
       if (feedType) {
         filter.feedType = feedType;
       }
 
-      // Filter by neighborhood if scoped
-      if (neighborhoodId) {
-        filter.neighborhood = neighborhoodId; // Make sure this matches your Post model field name
-      }
-
-      // Filter by group if scoped
       if (groupId) {
         filter.group = groupId;
+      }
+
+      // 1. Specific Neighborhood Selected
+      if (neighborhoodId) {
+        filter.neighborhood = neighborhoodId;
+      }
+      // 2. "All Joined" Mode (fallback to only the user's joined bubbles)
+      else if (context.user) {
+        const user = await User.findById(context.user.id || context.user._id);
+
+        // Replace 'neighborhoods' with your User model's actual joined array field name
+        const joinedIds =
+          user?.neighborhoods || user?.joinedNeighborhoods || [];
+
+        if (joinedIds.length > 0) {
+          filter.neighborhood = { $in: joinedIds };
+        } else {
+          // User hasn't joined any bubbles yet
+          return [];
+        }
       }
 
       return await Post.find(filter)
         .sort({ createdAt: -1 })
         .skip(offset)
         .limit(limit)
-        .populate("author"); // Ensures author is populated for all feed items!
+        .populate("author");
     },
+    
     post: async (_, { id }) =>
       await Post.findById(id).populate("author").populate("group"),
 
