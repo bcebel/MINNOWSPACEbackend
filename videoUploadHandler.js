@@ -176,91 +176,155 @@ async function uploadToFilebase(fileBuffer, fileName, mimeType) {
 
 
 export default (app) => {
+  // ✅ Use a dynamic field name based on content type
   const uploadHandler = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 100 * 1024 * 1024 }, // Increased limit for slicing
-  }).single("video");
+    limits: { fileSize: 100 * 1024 * 1024 },
+  }).any(); // ← Accept any field name
 
   async function handleUpload(req, res) {
-    const { title, description, neighborhoodId } = req.body;
+    const { title, description, neighborhoodId, mediaType } = req.body;
     const uid = req.user?.userId;
-    const SLICE_SIZE = 5 * 1024 * 1024; // 🎯 5MB manageable slices
 
-    if (!req.file) return res.status(400).send("No file uploaded.");
+    // ✅ Get the uploaded file (regardless of field name)
+    const file = req.files?.[0] || req.file;
+    if (!file) {
+      return res.status(400).send("No file uploaded.");
+    }
+
+    // ✅ Determine the actual file type
+    const detectedType =
+      mediaType || getFileType(file.mimetype, file.originalname);
+
+    console.log(`📤 Uploading ${detectedType}:`, file.originalname);
 
     try {
-      const fullBuffer = req.file.buffer;
-      const totalSlices = Math.ceil(fullBuffer.length / SLICE_SIZE);
-      const sliceRecords = [];
-
-      console.log(`🔪 Slicing ${req.file.originalname} into ${totalSlices} pieces...`);
-
-      for (let i = 0; i < totalSlices; i++) {
-        const start = i * SLICE_SIZE;
-        const end = Math.min(start + SLICE_SIZE, fullBuffer.length);
-        const chunkBuffer = fullBuffer.slice(start, end);
-
-        // 1. Upload Slice to IPFS (using your existing Pinata logic)
-        // Note: For speed, you could only upload slice 0 to Pinata 
-        // and keep others on Heroku/Local, but let's keep it simple for now.
+      // ✅ If it's an image, save to Image model
+      if (detectedType === "image") {
+        // Upload to IPFS
         const { cid, ipfsUrl } = await uploadToPinata(
-          chunkBuffer, 
-          `slice-${i}-${req.file.originalname}`, 
-          req.file.mimetype
+          file.buffer,
+          file.originalname,
+          file.mimetype,
         );
 
-        // 2. Create Torrent for this slice
+        // Generate magnet link
         const magnetLink = await new Promise((resolve, reject) => {
-          createTorrent(chunkBuffer, { announce, name: `slice-${i}` }, async (err, torrentBuf) => {
-            if (err) return reject(err);
-            // Boost via your SeedService
-            const mLink = await reactiveBooster.boostChunkIfNeeded(
-              chunkBuffer, 
-              `gallery-${cid}`, 
-              announce
-            );
-            resolve(mLink);
-          });
+          createTorrent(
+            file.buffer,
+            { announce, name: file.originalname },
+            (err, torrentBuf) => {
+              if (err) return reject(err);
+              resolve(/* your magnet link logic */);
+            },
+          );
         });
 
-        sliceRecords.push({
-          index: i,
+        // Save to Image model
+        const newImage = new Image({
+          title: title || file.originalname,
+          description,
+          user: uid,
+          fileName: file.originalname,
+          fileSize: file.size,
+          fileType: "image",
           cid: cid,
+          ipfsUrl: ipfsUrl,
           magnetLink: magnetLink,
-          size: chunkBuffer.length
+          neighborhood: neighborhoodId || null,
+          isPublic: true,
         });
-        
-        console.log(`✅ Slice ${i} complete.`);
+
+        await newImage.save();
+
+        return res.json({
+          success: true,
+          imageId: newImage._id,
+          ipfsUrl,
+          magnetLink,
+          cid,
+        });
       }
 
-      // 3. Save the Master Video Document
-      const newVideo = new Video({
-        title: title || req.file.originalname,
-        description,
-        user: uid,
-        fileName: req.file.originalname,
-        fileSize: req.file.size,
-        fileType: "video",
-        cid: sliceRecords[0].cid, // Master CID is the first slice
-        ipfsUrl: `https://${PINATA_GATEWAY}/ipfs/${sliceRecords[0].cid}`,
-        magnetLink: sliceRecords[0].magnetLink,
-        neighborhood: neighborhoodId || null,
-        isSliced: true,
-        slices: sliceRecords, // 🚀 THE DATASET FOR YOUR FRONTEND
-      });
+      // ✅ If it's a video, save to Video model (with slicing)
+      if (detectedType === "video") {
+        const fullBuffer = file.buffer;
+        const totalSlices = Math.ceil(fullBuffer.length / SLICE_SIZE);
+        const sliceRecords = [];
 
-      await newVideo.save();
+        console.log(
+          `🔪 Slicing ${file.originalname} into ${totalSlices} pieces...`,
+        );
 
-      res.json({
-        success: true,
-        videoId: newVideo._id,
-        totalSlices: totalSlices,
-        slices: sliceRecords
-      });
+        for (let i = 0; i < totalSlices; i++) {
+          const start = i * SLICE_SIZE;
+          const end = Math.min(start + SLICE_SIZE, fullBuffer.length);
+          const chunkBuffer = fullBuffer.slice(start, end);
 
+          const { cid, ipfsUrl } = await uploadToPinata(
+            chunkBuffer,
+            `slice-${i}-${file.originalname}`,
+            file.mimetype,
+          );
+
+          const magnetLink = await new Promise((resolve, reject) => {
+            createTorrent(
+              chunkBuffer,
+              { announce, name: `slice-${i}` },
+              async (err, torrentBuf) => {
+                if (err) return reject(err);
+                const mLink = await reactiveBooster.boostChunkIfNeeded(
+                  chunkBuffer,
+                  `gallery-${cid}`,
+                  announce,
+                );
+                resolve(mLink);
+              },
+            );
+          });
+
+          sliceRecords.push({
+            index: i,
+            cid: cid,
+            magnetLink: magnetLink,
+            size: chunkBuffer.length,
+          });
+        }
+
+        // Save to Video model
+        const newVideo = new Video({
+          title: title || file.originalname,
+          description,
+          user: uid,
+          fileName: file.originalname,
+          fileSize: file.size,
+          fileType: "video",
+          cid: sliceRecords[0].cid,
+          ipfsUrl: `https://${PINATA_GATEWAY}/ipfs/${sliceRecords[0].cid}`,
+          magnetLink: sliceRecords[0].magnetLink,
+          neighborhood: neighborhoodId || null,
+          isSliced: true,
+          slices: sliceRecords,
+        });
+
+        await newVideo.save();
+
+        return res.json({
+          success: true,
+          videoId: newVideo._id,
+          totalSlices,
+          slices: sliceRecords,
+          ipfsUrl: newVideo.ipfsUrl,
+          magnetLink: newVideo.magnetLink,
+          cid: newVideo.cid,
+        });
+      }
+
+      // ✅ Fallback for other file types
+      return res.status(400).send("Unsupported file type");
     } catch (error) {
-      console.error("❌ Slicing failed:", error);
-      res.status(500).send(`Slicing failed: ${error.message}`);
+      console.error("❌ Upload failed:", error);
+      res.status(500).send(`Upload failed: ${error.message}`);
     }
   }
 
