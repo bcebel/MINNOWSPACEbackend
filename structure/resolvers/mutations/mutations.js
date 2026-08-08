@@ -349,13 +349,22 @@ const resolvers = {
     posts: async (_, { neighborhoodId, feedType }, context) => {
       if (!context.user) throw new Error("Authentication required");
 
-      // ✅ TEMPORARY: Return all posts
-      const posts = await Post.find({})
+      const query = {};
+
+      if (neighborhoodId) {
+        // ✅ Only posts from this neighborhood
+        query.neighborhood = neighborhoodId;
+        query.feedType = "neighborhood";
+      } else {
+        // ✅ Only universal posts for global feed
+        query.feedType = "universal";
+      }
+
+      const posts = await Post.find(query)
         .populate("author", "username profilePhoto")
         .sort({ createdAt: -1 })
         .limit(50);
 
-      console.log(`📊 Found ${posts.length} total posts`);
       return posts;
     },
 
@@ -1957,7 +1966,7 @@ const resolvers = {
       return await User.findById(parent.author);
     },
   },
-  
+
   Neighborhood: {
     // Add a computed field for memberCount
     memberCount: (parent) => {
