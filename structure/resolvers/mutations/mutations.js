@@ -346,13 +346,6 @@ const resolvers = {
       );
     },
 
-    // Post queries
-    // In your GraphQL resolver
-    // In your GraphQL resolvers - KEEP THEM SEPARATE
-
-    // ✅ POSTS resolver - ONLY for feed posts
-    // In your resolvers - POSTS (COPY the working pattern)
-    // TEMPORARY - Show all posts
     posts: async (_, { neighborhoodId, feedType }, context) => {
       if (!context.user) throw new Error("Authentication required");
 
@@ -1954,6 +1947,17 @@ const resolvers = {
     },
   },
 
+  Post: {
+    neighborhood: async (parent) => {
+      if (!parent.neighborhood) return null;
+      return await Neighborhood.findById(parent.neighborhood);
+    },
+    author: async (parent) => {
+      if (!parent.author) return null;
+      return await User.findById(parent.author);
+    },
+  },
+  
   Neighborhood: {
     // Add a computed field for memberCount
     memberCount: (parent) => {
