@@ -210,13 +210,22 @@ export default (app) => {
         );
 
         // Generate magnet link
+        // Fix for images
         const magnetLink = await new Promise((resolve, reject) => {
           createTorrent(
             file.buffer,
             { announce, name: file.originalname },
             (err, torrentBuf) => {
               if (err) return reject(err);
-              resolve(/* your magnet link logic */);
+              // Convert torrent buffer to magnet URI
+              const client = new WebTorrent();
+              client.seed(
+                file.buffer,
+                { name: file.originalname },
+                (torrent) => {
+                  resolve(torrent.magnetURI);
+                },
+              );
             },
           );
         });

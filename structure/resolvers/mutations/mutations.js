@@ -812,7 +812,7 @@ const resolvers = {
       if (!isMember) {
         throw new Error("Not a member of this neighborhood");
       }
-
+const magnetLink = await seedService.createMagnet(fileBuffer, fileName);
       // Create the post - ALWAYS neighborhood!
       const post = new Post({
         content: input.content,
