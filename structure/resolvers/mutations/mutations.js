@@ -346,19 +346,17 @@ const resolvers = {
       );
     },
 
-    posts: async (_, { neighborhoodId, feedType }, context) => {
+    posts: async (_, { neighborhoodId }, context) => {
       if (!context.user) throw new Error("Authentication required");
 
       const query = {};
 
-      if (neighborhoodId) {
-        // ✅ Only posts from this neighborhood
-        query.neighborhood = neighborhoodId;
-        query.feedType = "neighborhood";
-      } else {
-        // ✅ Only universal posts for global feed
-        query.feedType = "universal";
+      // ✅ Require a neighborhoodId - no global feed
+      if (!neighborhoodId) {
+        return []; // Or throw an error
       }
+
+      query.neighborhood = neighborhoodId;
 
       const posts = await Post.find(query)
         .populate("author", "username profilePhoto")
