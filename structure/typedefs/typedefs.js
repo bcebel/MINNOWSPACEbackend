@@ -186,7 +186,7 @@ const typeDefs = gql`
     media: [PostMedia]
     affiliate: AffiliateData
     feedType: String!
-    neighborhood: Neighborhood
+    neighborhood: Neighborhood!
     group: Group
     likes: [User]
     comments: [Comment]
@@ -304,7 +304,7 @@ const typeDefs = gql`
     message(id: ID!): Message
 
     # Post queries
-    posts(neighborhoodId: ID, feedType: String): [Post!]!
+    posts(neighborhoodId: ID!): [Post!]!
     post(id: ID!): Post
 
     # Group queries

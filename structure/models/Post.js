@@ -46,7 +46,7 @@ const postSchema = new mongoose.Schema(
     // ✅ MATCH MESSAGE FIELD NAMES
     feedType: {
       type: String,
-      enum: ["universal", "neighborhood", "group", "individual"],
+      enum: ["neighborhood"], // ← ONLY neighborhood!
       default: "neighborhood",
     },
     neighborhood: {

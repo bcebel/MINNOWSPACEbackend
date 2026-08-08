@@ -351,19 +351,31 @@ const resolvers = {
 
       // ✅ MUST have a neighborhoodId
       if (!neighborhoodId) {
-        throw new Error("Neighborhood ID required");
+        throw new Error("neighborhoodId is required");
       }
 
-      const query = {
-        neighborhood: neighborhoodId,
-        feedType: "neighborhood", // ← Only neighborhood posts
-      };
+      // Check if user is a member
+      const neighborhood = await Neighborhood.findById(neighborhoodId);
+      if (!neighborhood) throw new Error("Neighborhood not found");
+
+      const isMember = neighborhood.members.some(
+        (member) => member.user.toString() === context.user.userId,
+      );
+      if (!isMember) {
+        throw new Error("Not a member of this neighborhood");
+      }
+
+      // ✅ Only posts from this neighborhood
+      const query = { neighborhood: neighborhoodId };
+
+      console.log("🔍 Fetching posts for neighborhood:", neighborhoodId);
 
       const posts = await Post.find(query)
         .populate("author", "username profilePhoto")
         .sort({ createdAt: -1 })
         .limit(50);
 
+      console.log(`📊 Found ${posts.length} posts`);
       return posts;
     },
 
@@ -788,32 +800,35 @@ const resolvers = {
 
       const userId = context.user.userId || context.user.id;
 
-      // 1. If neighborhood is provided, validate access
-      if (input.neighborhoodId) {
-        if (!mongoose.Types.ObjectId.isValid(input.neighborhoodId)) {
-          throw new Error("Invalid neighborhood ID provided");
-        }
-
-        const targetNeighborhood = await Neighborhood.findById(
-          input.neighborhoodId,
-        );
-        if (!targetNeighborhood) {
-          throw new Error(`Neighborhood ${input.neighborhoodId} not found`);
-        }
-
-        const isMember = targetNeighborhood.members.some(
-          (member) => member.user.toString() === userId,
-        );
-        if (!isMember) {
-          throw new Error("Not a member of this neighborhood");
-        }
+      // ✅ Require neighborhoodId
+      if (!input.neighborhoodId) {
+        throw new Error("neighborhoodId is required");
       }
 
-      // 2. Create the post
+      // Validate neighborhood access
+      if (!mongoose.Types.ObjectId.isValid(input.neighborhoodId)) {
+        throw new Error("Invalid neighborhood ID provided");
+      }
+
+      const targetNeighborhood = await Neighborhood.findById(
+        input.neighborhoodId,
+      );
+      if (!targetNeighborhood) {
+        throw new Error(`Neighborhood ${input.neighborhoodId} not found`);
+      }
+
+      const isMember = targetNeighborhood.members.some(
+        (member) => member.user.toString() === userId,
+      );
+      if (!isMember) {
+        throw new Error("Not a member of this neighborhood");
+      }
+
+      // Create the post - ALWAYS neighborhood!
       const post = new Post({
         content: input.content,
         author: userId,
-        feedType: input.neighborhoodId ? "neighborhood" : "universal",
+        feedType: "neighborhood", // ← Always neighborhood
         neighborhood: input.neighborhoodId,
         group: input.groupId || null,
         media: input.media || [],
@@ -821,16 +836,10 @@ const resolvers = {
         isPinned: input.isPinned || false,
       });
 
-      // ✅ Save once
       await post.save();
-
-      // 3. Populate author before returning
       const populated = await post.populate("author", "username profilePhoto");
 
-      console.log("✅ Post created:", populated.id);
-      console.log("📝 FeedType:", populated.feedType);
-      console.log("🏘️ Neighborhood:", populated.neighborhood);
-
+      console.log("✅ Post created in neighborhood:", populated.neighborhood);
       return populated;
     },
 
