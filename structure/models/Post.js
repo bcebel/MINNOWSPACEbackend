@@ -47,7 +47,7 @@ const postSchema = new mongoose.Schema(
     feedType: {
       type: String,
       enum: ["universal", "neighborhood", "group", "individual"],
-      default: "universal",
+      default: "neighborhood",
     },
     neighborhood: {
       type: mongoose.Schema.Types.ObjectId,

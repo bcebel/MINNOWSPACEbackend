@@ -349,14 +349,15 @@ const resolvers = {
     posts: async (_, { neighborhoodId }, context) => {
       if (!context.user) throw new Error("Authentication required");
 
-      const query = {};
-
-      // ✅ Require a neighborhoodId - no global feed
+      // ✅ MUST have a neighborhoodId
       if (!neighborhoodId) {
-        return []; // Or throw an error
+        throw new Error("Neighborhood ID required");
       }
 
-      query.neighborhood = neighborhoodId;
+      const query = {
+        neighborhood: neighborhoodId,
+        feedType: "neighborhood", // ← Only neighborhood posts
+      };
 
       const posts = await Post.find(query)
         .populate("author", "username profilePhoto")
@@ -813,7 +814,7 @@ const resolvers = {
         content: input.content,
         author: userId,
         feedType: input.neighborhoodId ? "neighborhood" : "universal",
-        neighborhood: input.neighborhoodId || null,
+        neighborhood: input.neighborhoodId,
         group: input.groupId || null,
         media: input.media || [],
         affiliate: input.affiliate || null,
