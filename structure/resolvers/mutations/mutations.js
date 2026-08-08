@@ -349,33 +349,22 @@ const resolvers = {
     posts: async (_, { neighborhoodId }, context) => {
       if (!context.user) throw new Error("Authentication required");
 
-      // ✅ MUST have a neighborhoodId
-      if (!neighborhoodId) {
-        throw new Error("neighborhoodId is required");
+      const query = {};
+
+      if (neighborhoodId) {
+        // ✅ Show posts from this neighborhood
+        query.neighborhood = neighborhoodId;
+      } else {
+        // ✅ If no neighborhoodId, return empty or error
+        // Or return your future "public" posts
+        return [];
       }
-
-      // Check if user is a member
-      const neighborhood = await Neighborhood.findById(neighborhoodId);
-      if (!neighborhood) throw new Error("Neighborhood not found");
-
-      const isMember = neighborhood.members.some(
-        (member) => member.user.toString() === context.user.userId,
-      );
-      if (!isMember) {
-        throw new Error("Not a member of this neighborhood");
-      }
-
-      // ✅ Only posts from this neighborhood
-      const query = { neighborhood: neighborhoodId };
-
-      console.log("🔍 Fetching posts for neighborhood:", neighborhoodId);
 
       const posts = await Post.find(query)
         .populate("author", "username profilePhoto")
         .sort({ createdAt: -1 })
         .limit(50);
 
-      console.log(`📊 Found ${posts.length} posts`);
       return posts;
     },
 

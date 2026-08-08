@@ -304,7 +304,7 @@ const typeDefs = gql`
     message(id: ID!): Message
 
     # Post queries
-    posts(neighborhoodId: ID!): [Post!]!
+    posts(neighborhoodId: ID): [Post!]!
     post(id: ID!): Post
 
     # Group queries
