@@ -809,30 +809,27 @@ const resolvers = {
       }
 
       // 2. Create the post
-     const post = new Post({
-       content: input.content,
-       author: userId,
-       feedType: input.neighborhoodId ? "neighborhood" : "universal",
-       neighborhood: input.neighborhoodId || null,
-       group: input.groupId || null,
-       // 🔥 CRITICAL FIX: Ensure media also gets the neighborhood
-       media:
-         input.media?.map((m) => ({
-           ...m,
-           neighborhood: input.neighborhoodId || null, // ← Add this!
-         })) || [],
-       affiliate: input.affiliate || null,
-       isPinned: input.isPinned || false,
-     });
+      const post = new Post({
+        content: input.content,
+        author: userId,
+        feedType: input.neighborhoodId ? "neighborhood" : "universal",
+        neighborhood: input.neighborhoodId || null,
+        group: input.groupId || null,
+        media: input.media || [],
+        affiliate: input.affiliate || null,
+        isPinned: input.isPinned || false,
+      });
 
-     await post.save();
-
+      // ✅ Save once
       await post.save();
 
       // 3. Populate author before returning
       const populated = await post.populate("author", "username profilePhoto");
 
       console.log("✅ Post created:", populated.id);
+      console.log("📝 FeedType:", populated.feedType);
+      console.log("🏘️ Neighborhood:", populated.neighborhood);
+
       return populated;
     },
 
