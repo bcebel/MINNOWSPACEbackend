@@ -12,6 +12,7 @@ import Video from "./structure/models/Video.js";
 import Image from "./structure/models/Image.js";
 import { reactiveBooster } from "./seedService.js";
 dotenv.config();
+const SLICE_SIZE = 5 * 1024 * 1024; // 5MB
 
 const announce = [
   "wss://tracker-0ad4cca9fd92.herokuapp.com",
