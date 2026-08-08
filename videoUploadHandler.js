@@ -12,7 +12,8 @@ import Video from "./structure/models/Video.js";
 import Image from "./structure/models/Image.js";
 import { reactiveBooster } from "./seedService.js";
 dotenv.config();
-const SLICE_SIZE = 30 * 1024 * 1024; // 5MB
+const SLICE_SIZE = 40 * 1024 * 1024; // 40MB
+const MIN_VIDEO_SIZE_FOR_SLICING = 40 * 1024 * 1024; // 40MB
 
 const announce = [
   "wss://tracker-0ad4cca9fd92.herokuapp.com",
@@ -257,77 +258,138 @@ export default (app) => {
       }
 
       // ✅ If it's a video, save to Video model (with slicing)
+      // ✅ If it's a video, save to Video model (with optional slicing)
       if (detectedType === "video") {
         const fullBuffer = file.buffer;
-        const totalSlices = Math.ceil(fullBuffer.length / SLICE_SIZE);
-        const sliceRecords = [];
 
-        console.log(
-          `🔪 Slicing ${file.originalname} into ${totalSlices} pieces...`,
-        );
+        // ✅ Check if we should slice or upload whole
+        if (fullBuffer.length > MIN_VIDEO_SIZE_FOR_SLICING) {
+          // --- SLICE LARGE VIDEOS ---
+          const totalSlices = Math.ceil(fullBuffer.length / SLICE_SIZE);
+          const sliceRecords = [];
 
-        for (let i = 0; i < totalSlices; i++) {
-          const start = i * SLICE_SIZE;
-          const end = Math.min(start + SLICE_SIZE, fullBuffer.length);
-          const chunkBuffer = fullBuffer.slice(start, end);
+          console.log(
+            `🔪 Slicing ${file.originalname} into ${totalSlices} pieces...`,
+          );
+
+          for (let i = 0; i < totalSlices; i++) {
+            const start = i * SLICE_SIZE;
+            const end = Math.min(start + SLICE_SIZE, fullBuffer.length);
+            const chunkBuffer = fullBuffer.slice(start, end);
+
+            const { cid, ipfsUrl } = await uploadToPinata(
+              chunkBuffer,
+              `slice-${i}-${file.originalname}`,
+              file.mimetype,
+            );
+
+            const magnetLink = await new Promise((resolve, reject) => {
+              createTorrent(
+                chunkBuffer,
+                { announce, name: `slice-${i}` },
+                async (err, torrentBuf) => {
+                  if (err) return reject(err);
+                  const mLink = await reactiveBooster.boostChunkIfNeeded(
+                    chunkBuffer,
+                    `gallery-${cid}`,
+                    announce,
+                  );
+                  resolve(mLink);
+                },
+              );
+            });
+
+            sliceRecords.push({
+              index: i,
+              cid: cid,
+              magnetLink: magnetLink,
+              size: chunkBuffer.length,
+            });
+          }
+
+          // Save sliced video
+          const newVideo = new Video({
+            title: title || file.originalname,
+            description,
+            user: uid,
+            fileName: file.originalname,
+            fileSize: file.size,
+            fileType: "video",
+            cid: sliceRecords[0].cid,
+            ipfsUrl: `https://${PINATA_GATEWAY}/ipfs/${sliceRecords[0].cid}`,
+            magnetLink: sliceRecords[0].magnetLink,
+            neighborhood: neighborhoodId || null,
+            isSliced: true,
+            slices: sliceRecords,
+          });
+
+          await newVideo.save();
+
+          return res.json({
+            success: true,
+            videoId: newVideo._id,
+            totalSlices,
+            slices: sliceRecords,
+            ipfsUrl: newVideo.ipfsUrl,
+            magnetLink: newVideo.magnetLink,
+            cid: newVideo.cid,
+          });
+        } else {
+          // --- UPLOAD SMALL VIDEOS AS ONE PIECE ---
+          console.log(
+            `📦 Uploading small video as single file: ${file.originalname}`,
+          );
 
           const { cid, ipfsUrl } = await uploadToPinata(
-            chunkBuffer,
-            `slice-${i}-${file.originalname}`,
+            fullBuffer,
+            file.originalname,
             file.mimetype,
           );
 
           const magnetLink = await new Promise((resolve, reject) => {
             createTorrent(
-              chunkBuffer,
-              { announce, name: `slice-${i}` },
-              async (err, torrentBuf) => {
+              fullBuffer,
+              { announce, name: file.originalname },
+              (err, torrentBuf) => {
                 if (err) return reject(err);
-                const mLink = await reactiveBooster.boostChunkIfNeeded(
-                  chunkBuffer,
-                  `gallery-${cid}`,
-                  announce,
+                const client = new WebTorrent();
+                client.seed(
+                  fullBuffer,
+                  { name: file.originalname },
+                  (torrent) => {
+                    resolve(torrent.magnetURI);
+                  },
                 );
-                resolve(mLink);
               },
             );
           });
 
-          sliceRecords.push({
-            index: i,
+          const newVideo = new Video({
+            title: title || file.originalname,
+            description,
+            user: uid,
+            fileName: file.originalname,
+            fileSize: file.size,
+            fileType: "video",
             cid: cid,
+            ipfsUrl: ipfsUrl,
             magnetLink: magnetLink,
-            size: chunkBuffer.length,
+            neighborhood: neighborhoodId || null,
+            isSliced: false,
+            slices: [],
+          });
+
+          await newVideo.save();
+
+          return res.json({
+            success: true,
+            videoId: newVideo._id,
+            totalSlices: 1,
+            ipfsUrl: ipfsUrl,
+            magnetLink: magnetLink,
+            cid: cid,
           });
         }
-
-        // Save to Video model
-        const newVideo = new Video({
-          title: title || file.originalname,
-          description,
-          user: uid,
-          fileName: file.originalname,
-          fileSize: file.size,
-          fileType: "video",
-          cid: sliceRecords[0].cid,
-          ipfsUrl: `https://${PINATA_GATEWAY}/ipfs/${sliceRecords[0].cid}`,
-          magnetLink: sliceRecords[0].magnetLink,
-          neighborhood: neighborhoodId || null,
-          isSliced: true,
-          slices: sliceRecords,
-        });
-
-        await newVideo.save();
-
-        return res.json({
-          success: true,
-          videoId: newVideo._id,
-          totalSlices,
-          slices: sliceRecords,
-          ipfsUrl: newVideo.ipfsUrl,
-          magnetLink: newVideo.magnetLink,
-          cid: newVideo.cid,
-        });
       }
 
       // ✅ Fallback for other file types
