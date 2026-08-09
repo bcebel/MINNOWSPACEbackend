@@ -537,6 +537,55 @@ app.post("/api/stream-end", authenticateToken, async (req, res) => {
   res.json({ success: true, message: `Stopped boosting stream ${sessionId}` });
 });
 
+// In your backend - /api/seed-persist
+app.post('/api/seed-persist', authenticateToken, async (req, res) => {
+  try {
+    const file = req.files?.[0] || req.file;
+    if (!file) return res.status(400).send('No file uploaded');
+    
+    const { magnetLink, neighborhoodId } = req.body;
+    const userId = req.user.userId;
+    
+    console.log(`🌱 Persistent seeding requested for: ${file.originalname}`);
+    
+    // 1. Seed via reactiveBooster (server-side)
+    const serverMagnet = await reactiveBooster.boostChunkIfNeeded(
+      file.buffer,
+      `post-${Date.now()}-${userId}`,
+      announce,
+    );
+    
+    console.log(`✅ Server seeding active: ${serverMagnet}`);
+    
+    // 2. Check if the frontend magnet matches the server magnet
+    if (magnetLink && magnetLink !== serverMagnet) {
+      console.log(`⚠️ Magnet mismatch - both will work though`);
+    }
+    
+    // 3. Save seeding record to database
+    const seedingRecord = new SeedingRecord({
+      postId: req.body.postId || null,
+      magnetUri: serverMagnet,
+      userId: userId,
+      fileName: file.originalname,
+      fileSize: file.size,
+      startedAt: new Date(),
+      isActive: true,
+    });
+    await seedingRecord.save();
+    
+    res.json({
+      success: true,
+      magnetLink: serverMagnet,
+      isServerSeeded: true,
+    });
+    
+  } catch (error) {
+    console.error('❌ Persistent seeding failed:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Simply upload endpoint for testing
 app.post(
   "/api/upload-image",
