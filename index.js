@@ -32,6 +32,14 @@ import StreamChunk from "./structure/models/StreamChunk.js";
 import Stream from "./structure/models/Stream.js";
 
 dotenv.config();
+// At the top of your backend file, after the imports
+const announce = [
+  "wss://tracker-0ad4cca9fd92.herokuapp.com",
+  "wss://tracker.files.fm:7073/announce",
+  "wss://tracker.webtorrent.dev",
+  "wss://tracker.openwebtorrent.com",
+  "wss://tracker.btorrent.xyz",
+];
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -538,15 +546,25 @@ app.post("/api/stream-end", authenticateToken, async (req, res) => {
 });
 
 // In your backend - /api/seed-persist
-app.post('/api/seed-persist', authenticateToken, async (req, res) => {
+// In your backend - add multer configuration for seed-persist
+const seedUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 100 * 1024 * 1024 },
+});
+
+// ✅ UPDATE the route with multer middleware
+app.post('/api/seed-persist', authenticateToken, seedUpload.single('file'), async (req, res) => {
   try {
-    const file = req.files?.[0] || req.file;
-    if (!file) return res.status(400).send('No file uploaded');
+    // Now req.file will be available
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
     
-    const { magnetLink, neighborhoodId } = req.body;
+    const { magnetLink, neighborhoodId, content } = req.body;
     const userId = req.user.userId;
     
-    console.log(`🌱 Persistent seeding requested for: ${file.originalname}`);
+    console.log(`🌱 Persistent seeding requested: ${file.originalname} (${file.size} bytes)`);
     
     // 1. Seed via reactiveBooster (server-side)
     const serverMagnet = await reactiveBooster.boostChunkIfNeeded(
@@ -562,7 +580,9 @@ app.post('/api/seed-persist', authenticateToken, async (req, res) => {
       console.log(`⚠️ Magnet mismatch - both will work though`);
     }
     
-    // 3. Save seeding record to database
+    // 3. Save seeding record to database (optional)
+    // You'll need to create this model or skip this step
+    /*
     const seedingRecord = new SeedingRecord({
       postId: req.body.postId || null,
       magnetUri: serverMagnet,
@@ -573,6 +593,7 @@ app.post('/api/seed-persist', authenticateToken, async (req, res) => {
       isActive: true,
     });
     await seedingRecord.save();
+    */
     
     res.json({
       success: true,
