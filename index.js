@@ -553,56 +553,30 @@ const seedUpload = multer({
 });
 
 // ✅ UPDATE the route with multer middleware
-app.post('/api/seed-persist', authenticateToken, seedUpload.single('file'), async (req, res) => {
+// In your backend - NO FILE UPLOAD, just register the magnet link
+app.post('/api/seed-register', authenticateToken, async (req, res) => {
   try {
-    // Now req.file will be available
-    const file = req.file;
-    if (!file) {
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
-    
-    const { magnetLink, neighborhoodId, content } = req.body;
+    const { magnetLink, neighborhoodId, content, fileName, fileSize, mediaType } = req.body;
     const userId = req.user.userId;
-    
-    console.log(`🌱 Persistent seeding requested: ${file.originalname} (${file.size} bytes)`);
-    
-    // 1. Seed via reactiveBooster (server-side)
-    const serverMagnet = await reactiveBooster.boostChunkIfNeeded(
-      file.buffer,
-      `post-${Date.now()}-${userId}`,
-      announce,
-    );
-    
-    console.log(`✅ Server seeding active: ${serverMagnet}`);
-    
-    // 2. Check if the frontend magnet matches the server magnet
-    if (magnetLink && magnetLink !== serverMagnet) {
-      console.log(`⚠️ Magnet mismatch - both will work though`);
+
+    if (!magnetLink) {
+      return res.status(400).json({ error: 'magnetLink required' });
     }
+
+    console.log(`🌱 Registering seed: ${fileName} (${fileSize} bytes)`);
     
-    // 3. Save seeding record to database (optional)
-    // You'll need to create this model or skip this step
-    /*
-    const seedingRecord = new SeedingRecord({
-      postId: req.body.postId || null,
-      magnetUri: serverMagnet,
-      userId: userId,
-      fileName: file.originalname,
-      fileSize: file.size,
-      startedAt: new Date(),
-      isActive: true,
-    });
-    await seedingRecord.save();
-    */
+    // Optional: Store seeding record for monitoring
+    // You could create a SeedingRecord model here
+    // But you don't NEED to - the magnet link is already in the post
     
     res.json({
       success: true,
-      magnetLink: serverMagnet,
-      isServerSeeded: true,
+      message: 'Seed registered successfully',
+      magnetLink: magnetLink,
     });
     
   } catch (error) {
-    console.error('❌ Persistent seeding failed:', error);
+    console.error('❌ Seed registration failed:', error);
     res.status(500).json({ error: error.message });
   }
 });
