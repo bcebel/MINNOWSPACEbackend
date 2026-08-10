@@ -83,6 +83,16 @@ const validateAndExtractAffiliateHtml = (html) => {
 
 const resolvers = {
   Query: {
+    comments: async (_, { postId }, context) => {
+      if (!context.user) throw new Error("Authentication required");
+
+      // Find all comments for this post, sorted newest first
+      const comments = await Comment.find({ post: postId })
+        .populate("author", "username profilePhoto")
+        .sort({ createdAt: -1 });
+
+      return comments;
+    },
     streamChunks: async (_, { sessionId }) => {
       try {
         // 1. Find the actual Stream document using the "live_..." string
@@ -782,6 +792,32 @@ const resolvers = {
   },
 
   Mutation: {
+    addComment: async (_, { postId, content }, context) => {
+      if (!context.user) throw new Error("Authentication required");
+
+      const userId = context.user.userId || context.user.id;
+
+      // 1. Find the post
+      const post = await Post.findById(postId);
+      if (!post) throw new Error("Post not found");
+
+      // 2. Create the comment
+      const comment = new Comment({
+        content,
+        author: userId,
+        post: postId,
+        createdAt: new Date(),
+      });
+
+      await comment.save();
+
+      // 3. Add comment to post's comments array
+      post.comments.push(comment._id);
+      await post.save();
+
+      // 4. Populate author and return
+      return await comment.populate("author", "username profilePhoto");
+    },
     // In your createPost resolver
     // CREATE_POST mutation resolver
     createPost: async (_, { input }, context) => {

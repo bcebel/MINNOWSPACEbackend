@@ -189,7 +189,7 @@ const typeDefs = gql`
     neighborhood: Neighborhood!
     group: Group
     likes: [User]
-    comments: [Comment]
+    comments: [Comment!]!
     isPinned: Boolean
     createdAt: String
     updatedAt: String
@@ -197,9 +197,10 @@ const typeDefs = gql`
 
   type Comment {
     id: ID!
-    author: User!
     content: String!
-    timestamp: String!
+    author: User!
+    post: Post!
+    createdAt: String!
   }
 
   type Group {
@@ -270,7 +271,7 @@ const typeDefs = gql`
     streamBySessionId(sessionId: String!): Stream
     streamChunks(sessionId: String!): [StreamChunk]
     getMyAllNeighborhoodsGallery: GalleryResponse
-
+    comments(postId: ID!): [Comment!]!
     # User queries
     users: [User!]
     user(id: ID!): User
@@ -347,6 +348,7 @@ const typeDefs = gql`
   }
 
   type Mutation {
+    addComment(postId: ID!, content: String!): Comment!
     completeStream(
       sessionId: String!
       archiveUrl: String
