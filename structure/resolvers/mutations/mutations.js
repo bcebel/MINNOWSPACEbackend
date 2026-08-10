@@ -3,6 +3,7 @@ import pubsub from "../../pubsub.js";
 import User from "../../models/User.js";
 import Chat from "../../models/Chat.js";
 import Post from "../../models/Post.js";
+import Comment from "../../models/Comment.js";
 import Group from "../../models/Group.js";
 import Video from "../../models/Video.js";
 import Stream from "../../models/Stream.js";
