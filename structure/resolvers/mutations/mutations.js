@@ -1989,6 +1989,9 @@ const resolvers = {
   },
 
   Post: {
+    commentCount: (parent) => {
+      return parent.comments?.length || 0;
+    },
     neighborhood: async (parent) => {
       if (!parent.neighborhood) return null;
       return await Neighborhood.findById(parent.neighborhood);

@@ -191,6 +191,7 @@ const typeDefs = gql`
     likes: [User]
     comments: [Comment!]!
     isPinned: Boolean
+    commentCount: Int!
     createdAt: String
     updatedAt: String
   }
