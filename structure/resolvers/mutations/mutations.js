@@ -1990,7 +1990,12 @@ const resolvers = {
 
   Post: {
     commentCount: (parent) => {
-      return parent.comments?.length || 0;
+      // If comments is an array, return its length
+      if (parent.comments && Array.isArray(parent.comments)) {
+        return parent.comments.length;
+      }
+      // If comments is null or undefined, return 0
+      return 0;
     },
     neighborhood: async (parent) => {
       if (!parent.neighborhood) return null;
