@@ -807,7 +807,6 @@ const resolvers = {
         content,
         author: userId,
         post: postId,
-        createdAt: new Date(),
       });
 
       await comment.save();

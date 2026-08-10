@@ -13,20 +13,18 @@ const commentSchema = new mongoose.Schema(
       required: true,
     },
     post: {
-      // ✅ ADD THIS - required to link comment to post
       type: mongoose.Schema.Types.ObjectId,
       ref: "Post",
       required: true,
     },
-    timestamp: {
-      type: Date,
-      default: Date.now,
-    },
+    // ✅ Remove 'createdAt' - timestamps: true will handle it
   },
   {
+    // ✅ This automatically adds createdAt and updatedAt
+    timestamps: true,
     toJSON: {
       virtuals: true,
-      transform: (doc, ret) => {
+      transform: function (doc, ret) {
         ret.id = ret._id.toString();
         delete ret._id;
         delete ret.__v;
