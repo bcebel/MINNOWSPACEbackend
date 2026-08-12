@@ -334,35 +334,42 @@ app.get("/api/media/:cid", async (req, res) => {
 });
 
 // In your backend - cleanup job
+// Cleanup job - keep it simple
 const cleanupOldStreams = async () => {
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-
-  // Find all streams older than 1 hour
-  const oldStreams = await Stream.find({
-    createdAt: { $lt: oneHourAgo },
+  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+  
+  // 1. Mark old "live" streams as "ended"
+  const staleStreams = await Stream.find({
+    status: "live",
+    createdAt: { $lt: twoHoursAgo }
   });
 
-  for (const stream of oldStreams) {
-    console.log(
-      `🧹 Cleaning up old stream: ${stream.sessionId} (${stream.status})`,
-    );
+  for (const stream of staleStreams) {
+    stream.status = "ended";
+    stream.endedAt = new Date();
+    await stream.save();
+  }
 
-    // Stop server seeding
-    await reactiveBooster.stopStreamBoost(stream.sessionId);
+  // 2. Clean up temp files for ended streams (older than 1 hour)
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  const endedStreams = await Stream.find({
+    status: "ended",
+    endedAt: { $lt: oneHourAgo }
+  });
 
-    // Delete temp files
-    const tempDir = path.join("/tmp", "live-chunks", stream.sessionId);
+  for (const stream of endedStreams) {
+    const tempDir = path.join('/tmp', 'live-chunks', stream.sessionId);
     if (fs.existsSync(tempDir)) {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
-
-    // Delete or mark as cleaned
-    await Stream.deleteOne({ _id: stream._id });
+    // Don't delete the record - just mark as cleaned
+    stream.status = "cleaned";
+    await stream.save();
   }
-
-  console.log(`🧹 Cleaned up ${oldStreams.length} old streams`);
 };
 setInterval(cleanupOldStreams, 5 * 60 * 1000);
+
+
 // ========== MULTER UPLOAD CONFIGURATION ==========
 const storage = multer.memoryStorage();
 

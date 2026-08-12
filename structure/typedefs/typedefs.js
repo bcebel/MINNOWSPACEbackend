@@ -244,6 +244,9 @@ const typeDefs = gql`
     chunks: [StreamChunk!]!
     thumbnailUrl: String
     header: StreamChunk
+    status: String!
+    createdAt: String!
+    updatedAt: String!
   }
 
   type StreamChunk {

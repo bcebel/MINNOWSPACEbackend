@@ -295,7 +295,10 @@ const resolvers = {
     },
     // Stream queries
     streams: async () =>
-      await Stream.find().populate("startedBy").populate("neighborhood"),
+      await Stream.find()
+        .populate("startedBy")
+        .populate("neighborhood")
+        .sort({ createdAt: -1 }),
     stream: async (_, { id }) =>
       await Stream.findById(id).populate("startedBy").populate("neighborhood"),
 
