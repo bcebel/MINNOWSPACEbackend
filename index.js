@@ -336,26 +336,34 @@ app.get("/api/media/:cid", async (req, res) => {
 // In your backend - cleanup job
 const cleanupOldStreams = async () => {
   const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
-  
-  // Find streams that ended more than 30 minutes ago
+
+  // Find streams that are "live" but haven't received chunks in 30+ minutes
+  const staleLiveStreams = await Stream.find({
+    status: "live",
+    updatedAt: { $lt: thirtyMinutesAgo },
+  });
+
+  for (const stream of staleLiveStreams) {
+    console.log(`🧹 Stale live stream detected: ${stream.sessionId}`);
+    // Treat as ended
+    stream.status = "ended";
+    stream.endedAt = new Date();
+    await stream.save();
+  }
+
+  // Then clean up ended streams
   const oldStreams = await Stream.find({
     status: "ended",
-    endedAt: { $lt: thirtyMinutesAgo }
+    endedAt: { $lt: thirtyMinutesAgo },
   });
 
   for (const stream of oldStreams) {
     console.log(`🧹 Cleaning up stream: ${stream.sessionId}`);
-    
-    // 1. Stop server seeding
     await reactiveBooster.stopStreamBoost(stream.sessionId);
-    
-    // 2. Delete temp files (if they exist)
-    const tempDir = path.join('/tmp', 'live-chunks', stream.sessionId);
+    const tempDir = path.join("/tmp", "live-chunks", stream.sessionId);
     if (fs.existsSync(tempDir)) {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
-    
-    // 3. Mark as cleaned (or delete from DB)
     stream.status = "cleaned";
     await stream.save();
   }
