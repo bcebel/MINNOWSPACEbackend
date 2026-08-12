@@ -333,6 +333,34 @@ app.get("/api/media/:cid", async (req, res) => {
   }
 });
 
+// In your backend - cleanup job
+const cleanupOldStreams = async () => {
+  const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+  
+  // Find streams that ended more than 30 minutes ago
+  const oldStreams = await Stream.find({
+    status: "ended",
+    endedAt: { $lt: thirtyMinutesAgo }
+  });
+
+  for (const stream of oldStreams) {
+    console.log(`🧹 Cleaning up stream: ${stream.sessionId}`);
+    
+    // 1. Stop server seeding
+    await reactiveBooster.stopStreamBoost(stream.sessionId);
+    
+    // 2. Delete temp files (if they exist)
+    const tempDir = path.join('/tmp', 'live-chunks', stream.sessionId);
+    if (fs.existsSync(tempDir)) {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+    
+    // 3. Mark as cleaned (or delete from DB)
+    stream.status = "cleaned";
+    await stream.save();
+  }
+};
+setInterval(cleanupOldStreams, 5 * 60 * 1000);
 // ========== MULTER UPLOAD CONFIGURATION ==========
 const storage = multer.memoryStorage();
 
