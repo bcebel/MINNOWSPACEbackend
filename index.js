@@ -569,6 +569,21 @@ app.get("/api/live-chunk/:sessionId/:index", async (req, res) => {
 
 app.post("/api/stream-end", authenticateToken, async (req, res) => {
   const { sessionId } = req.body;
+
+ await Stream.findOneAndUpdate(
+   { sessionId },
+   {
+     status: "ended",
+     endedAt: new Date(), // ← Set endedAt timestamp
+   },
+ );
+  
+    // Clean up temp files immediately
+  const tempDir = path.join('/tmp', 'live-chunks', sessionId);
+  if (fs.existsSync(tempDir)) {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+  
   await reactiveBooster.stopStreamBoost(sessionId);
   res.json({ success: true, message: `Stopped boosting stream ${sessionId}` });
 });
