@@ -336,36 +336,53 @@ app.get("/api/media/:cid", async (req, res) => {
 // In your backend - cleanup job
 // Cleanup job - keep it simple
 const cleanupOldStreams = async () => {
-  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
-  
-  // 1. Mark old "live" streams as "ended"
+  const now = new Date();
+  const twoHoursAgo = new Date(now - 2 * 60 * 60 * 1000);
+  const oneHourAgo = new Date(now - 60 * 60 * 1000);
+
+  // 1. Find streams that are "live" but older than 2 hours
   const staleStreams = await Stream.find({
     status: "live",
-    createdAt: { $lt: twoHoursAgo }
+    createdAt: { $lt: twoHoursAgo },
   });
 
   for (const stream of staleStreams) {
+    console.log(`🧹 Marking stale stream as ended: ${stream.sessionId}`);
     stream.status = "ended";
-    stream.endedAt = new Date();
+    stream.endedAt = now;
     await stream.save();
   }
 
-  // 2. Clean up temp files for ended streams (older than 1 hour)
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  // 2. Delete old StreamChunks (to stop 404s)
+  const oldChunks = await StreamChunk.find({
+    createdAt: { $lt: oneHourAgo },
+  });
+
+  if (oldChunks.length > 0) {
+    await StreamChunk.deleteMany({
+      createdAt: { $lt: oneHourAgo },
+    });
+    console.log(`🧹 Deleted ${oldChunks.length} old StreamChunks`);
+  }
+
+  // 3. Delete old temp files
   const endedStreams = await Stream.find({
     status: "ended",
-    endedAt: { $lt: oneHourAgo }
+    endedAt: { $lt: oneHourAgo },
   });
 
   for (const stream of endedStreams) {
-    const tempDir = path.join('/tmp', 'live-chunks', stream.sessionId);
+    const tempDir = path.join("/tmp", "live-chunks", stream.sessionId);
     if (fs.existsSync(tempDir)) {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
-    // Don't delete the record - just mark as cleaned
     stream.status = "cleaned";
     await stream.save();
   }
+
+  console.log(
+    `🧹 Cleanup complete. Stale: ${staleStreams.length}, Old chunks: ${oldChunks.length}`,
+  );
 };
 setInterval(cleanupOldStreams, 5 * 60 * 1000);
 
