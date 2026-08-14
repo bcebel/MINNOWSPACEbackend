@@ -360,10 +360,15 @@ const cleanupOldStreams = async () => {
         await stream.save();
         
         // Delete temp files
-        const tempDir = path.join('/tmp', 'live-chunks', stream.sessionId);
-        if (fs.existsSync(tempDir)) {
-          fs.rmSync(tempDir, { recursive: true, force: true });
-        }
+try {
+  const tempDir = path.join("/tmp", "live-chunks", stream.sessionId);
+  if (fs.existsSync(tempDir)) {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+    console.log(`🗑️ Deleted temp dir: ${tempDir}`);
+  }
+} catch (e) {
+  console.log(`⚠️ Could not delete temp dir: ${e.message}`);
+}
       } catch (streamError) {
         console.error('Error cleaning stream:', streamError);
         // Continue with next stream
