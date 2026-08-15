@@ -334,63 +334,6 @@ app.get("/api/media/:cid", async (req, res) => {
 });
 
 // In your backend - cleanup job
-// Cleanup job - keep it simple
-// Safer cleanup job with error handling
-const cleanupOldStreams = async () => {
-  try {
-    // Check if we're on Heroku and have memory
-    const memory = process.memoryUsage();
-    if (memory.heapUsed > 200 * 1024 * 1024) {
-      console.log('⚠️ Memory limit approaching, skipping cleanup');
-      return;
-    }
-
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-    
-    // Find old streams
-    const oldStreams = await Stream.find({
-      status: "live",
-      createdAt: { $lt: oneHourAgo }
-    }).limit(10); // ← Limit to 10 to prevent overload
-
-    for (const stream of oldStreams) {
-      try {
-        stream.status = "ended";
-        stream.endedAt = new Date();
-        await stream.save();
-        
-        // Delete temp files
-try {
-  const tempDir = path.join("/tmp", "live-chunks", stream.sessionId);
-  if (fs.existsSync(tempDir)) {
-    fs.rmSync(tempDir, { recursive: true, force: true });
-    console.log(`🗑️ Deleted temp dir: ${tempDir}`);
-  }
-} catch (e) {
-  console.log(`⚠️ Could not delete temp dir: ${e.message}`);
-}
-      } catch (streamError) {
-        console.error('Error cleaning stream:', streamError);
-        // Continue with next stream
-      }
-    }
-  } catch (error) {
-    console.error('Cleanup job error:', error);
-  }
-};
-
-// Run cleanup with error handling
-try {
-  // Only run if we're not in a memory-constrained environment
-  if (process.env.NODE_ENV === 'production') {
-    // Run less frequently on Heroku
-    setInterval(cleanupOldStreams, 15 * 60 * 1000); // 15 minutes
-  }
-} catch (error) {
-  console.error('Failed to start cleanup job:', error);
-}
-
-setInterval(cleanupOldStreams, 10 * 60 * 1000);
 
 
 // ========== MULTER UPLOAD CONFIGURATION ==========
