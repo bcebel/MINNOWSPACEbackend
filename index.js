@@ -361,6 +361,11 @@ app.post(
   liveChunkUpload.single("chunk"),
   async (req, res) => {
     console.log("🔵 [LIVE-CHUNK] Endpoint hit. Starting processing...");
+      console.log("🔵 [LIVE-CHUNK] Endpoint hit");
+      console.log("🔵 SessionId:", req.body.sessionId);
+      console.log("🔵 ChunkIndex:", req.body.chunkIndex);
+      console.log("🔵 File size:", req.file?.size);
+      console.log("🔵 File mimetype:", req.file?.mimetype);
 
     try {
       // 1. DATA EXTRACTION - Use let/const consistently
