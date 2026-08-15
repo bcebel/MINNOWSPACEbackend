@@ -498,26 +498,24 @@ app.get("/api/live-chunk/:sessionId/:index", async (req, res) => {
   const tempDir = path.join("/tmp", "live-chunks", sessionId);
 
   if (!fs.existsSync(tempDir)) {
-    res.set("Cache-Control", "no-cache"); // Don't cache missing sessions
+    res.set("Cache-Control", "no-cache");
     return res.status(404).send("Session folder missing");
   }
 
-  // 1. PRIORITY 1: The Hash (Immutable - 100% unique)
+  // 1. PRIORITY 1: The Hash
   if (hash) {
     const files = fs.readdirSync(tempDir);
     const hashMatch = files.find((f) => f.includes(hash));
-
     if (hashMatch) {
-      // 🚀 AGGRESSIVE CACHE: This hash will NEVER change.
       res.set({
-        "Cache-Control": "public, max-age=31536000, immutable", // 1 year
+        "Cache-Control": "public, max-age=31536000, immutable",
         "Access-Control-Allow-Origin": "*",
       });
       return res.sendFile(path.join(tempDir, hashMatch));
     }
   }
 
-  // 2. PRIORITY 2: The Header (Vital - 1 hour cache)
+  // 2. PRIORITY 2: The Header
   if (index === "-1") {
     const files = fs.readdirSync(tempDir);
     const headerFile = files.find(
@@ -525,27 +523,36 @@ app.get("/api/live-chunk/:sessionId/:index", async (req, res) => {
     );
     if (headerFile) {
       res.set({
-        "Cache-Control": "public, max-age=3600", // 1 hour
+        "Cache-Control": "public, max-age=3600",
         "Access-Control-Allow-Origin": "*",
       });
       return res.sendFile(path.join(tempDir, headerFile));
     }
   }
 
-  // 3. FALLBACK: Logical path (Standard chunk - 1 hour cache)
-  const logicalPath = path.join(tempDir, `chunk-${index}.mp4`);
-  if (fs.existsSync(logicalPath)) {
-    res.set({
-      "Cache-Control": "public, max-age=3600",
-      "Access-Control-Allow-Origin": "*",
-    });
-    return res.sendFile(logicalPath);
+  // 3. FALLBACK: Try multiple extensions
+  const extensions = [".mp4", ".webm", ".mov"];
+  for (const ext of extensions) {
+    const logicalPath = path.join(tempDir, `chunk-${index}${ext}`);
+    if (fs.existsSync(logicalPath)) {
+      const contentType = ext === ".mp4" 
+        ? 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"'
+        : ext === ".webm"
+          ? "video/webm"
+          : "video/quicktime";
+      res.set({
+        "Cache-Control": "public, max-age=3600",
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": contentType,
+      });
+      return res.sendFile(logicalPath);
+    }
   }
 
   // 🛑 SAFETY: Tell the browser NOT to cache the "Not Ready" state
   res.set("Cache-Control", "no-store, no-cache, must-revalidate");
   res.status(404).send("Chunk not ready yet");
-});
+}); // ✅ Just ONE closing bracket
 
 app.post("/api/stream-end", authenticateToken, async (req, res) => {
   const { sessionId } = req.body;
