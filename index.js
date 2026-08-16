@@ -497,7 +497,14 @@ app.get("/api/live-chunk/:sessionId/:index", async (req, res) => {
   const { hash } = req.query;
   const tempDir = path.join("/tmp", "live-chunks", sessionId);
 
+   console.log(`🔍 Looking for chunk ${index} in ${tempDir}`);
+   console.log(`📂 Directory exists? ${fs.existsSync(tempDir)}`);
+  
+
+  
   if (!fs.existsSync(tempDir)) {
+      const files = fs.readdirSync(tempDir);
+      console.log(`📄 Files in directory:`, files);
     res.set("Cache-Control", "no-cache");
     return res.status(404).send("Session folder missing");
   }
