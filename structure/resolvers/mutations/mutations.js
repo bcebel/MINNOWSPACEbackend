@@ -954,6 +954,7 @@ streams: async (_, { status }) => {
         sessionId:
           sessionId ||
           `live_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        rotation: rotation || 0,
         status: "live",
         createdAt: new Date(),
       });

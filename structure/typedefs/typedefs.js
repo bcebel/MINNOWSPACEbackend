@@ -246,6 +246,7 @@ const typeDefs = gql`
     thumbnailUrl: String
     header: StreamChunk
     status: String!
+    rotation: Int
     createdAt: String!
     updatedAt: String!
   }

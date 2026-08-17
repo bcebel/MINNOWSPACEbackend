@@ -5,7 +5,7 @@ import mongoose from "mongoose";
 const streamSchema = new mongoose.Schema(
   {
     sessionId: { type: String, unique: true, required: true, index: true }, // The unique session key
-    header: { type: mongoose.Schema.Types.ObjectId, ref: 'StreamChunk' },
+    header: { type: mongoose.Schema.Types.ObjectId, ref: "StreamChunk" },
     startedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -29,6 +29,7 @@ const streamSchema = new mongoose.Schema(
       enum: ["pending", "live", "ended", "processing", "completed", "failed"],
       default: "pending",
     },
+    rotation: { type: Number, default: 0 },
     archiveUrl: { type: String, default: null }, // The IPFS link if we "Stitch & Ship"
     isPermanentP2P: { type: Boolean, default: false }, // If true, Reassembler uses Magnet chunks instead
   },
@@ -46,7 +47,7 @@ const streamSchema = new mongoose.Schema(
       },
     },
     toObject: { virtuals: true },
-  }
+  },
 );
 
 // 🎯 THE BRIDGE: Look up the thumbnail from the Message collection
