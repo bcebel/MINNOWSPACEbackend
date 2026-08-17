@@ -261,6 +261,7 @@ const typeDefs = gql`
     fileSize: Int
     duration: Float
     mimeType: String
+    rotation: Int
     trackerUrls: [String!]
   }
 
