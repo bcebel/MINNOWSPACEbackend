@@ -14,6 +14,7 @@ const messageSchema = new mongoose.Schema(
     mimeType: String,
     isPublic: Boolean,
     ipfsHash: String,
+    rotation: Number,
     thumbnailUrl: String,
     sessionId: {
       type: String,

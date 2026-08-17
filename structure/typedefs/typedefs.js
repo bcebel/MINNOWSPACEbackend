@@ -138,6 +138,7 @@ const typeDefs = gql`
     ipfsHash: String
     ipfsData: IPFSData
     thumbnailUrl: String
+    rotation: Int
     room: String!
     neighborhood: Neighborhood
     sessionId: String
@@ -456,6 +457,7 @@ const typeDefs = gql`
       ipfsHash: String
       ipfsData: IPFSDataInput
       cid: String
+      rotation: Int
       thumbnailUrl: String
       ipfsUrl: String
       sessionId: String
