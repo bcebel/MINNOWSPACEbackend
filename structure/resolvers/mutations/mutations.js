@@ -294,16 +294,16 @@ const resolvers = {
       };
     },
     // Stream queries
-streams: async (_, { status }) => {
-  const filter = {};
-  if (status) {
-    filter.status = status;
-  }
-  return await Stream.find(filter)
-    .populate("startedBy")
-    .populate("neighborhood")
-    .sort({ createdAt: -1 });
-},
+    streams: async (_, { status }) => {
+      const filter = {};
+      if (status) {
+        filter.status = status;
+      }
+      return await Stream.find(filter)
+        .populate("startedBy")
+        .populate("neighborhood")
+        .sort({ createdAt: -1 });
+    },
     stream: async (_, { id }) =>
       await Stream.findById(id).populate("startedBy").populate("neighborhood"),
 
@@ -934,36 +934,40 @@ streams: async (_, { status }) => {
       return await video.populate("user neighborhood");
     },
 
-    createStream: async (_, { title, neighborhoodId, sessionId }, context) => {
+    // backend/graphql/resolvers.js
+
+    createStream: async (
+      _,
+      { title, neighborhoodId, sessionId, rotation },
+      context,
+    ) => {
       if (!context.user) throw new Error("Authentication required");
 
-      // Ensure the neighborhood exists and the user is a member
+      // 1. Ensure the neighborhood exists and the user is a member
       const neighborhood = await Neighborhood.findById(neighborhoodId);
       if (!neighborhood) throw new Error("Neighborhood not found");
+
       const isMember = neighborhood.members.some(
         (member) => member.user.toString() === context.user.userId,
       );
       if (!isMember) throw new Error("You must be a member to stream here.");
 
-      // Create the new Stream object
+      // 2. Create the Stream object (safely default rotation to 0 if undefined)
       const newStream = new Stream({
         title,
         startedBy: context.user.userId,
         neighborhood: neighborhoodId,
-        // CRITICAL: Use the passed sessionId if provided, otherwise generate
         sessionId:
           sessionId ||
           `live_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        rotation: rotation || 0,
         status: "live",
+        rotation: typeof rotation === "number" ? rotation : 0, // 👈 SAFELY CHECKED HERE
         createdAt: new Date(),
       });
 
       await newStream.save();
-
       console.log("✅ New stream created with sessionId:", newStream.sessionId);
 
-      // Return the newly created stream
       return await Stream.findById(newStream._id)
         .populate("startedBy")
         .populate("neighborhood");
