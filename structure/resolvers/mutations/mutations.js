@@ -1036,7 +1036,7 @@ const resolvers = {
         fileType: fileType || null,
         fileSize: fileSize || null,
         magnetLink: magnetLink || null,
-        mimeType: mimeType || null,
+        mimeType: mimeType,
         ipfsHash: ipfsHash || null,
         rotation: rotation || null,
         ipfsData: ipfsData || null,
@@ -1067,7 +1067,7 @@ const resolvers = {
                 sessionId,
                 magnetLink,
                 fileName: fileName || "blob",
-                mimeType: mimeType || "video/mp4",
+                mimeType: mimeType,
                 fileSize: fileSize || 0,
               },
               {
