@@ -553,7 +553,9 @@ app.get("/api/live-chunk/:sessionId/:index", async (req, res) => {
   for (const filename of candidateNames) {
     const filePath = path.join(tempDir, filename);
     if (fs.existsSync(filePath)) {
-      const mime = filename.endsWith(".webm") ? "video/webm" : "video/mp4";
+      const mime = filename.endsWith(".webm")
+        ? "video/webm"
+        : 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
       res.set({
         "Cache-Control": "public, max-age=3600",
         "Content-Type": mime,
