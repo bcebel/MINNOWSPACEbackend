@@ -383,7 +383,8 @@ app.post(
           .json({ success: false, error: "Missing sessionId" });
       }
 
-      const mimeType = file.mimetype || "video/mp4";
+      // ✅ Use the full codec string
+const mimeType = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
       const indexInt = parseInt(chunkIndex);
 
       // 3. SEED SERVICE
