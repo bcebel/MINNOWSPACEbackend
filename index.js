@@ -6,7 +6,7 @@ import jwt from "jsonwebtoken";
 import http from "http";
 import cors from "cors";
 import dotenv from "dotenv";
-import  pubsub from "./structure/pubsub.js";
+import pubsub from "./structure/pubsub.js";
 import { Server } from "socket.io";
 import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@as-integrations/express4";
@@ -166,7 +166,7 @@ async function checkPrivateMediaAccess(media, user) {
     if (!neighborhood) return false;
 
     return neighborhood.members.some(
-      (member) => member.user.toString() === user.userId
+      (member) => member.user.toString() === user.userId,
     );
   }
 
@@ -335,7 +335,6 @@ app.get("/api/media/:cid", async (req, res) => {
 
 // In your backend - cleanup job
 
-
 // ========== MULTER UPLOAD CONFIGURATION ==========
 const storage = multer.memoryStorage();
 
@@ -361,11 +360,11 @@ app.post(
   liveChunkUpload.single("chunk"),
   async (req, res) => {
     console.log("🔵 [LIVE-CHUNK] Endpoint hit. Starting processing...");
-      console.log("🔵 [LIVE-CHUNK] Endpoint hit");
-      console.log("🔵 SessionId:", req.body.sessionId);
-      console.log("🔵 ChunkIndex:", req.body.chunkIndex);
-      console.log("🔵 File size:", req.file?.size);
-      console.log("🔵 File mimetype:", req.file?.mimetype);
+    console.log("🔵 [LIVE-CHUNK] Endpoint hit");
+    console.log("🔵 SessionId:", req.body.sessionId);
+    console.log("🔵 ChunkIndex:", req.body.chunkIndex);
+    console.log("🔵 File size:", req.file?.size);
+    console.log("🔵 File mimetype:", req.file?.mimetype);
 
     try {
       // 1. DATA EXTRACTION - Use let/const consistently
@@ -410,7 +409,7 @@ app.post(
       const magnetUri = await reactiveBooster.boostChunkIfNeeded(
         tempFilePath,
         `${sessionId}-${indexInt}`,
-        trackers
+        trackers,
       );
 
       // 4. DATABASE SYNC WITH RETRY LOGIC
@@ -429,7 +428,7 @@ app.post(
         console.log(
           `⏳ Stream document not yet created for ${sessionId}, retry ${
             retries + 1
-          }...`
+          }...`,
         );
         await new Promise((resolve) => setTimeout(resolve, 200));
         parentStream = await Stream.findOne({ sessionId });
@@ -438,7 +437,7 @@ app.post(
 
       if (!parentStream) {
         console.warn(
-          `⚠️ Stream ${sessionId} still not found after ${retries} retries`
+          `⚠️ Stream ${sessionId} still not found after ${retries} retries`,
         );
         // If it's not a header, we can proceed - header might come later
         if (!isHeader) {
@@ -489,14 +488,13 @@ app.post(
         hint: "Check if StreamChunk model has 'stream' as required field",
       });
     }
-  }
+  },
 );
 
 app.get("/api/live-chunk/:sessionId/:index", async (req, res) => {
   const { sessionId, index } = req.params;
   const { hash } = req.query;
   const tempDir = path.join("/tmp", "live-chunks", sessionId);
-  
 
   if (!fs.existsSync(tempDir)) {
     res.set("Cache-Control", "no-cache");
@@ -520,7 +518,7 @@ app.get("/api/live-chunk/:sessionId/:index", async (req, res) => {
   if (index === "-1") {
     const files = fs.readdirSync(tempDir);
     const headerFile = files.find(
-      (f) => f.toLowerCase().includes("header") || f.includes("-1")
+      (f) => f.toLowerCase().includes("header") || f.includes("-1"),
     );
     if (headerFile) {
       res.set({
@@ -536,11 +534,12 @@ app.get("/api/live-chunk/:sessionId/:index", async (req, res) => {
   for (const ext of extensions) {
     const logicalPath = path.join(tempDir, `chunk-${index}${ext}`);
     if (fs.existsSync(logicalPath)) {
-      const contentType = ext === ".mp4" 
-        ? 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"'
-        : ext === ".webm"
-          ? "video/webm"
-          : "video/quicktime";
+      const contentType =
+        ext === ".mp4"
+          ? 'video/mp4; codecs=mp4a.40.2,avc1.4d40515"'
+          : ext === ".webm"
+            ? "video/webm"
+            : "video/quicktime";
       res.set({
         "Cache-Control": "public, max-age=3600",
         "Access-Control-Allow-Origin": "*",
@@ -558,20 +557,20 @@ app.get("/api/live-chunk/:sessionId/:index", async (req, res) => {
 app.post("/api/stream-end", authenticateToken, async (req, res) => {
   const { sessionId } = req.body;
 
- await Stream.findOneAndUpdate(
-   { sessionId },
-   {
-     status: "ended",
-     endedAt: new Date(), // ← Set endedAt timestamp
-   },
- );
-  
-    // Clean up temp files immediately
-  const tempDir = path.join('/tmp', 'live-chunks', sessionId);
+  await Stream.findOneAndUpdate(
+    { sessionId },
+    {
+      status: "ended",
+      endedAt: new Date(), // ← Set endedAt timestamp
+    },
+  );
+
+  // Clean up temp files immediately
+  const tempDir = path.join("/tmp", "live-chunks", sessionId);
   if (fs.existsSync(tempDir)) {
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
-  
+
   await reactiveBooster.stopStreamBoost(sessionId);
   res.json({ success: true, message: `Stopped boosting stream ${sessionId}` });
 });
@@ -585,29 +584,35 @@ const seedUpload = multer({
 
 // ✅ UPDATE the route with multer middleware
 // In your backend - NO FILE UPLOAD, just register the magnet link
-app.post('/api/seed-register', authenticateToken, async (req, res) => {
+app.post("/api/seed-register", authenticateToken, async (req, res) => {
   try {
-    const { magnetLink, neighborhoodId, content, fileName, fileSize, mediaType } = req.body;
+    const {
+      magnetLink,
+      neighborhoodId,
+      content,
+      fileName,
+      fileSize,
+      mediaType,
+    } = req.body;
     const userId = req.user.userId;
 
     if (!magnetLink) {
-      return res.status(400).json({ error: 'magnetLink required' });
+      return res.status(400).json({ error: "magnetLink required" });
     }
 
     console.log(`🌱 Registering seed: ${fileName} (${fileSize} bytes)`);
-    
+
     // Optional: Store seeding record for monitoring
     // You could create a SeedingRecord model here
     // But you don't NEED to - the magnet link is already in the post
-    
+
     res.json({
       success: true,
-      message: 'Seed registered successfully',
+      message: "Seed registered successfully",
       magnetLink: magnetLink,
     });
-    
   } catch (error) {
-    console.error('❌ Seed registration failed:', error);
+    console.error("❌ Seed registration failed:", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -659,7 +664,7 @@ app.post(
         details: error.message,
       });
     }
-  }
+  },
 );
 
 // WebTorrent player HTML endpoint
@@ -850,7 +855,7 @@ app.get(
       // This query is fast and reduces load vs. fetching everything
       const galleryData = await ModelSchema.Neighborhood.findOne(
         { _id: neighborhoodId },
-        { videos: 1, images: 1, totalCount: 1, name: 1 }
+        { videos: 1, images: 1, totalCount: 1, name: 1 },
       ).lean(); // `.lean()` for faster JSON
 
       if (!galleryData) {
@@ -885,7 +890,7 @@ app.get(
       console.error("Gallery API error:", error);
       res.status(500).json({ error: "Failed to fetch gallery data" });
     }
-  }
+  },
 );
 
 // Get messages for a specific room
@@ -913,7 +918,7 @@ app.post("/api/track-click", async (req, res) => {
     const user = await User.findOneAndUpdate(
       { "affiliateLinks._id": affiliateLinkId },
       { $inc: { "affiliateLinks.$.clicks": 1 } },
-      { new: true }
+      { new: true },
     );
     res.json({ success: true });
   } catch (error) {
@@ -945,26 +950,31 @@ const serverCleanup = useServer(
     schema,
     context: async (ctx) => {
       // For debugging, log what we get
-      console.log('🔌 [WS-CONTEXT] WebSocket connection established');
-      console.log('🔌 [WS-CONTEXT] Connection params:', ctx.connectionParams);
-      
+      console.log("🔌 [WS-CONTEXT] WebSocket connection established");
+      console.log("🔌 [WS-CONTEXT] Connection params:", ctx.connectionParams);
+
       // Return the pubsub instance
       return { pubsub };
     },
     // Add onSubscribe for debugging
     onSubscribe: (ctx, msg) => {
-      console.log('🔌 [WS-ONSUBSCRIBE] Client subscribing:', msg.payload?.operationName);
-      console.log('🔌 [WS-ONSUBSCRIBE] Variables:', msg.payload?.variables);
+      console.log(
+        "🔌 [WS-ONSUBSCRIBE] Client subscribing:",
+        msg.payload?.operationName,
+      );
+      console.log("🔌 [WS-ONSUBSCRIBE] Variables:", msg.payload?.variables);
     },
     onConnect: (ctx) => {
-      console.log('🔌 [WS-ONCONNECT] Client connected');
+      console.log("🔌 [WS-ONCONNECT] Client connected");
       return true; // Allow the connection
     },
     onDisconnect: (ctx, code, reason) => {
-      console.log(`🔌 [WS-ONDISCONNECT] Client disconnected: ${code} - ${reason}`);
+      console.log(
+        `🔌 [WS-ONDISCONNECT] Client disconnected: ${code} - ${reason}`,
+      );
     },
   },
-  wsServer
+  wsServer,
 );
 
 // Apollo Server v4 setup
@@ -1009,7 +1019,7 @@ app.use(
         Video,
         Image,
         Message,
-        ...ModelSchema // This ensures anything in your index.js is also included
+        ...ModelSchema, // This ensures anything in your index.js is also included
       };
       return {
         user,
@@ -1021,7 +1031,7 @@ app.use(
         },
       };
     },
-  })
+  }),
 );
 
 // ========== SOCKET.IO SETUP (DUAL CONFIGURATION FROM CURRENT VERSION) ==========
@@ -1064,7 +1074,7 @@ chatIo.on("connection", (socket) => {
     const room = `neighborhood-${neighborhoodId}`;
     socket.join(room);
     console.log(
-      `${socket.user.username} joined neighborhood chat room: ${room}`
+      `${socket.user.username} joined neighborhood chat room: ${room}`,
     );
   });
 
@@ -1101,7 +1111,7 @@ chatIo.on("connection", (socket) => {
 
       const populatedMessage = await Message.findById(message._id).populate(
         "sender",
-        "username"
+        "username",
       );
       chatIo.to(data.room).emit("message", populatedMessage);
     } catch (error) {
