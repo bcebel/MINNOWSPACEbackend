@@ -492,67 +492,80 @@ app.post(
 );
 
 app.get("/api/live-chunk/:sessionId/:index", async (req, res) => {
-  const { sessionId, index } = req.params;
+  // 🛡️ 1. Sanitize inputs to prevent Path Traversal
+  const sessionId = req.params.sessionId.replace(/[^a-zA-Z0-9_-]/g, "");
+  const index = req.params.index.replace(/[^a-zA-Z0-9_-]/g, "");
   const { hash } = req.query;
+
   const tempDir = path.join("/tmp", "live-chunks", sessionId);
+
+  // Set default CORS header for ALL responses (including 404s)
+  res.set("Access-Control-Allow-Origin", "*");
 
   if (!fs.existsSync(tempDir)) {
     res.set("Cache-Control", "no-cache");
     return res.status(404).send("Session folder missing");
   }
 
-  // 1. PRIORITY 1: The Hash
-  if (hash) {
-    const files = fs.readdirSync(tempDir);
-    const hashMatch = files.find((f) => f.includes(hash));
-    if (hashMatch) {
-      res.set({
-        "Cache-Control": "public, max-age=31536000, immutable",
-        "Access-Control-Allow-Origin": "*",
-      });
-      return res.sendFile(path.join(tempDir, hashMatch));
+  // 🎯 PRIORITY 1: Match by Hash (if provided)
+  if (hash && typeof hash === "string") {
+    const cleanHash = hash.replace(/[^a-zA-Z0-9_-]/g, "");
+    try {
+      const files = fs.readdirSync(tempDir);
+      const hashMatch = files.find((f) => f.includes(cleanHash));
+      if (hashMatch) {
+        res.set("Cache-Control", "public, max-age=31536000, immutable");
+        return res.sendFile(path.join(tempDir, hashMatch));
+      }
+    } catch (e) {
+      console.warn("Hash lookup error:", e);
     }
   }
 
-  // 2. PRIORITY 2: The Header
+  // 🎯 PRIORITY 2: Match Stream Header (index === "-1")
   if (index === "-1") {
-    const files = fs.readdirSync(tempDir);
-    const headerFile = files.find(
-      (f) => f.toLowerCase().includes("header") || f.includes("-1"),
-    );
-    if (headerFile) {
-      res.set({
-        "Cache-Control": "public, max-age=3600",
-        "Access-Control-Allow-Origin": "*",
-      });
-      return res.sendFile(path.join(tempDir, headerFile));
+    try {
+      const files = fs.readdirSync(tempDir);
+      const headerFile = files.find(
+        (f) => f.toLowerCase().includes("header") || f.includes("-1"),
+      );
+      if (headerFile) {
+        res.set({
+          "Cache-Control": "public, max-age=3600",
+          "Content-Type": "video/mp4",
+        });
+        return res.sendFile(path.join(tempDir, headerFile));
+      }
+    } catch (e) {
+      console.warn("Header lookup error:", e);
     }
   }
 
-  // 3. FALLBACK: Try multiple extensions
-  const extensions = [".mp4", ".webm", ".mov"];
-  for (const ext of extensions) {
-    const logicalPath = path.join(tempDir, `chunk-${index}${ext}`);
-    if (fs.existsSync(logicalPath)) {
-      const contentType =
-        ext === ".mp4"
-          ? 'video/mp4; codecs=mp4a.40.2,avc1.4d40515"'
-          : ext === ".webm"
-            ? "video/webm"
-            : "video/quicktime";
+  // 🎯 PRIORITY 3: Match Chunk File by Extension or Prefix
+  const candidateNames = [
+    `chunk-${index}.mp4`,
+    `c_${index}.mp4`,
+    `${index}.mp4`,
+    `chunk-${index}.webm`,
+    `c_${index}.webm`,
+  ];
+
+  for (const filename of candidateNames) {
+    const filePath = path.join(tempDir, filename);
+    if (fs.existsSync(filePath)) {
+      const mime = filename.endsWith(".webm") ? "video/webm" : "video/mp4";
       res.set({
         "Cache-Control": "public, max-age=3600",
-        "Access-Control-Allow-Origin": "*",
-        "Content-Type": contentType,
+        "Content-Type": mime,
       });
-      return res.sendFile(logicalPath);
+      return res.sendFile(filePath);
     }
   }
 
-  // 🛑 SAFETY: Tell the browser NOT to cache the "Not Ready" state
+  // 🛑 SAFETY: Chunk isn't ready yet — DO NOT CACHE
   res.set("Cache-Control", "no-store, no-cache, must-revalidate");
-  res.status(404).send("Chunk not ready yet");
-}); // ✅ Just ONE closing bracket
+  return res.status(404).send("Chunk not ready yet");
+});// ✅ Just ONE closing bracket
 
 app.post("/api/stream-end", authenticateToken, async (req, res) => {
   const { sessionId } = req.body;
