@@ -384,7 +384,7 @@ app.post(
       }
 
       // ✅ Use the full codec string
-const mimeType = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
+      const mimeType = 'video/mp4; codecs="mp4a.40.2,avc1.4d4015"';
       const indexInt = parseInt(chunkIndex);
 
       // 3. SEED SERVICE
@@ -556,7 +556,7 @@ app.get("/api/live-chunk/:sessionId/:index", async (req, res) => {
     if (fs.existsSync(filePath)) {
       const mime = filename.endsWith(".webm")
         ? "video/webm"
-        : 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
+        : 'video/mp4; codecs="mp4a.40.2,avc1.4d4015"';
       res.set({
         "Cache-Control": "public, max-age=3600",
         "Content-Type": mime,
