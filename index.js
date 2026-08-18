@@ -567,7 +567,7 @@ app.get("/api/live-chunk/:sessionId/:index", async (req, res) => {
   // 🛑 SAFETY: Chunk isn't ready yet — DO NOT CACHE
   res.set("Cache-Control", "no-store, no-cache, must-revalidate");
   return res.status(404).send("Chunk not ready yet");
-});// ✅ Just ONE closing bracket
+}); // ✅ Just ONE closing bracket
 
 app.post("/api/stream-end", authenticateToken, async (req, res) => {
   const { sessionId } = req.body;
