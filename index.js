@@ -174,6 +174,13 @@ async function checkPrivateMediaAccess(media, user) {
 }
 
 // ========== REST API ROUTES FROM OLDEST VERSION ==========
+app.get("/api/health", (req, res) => {
+  res.json({
+    status: "OK",
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV,
+  });
+});
 
 // 1. PUBLIC endpoint - NO AUTH, aggressively cached
 app.get("/api/media/public/:cid", async (req, res) => {
