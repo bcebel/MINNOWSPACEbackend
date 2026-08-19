@@ -407,13 +407,15 @@ app.post(
 
       console.log(`📝 Written chunk to temp file: ${tempFilePath}`);
 
+
+
       const magnetUri = await reactiveBooster.boostChunkIfNeeded(
         tempFilePath,
         `${sessionId}-${indexInt}`,
         trackers,
       );
 
-      // 4. DATABASE SYNC WITH RETRY LOGIC
+      // 4. DATABASE SYNC WITH RETRY LOGIC !
       let parentStream = await Stream.findOne({ sessionId });
       let retries = 0;
       const maxRetries = 5;
@@ -527,9 +529,12 @@ app.get("/api/stream/:sessionId/playlist.m3u8", async (req, res) => {
 });
 
 app.get("/api/live-chunk/:sessionId/:index", async (req, res) => {
-  // 🛡️ 1. Sanitize inputs to prevent Path Traversal
+  // 🛡️ 1. Sanitize inputs to prevent Path Traversal jhgjhjh
+  //dlksjflsdkjsdlfjks
   const sessionId = req.params.sessionId.replace(/[^a-zA-Z0-9_-]/g, "");
   const index = req.params.index.replace(/[^a-zA-Z0-9_-]/g, "");
+  console.log(`🔍 Looking for chunk: ${sessionId}/${index}`);
+  
   const { hash } = req.query;
 
   const tempDir = path.join("/tmp", "live-chunks", sessionId);
