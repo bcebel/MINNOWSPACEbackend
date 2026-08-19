@@ -492,6 +492,31 @@ app.post(
   },
 );
 
+// In your backend, create an endpoint that generates an .m3u8 file
+app.get('/api/stream/:sessionId/playlist.m3u8', async (req, res) => {
+  const { sessionId } = req.params;
+  
+  // Get all chunks for this session
+  const chunks = await StreamChunk.find({ sessionId }).sort({ chunkIndex: 1 });
+  
+  // Generate HLS manifest
+  let manifest = '#EXTM3U\n';
+  manifest += '#EXT-X-VERSION:3\n';
+  manifest += '#EXT-X-TARGETDURATION:8\n';
+  manifest += '#EXT-X-MEDIA-SEQUENCE:0\n';
+  
+  // Add each chunk
+  chunks.forEach((chunk, index) => {
+    manifest += `#EXTINF:8.0,\n`;
+    manifest += `/api/stream/${sessionId}/chunk/${chunk.chunkIndex}.mp4\n`;
+  });
+  
+  manifest += '#EXT-X-ENDLIST\n';
+  
+  res.set('Content-Type', 'application/vnd.apple.mpegurl');
+  res.send(manifest);
+});
+
 app.get("/api/live-chunk/:sessionId/:index", async (req, res) => {
   // 🛡️ 1. Sanitize inputs to prevent Path Traversal
   const sessionId = req.params.sessionId.replace(/[^a-zA-Z0-9_-]/g, "");
