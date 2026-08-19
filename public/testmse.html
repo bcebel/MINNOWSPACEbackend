@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>MSE Test — ManagedMediaSource</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+
+<body>
+    <h2>ManagedMediaSource Test</h2>
+    <video id="player" controls playsinline webkit-playsinline style="width:100%;max-width:600px;"></video>
+    <div id="status">Loading...</div>
+
+    <script>
+        async function runTest() {
+            const video = document.getElementById('player');
+            const status = document.getElementById('status');
+
+            // 1. Check for ManagedMediaSource
+            const MS = window.ManagedMediaSource || window.MediaSource;
+            if (!MS) {
+                status.textContent = "❌ MediaSource API not supported";
+                return;
+            }
+
+            status.textContent = "✅ Using: " + (window.ManagedMediaSource ? "ManagedMediaSource" : "MediaSource");
+
+            // 2. Create source
+            const ms = new MS();
+            video.src = URL.createObjectURL(ms);
+
+            // 3. Wait for metadata
+            await new Promise(r => video.addEventListener('loadedmetadata', r));
+
+            // 4. Add buffer (MP4/H.264 only)
+            const sb = ms.addSourceBuffer('video/mp4; codecs="avc1.4d401f,mp4a.40.2"');
+            sb.mode = 'sequence';
+
+            // 5. Simulate chunk (use real MP4 segment in prod)
+            const fakeChunk = new Uint8Array([
+                0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, 0x00, 0x00, 0x02, 0x00,
+                0x6d, 0x64, 0x61, 0x74, 0x00, 0x00, 0x00, 0x01
+            ]); // minimal moov header (for demo)
+
+            sb.onupdateend = () => {
+                if (!sb.updating) {
+                    sb.appendBuffer(fakeChunk);
+                    status.textContent = "▶ Appended chunk — try playing...";
+                    setTimeout(() => video.play().catch(e => {
+                        status.textContent += " (play failed: " + e.name + ")";
+                    }), 500);
+                }
+            };
+
+            sb.appendBuffer(new Uint8Array([0x00, 0x00, 0x00, 0x01])); // trigger update
+        }
+
+        window.onload = runTest;
+    </script>
+</body>
+
+</html>
