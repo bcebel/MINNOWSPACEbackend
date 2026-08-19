@@ -522,8 +522,19 @@ app.get("/api/stream/:sessionId/playlist.m3u8", async (req, res) => {
 
   console.log(`📺 Generating HLS manifest for: ${sessionId}`);
 
-  // Get all chunks for this session
-  const chunks = await StreamChunk.find({ sessionId }).sort({ chunkIndex: 1 });
+  // 1. Find the Stream document using the sessionId
+  const streamDoc = await Stream.findOne({ sessionId });
+  if (!streamDoc) {
+    console.error(`❌ No stream found for sessionId: ${sessionId}`);
+    return res.status(404).send("Stream not found");
+  }
+
+  console.log(`📺 Found stream: ${streamDoc._id}`);
+
+  // 2. Get all chunks for this stream using the stream's ObjectId
+  const chunks = await StreamChunk.find({
+    stream: streamDoc._id,
+  }).sort({ chunkIndex: 1 });
 
   console.log(`📦 Found ${chunks.length} chunks`);
 
@@ -531,13 +542,16 @@ app.get("/api/stream/:sessionId/playlist.m3u8", async (req, res) => {
     return res.status(404).send("No chunks found");
   }
 
-  // Generate HLS manifest
+  // 3. Generate HLS manifest (skip header chunk -1)
   let manifest = "#EXTM3U\n";
   manifest += "#EXT-X-VERSION:3\n";
   manifest += "#EXT-X-TARGETDURATION:10\n";
   manifest += "#EXT-X-MEDIA-SEQUENCE:0\n";
 
   chunks.forEach((chunk) => {
+    // Skip header chunk (-1) - it's metadata, not video
+    if (chunk.chunkIndex < 0) return;
+
     const url = `${BACKEND_URL}/api/live-chunk/${sessionId}/${chunk.chunkIndex}`;
     console.log(`📺 Adding chunk ${chunk.chunkIndex}: ${url}`);
     manifest += `#EXTINF:10.0,\n`;
