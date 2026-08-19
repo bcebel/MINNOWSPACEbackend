@@ -496,8 +496,12 @@ app.post(
 app.get("/api/stream/:sessionId/playlist.m3u8", async (req, res) => {
   const { sessionId } = req.params;
 
+  console.log(`📺 Generating HLS manifest for: ${sessionId}`);
+
   // Get all chunks for this session
   const chunks = await StreamChunk.find({ sessionId }).sort({ chunkIndex: 1 });
+
+  console.log(`📦 Found ${chunks.length} chunks`);
 
   if (chunks.length === 0) {
     return res.status(404).send("No chunks found");
@@ -510,9 +514,10 @@ app.get("/api/stream/:sessionId/playlist.m3u8", async (req, res) => {
   manifest += "#EXT-X-MEDIA-SEQUENCE:0\n";
 
   chunks.forEach((chunk) => {
-    const duration = chunk.chunkIndex === -1 ? 10 : 10;
-    manifest += `#EXTINF:${duration},\n`;
-    manifest += `${BACKEND_URL}/api/live-chunk/${sessionId}/${chunk.chunkIndex}\n`;
+    const url = `${BACKEND_URL}/api/live-chunk/${sessionId}/${chunk.chunkIndex}`;
+    console.log(`📺 Adding chunk ${chunk.chunkIndex}: ${url}`);
+    manifest += `#EXTINF:10.0,\n`;
+    manifest += `${url}\n`;
   });
 
   manifest += "#EXT-X-ENDLIST\n";
