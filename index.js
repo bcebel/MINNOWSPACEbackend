@@ -552,7 +552,7 @@ app.get("/api/stream/:sessionId/playlist.m3u8", async (req, res) => {
     // Skip header chunk (-1) - it's metadata, not video
     if (chunk.chunkIndex < 0) return;
 
-    const url = `${BACKEND_URL}/api/live-chunk/${sessionId}/${chunk.chunkIndex}`;
+    const url = `/api/live-chunk/${sessionId}/${chunk.chunkIndex}`;
     console.log(`📺 Adding chunk ${chunk.chunkIndex}: ${url}`);
     manifest += `#EXTINF:10.0,\n`;
     manifest += `${url}\n`;
