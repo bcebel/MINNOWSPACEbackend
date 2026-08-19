@@ -447,27 +447,40 @@ app.post(
       }
 
       // 5. CREATE CHUNK DOCUMENT
-      const newChunk = await StreamChunk.create({
-        stream: parentStream ? parentStream._id : undefined, // Use undefined, not null
-        sessionId: sessionId,
-        chunkIndex: indexInt,
-        magnetLink: magnetUri,
-        fileName: file.originalname || `chunk-${indexInt}.${ext}`,
-        fileSize: file.size || 0,
-        fileType: isHeader ? "video_header" : "video_chunk",
-        mimeType: mimeType,
-      });
+      let newChunk;
+      try {
+        newChunk = await StreamChunk.create({
+          stream: parentStream ? parentStream._id : undefined,
+          sessionId: sessionId,
+          chunkIndex: indexInt,
+          magnetLink: magnetUri,
+          fileName: file.originalname || `chunk-${indexInt}.${ext}`,
+          fileSize: file.size || 0,
+          fileType: isHeader ? "video_header" : "video_chunk",
+          mimeType: mimeType,
+        });
 
-      // ✅ Add this debug
-      console.log(`💾 [DB] Saved chunk ${indexInt} for session ${sessionId}`);
-      console.log(`💾 [DB] Chunk ID: ${newChunk._id}`);
+        console.log(`💾 [DB] Saved chunk ${indexInt} for session ${sessionId}`);
+        console.log(`💾 [DB] Chunk ID: ${newChunk._id}`);
 
-      // Verify it's in the database
-      const verify = await StreamChunk.findOne({
-        sessionId: sessionId,
-        chunkIndex: indexInt,
-      });
-      console.log(`💾 [DB] Verify found: ${!!verify}`);
+        // Verify it's in the database
+        const verify = await StreamChunk.findOne({
+          sessionId: sessionId,
+          chunkIndex: indexInt,
+        });
+        console.log(`💾 [DB] Verify found: ${!!verify}`);
+      } catch (dbError) {
+        console.error(
+          `❌ [DB] Failed to save chunk ${indexInt}:`,
+          dbError.message,
+        );
+        // ⚠️ Return error response here - don't continue
+        return res.status(500).json({
+          success: false,
+          error: "Failed to save chunk to database",
+          details: dbError.message,
+        });
+      }
 
       // 6. GRAPHQL PUBLISH
       const publishData = {
