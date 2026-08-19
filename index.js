@@ -407,8 +407,6 @@ app.post(
 
       console.log(`📝 Written chunk to temp file: ${tempFilePath}`);
 
-
-
       const magnetUri = await reactiveBooster.boostChunkIfNeeded(
         tempFilePath,
         `${sessionId}-${indexInt}`,
@@ -459,6 +457,17 @@ app.post(
         fileType: isHeader ? "video_header" : "video_chunk",
         mimeType: mimeType,
       });
+
+      // ✅ Add this debug
+      console.log(`💾 [DB] Saved chunk ${indexInt} for session ${sessionId}`);
+      console.log(`💾 [DB] Chunk ID: ${newChunk._id}`);
+
+      // Verify it's in the database
+      const verify = await StreamChunk.findOne({
+        sessionId: sessionId,
+        chunkIndex: indexInt,
+      });
+      console.log(`💾 [DB] Verify found: ${!!verify}`);
 
       // 6. GRAPHQL PUBLISH
       const publishData = {
