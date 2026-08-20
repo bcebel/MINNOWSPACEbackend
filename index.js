@@ -372,10 +372,11 @@ app.post(
     console.log("🔵 ChunkIndex:", req.body.chunkIndex);
     console.log("🔵 File size:", req.file?.size);
     console.log("🔵 File mimetype:", req.file?.mimetype);
+    console.log("rotation:", req.file?.rotation)
 
     try {
       // 1. DATA EXTRACTION - Use let/const consistently
-      const { sessionId, chunkIndex } = req.body;
+      const { sessionId, chunkIndex, rotation } = req.body;
       const file = req.file;
 
       // 2. CRITICAL VALIDATION (The 500 Killers)
@@ -500,6 +501,7 @@ app.post(
           fileSize: newChunk.fileSize,
           fileType: newChunk.fileType,
           mimeType: mimeType,
+          rotation: rotation || 0,
         },
       };
 
