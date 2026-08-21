@@ -654,6 +654,22 @@ app.get("/api/live-chunk/:sessionId/:index", async (req, res) => {
   return res.status(404).send("Chunk not ready yet");
 }); // ✅ Just ONE closing bracket
 
+
+app.get("/api/stream-rotation/:sessionId", async (req, res) => {
+  const { sessionId } = req.params;
+
+  try {
+    const message = await Message.findOne({
+      sessionId,
+      chunkIndex: -1,
+    });
+    res.json({ rotation: message?.rotation || 0 });
+  } catch (error) {
+    res.json({ rotation: 0 });
+  }
+});
+
+
 app.post("/api/stream-end", authenticateToken, async (req, res) => {
   const { sessionId } = req.body;
 
