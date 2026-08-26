@@ -21,6 +21,7 @@ class ReactiveSeedBooster {
     });
 
     this.trackers = [
+      "wss://tracker-0ad4cca9fd92.herokuapp.com",
       "wss://tracker.openwebtorrent.com",
       "wss://tracker.webtorrent.dev", // Added UDP tracker
     ];
@@ -42,8 +43,9 @@ class ReactiveSeedBooster {
     const isGallery = chunkId.startsWith("gallery-");
 
     const torrentOptions = {
-      announce: announceUrls || this.trackers,
-      // 🎯 If it's a gallery item, give it a clean name, otherwise use livestream
+      // ✅ FORCE YOUR TRACKER!
+      announce:
+        announceUrls && announceUrls.length > 0 ? announceUrls : this.trackers,
       name: isGallery
         ? `bubble-media-${chunkId}`
         : `livestream-${chunkId}-${Date.now()}`,

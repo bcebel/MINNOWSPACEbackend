@@ -397,6 +397,7 @@ app.post(
 
       // 3. SEED SERVICE
       const trackers = [
+        "wss://tracker-0ad4cca9fd92.herokuapp.com",
         "wss://tracker.openwebtorrent.com",
         "wss://tracker.webtorrent.dev",
       ];
