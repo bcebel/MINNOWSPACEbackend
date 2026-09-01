@@ -121,13 +121,13 @@ const resolvers = {
     getMyAllNeighborhoodsGallery: async (_, __, { user, models }) => {
       if (!user) throw new Error("Authentication required");
       try {
-        // 1. Find all neighborhoods the user is a member of
+        // 1. Find neighborhoods
         const userNeighborhoods = await models.Neighborhood.find({
           $or: [{ owner: user.userId }, { "members.user": user.userId }],
         }).select("_id");
         const neighborhoodIds = userNeighborhoods.map((n) => n._id);
 
-        // 2. Query the Post model (Fix the {..} placeholder!)
+        // 2. Query posts with lean()
         const posts = await models.Post.find({
           $or: [
             { neighborhood: { $in: neighborhoodIds } },
@@ -137,25 +137,33 @@ const resolvers = {
           .populate("neighborhood", "name")
           .populate("author", "username profilePhoto")
           .sort({ createdAt: -1 })
-          .lean(); // Ensures 'id' is generated
+          .lean(); // <-- This gives plain objects, no toJSON transform
 
-        // 3. Separate into videos and images (Must be INSIDE the try block)
-        const videos = posts.filter(
+        // 3. **CRITICAL FIX**: Map each post to add 'id' and 'title'
+        const mappedPosts = posts.map((p) => ({
+          ...p,
+          id: p._id.toString(), // <-- GraphQL needs this string
+          title: p.content ? p.content.slice(0, 50) : "Untitled", // <-- Schema needs title
+        }));
+
+        // 4. Separate into videos/images
+        const videos = mappedPosts.filter(
           (p) => p.media && p.media.length > 0 && p.media[0].mediaType === "video",
         );
-        const images = posts.filter(
+        const images = mappedPosts.filter(
           (p) => p.media && p.media.length > 0 && p.media[0].mediaType === "image",
         );
 
         return {
           videos,
           images,
-          totalCount: posts.length,
+          totalCount: mappedPosts.length,
         };
       } catch (error) {
         console.error("Gallery Error:", error);
         throw new Error("Failed to fetch gallery");
       }
+    },
     },
     // Get public media (no auth needed)
     publicVideos: async () => {
