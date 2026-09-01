@@ -126,31 +126,15 @@ const resolvers = {
         const neighborhoodIds = userNeighborhoods.map((n) => n._id);
 
         // 👇 CHANGE THIS: Query the Post model and populate neighborhood
-        const posts = await models.Post.find({
-          $or: [
-            { neighborhood: { $in: neighborhoodIds } },
-            { author: user.userId },
-          ],
-        })
-          .populate("neighborhood", "name") // 👈 THIS FIXES "Unknown Neighborhood"
-          .populate("author", "username profilePhoto")
-          .sort({ createdAt: -1 });
+        const posts = await models.Post.find({...})
+  .populate("neighborhood", "name")
+  .populate("author", "username profilePhoto")
+  .sort({ createdAt: -1 })
+  .lean(); // <--- ADD THIS!
 
         // Separate into videos and images for the gallery
 // Separate into videos and images for the gallery
-const videos = posts.filter(p => p.media && p.media[0]?.mediaType === "video").map(p => ({
-  ...p,
-  // ✅ FIX: Mongoose's _id becomes GraphQL's id
-  id: p._id.toString(), 
-  title: p.content ? p.content.slice(0, 50) : "Untitled",
-}));
 
-const images = posts.filter(p => p.media && p.media[0]?.mediaType === "image").map(p => ({
-  ...p,
-  // ✅ FIX: Mongoose's _id becomes GraphQL's id
-  id: p._id.toString(),
-  title: p.content ? p.content.slice(0, 50) : "Untitled",
-}));
         return {
           videos,
           images,
@@ -161,7 +145,8 @@ const images = posts.filter(p => p.media && p.media[0]?.mediaType === "image").m
         throw new Error("Failed to fetch gallery");
       }
     },
-
+const videos = posts.filter(p => p.media && p.media[0]?.mediaType === "video");
+const images = posts.filter(p => p.media && p.media[0]?.mediaType === "image");
     // Get public media (no auth needed)
     publicVideos: async () => {
       return await Video.find({ isPublic: true })
