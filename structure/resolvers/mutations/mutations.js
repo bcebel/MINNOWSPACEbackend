@@ -119,39 +119,31 @@ const resolvers = {
     },
     getMyAllNeighborhoodsGallery: async (_, __, { user, models }) => {
       if (!user) throw new Error("Authentication required");
-
       try {
-        // 1. Find all neighborhoods where the user is an owner or member
         const userNeighborhoods = await models.Neighborhood.find({
           $or: [{ owner: user.userId }, { "members.user": user.userId }],
         }).select("_id");
-
         const neighborhoodIds = userNeighborhoods.map((n) => n._id);
 
-        // 2. Query Criteria: (Shared in my neighborhoods) OR (Uploaded by me)
-        const mediaQuery = {
+        // 👇 CHANGE THIS: Query the Post model and populate neighborhood
+        const posts = await models.Post.find({
           $or: [
             { neighborhood: { $in: neighborhoodIds } },
-            { user: user.userId },
+            { author: user.userId },
           ],
-        };
+        })
+          .populate("neighborhood", "name") // 👈 THIS FIXES "Unknown Neighborhood"
+          .populate("author", "username profilePhoto")
+          .sort({ createdAt: -1 });
 
-        const [videos, images] = await Promise.all([
-          models.Video.find(mediaQuery)
-            .populate("user", "username profilePhoto")
-            .populate("neighborhood", "name")
-            .sort({ createdAt: -1 }),
-          models.Image.find(mediaQuery)
-            .populate("user", "username profilePhoto")
-            .populate("neighborhood", "name")
-            .sort({ createdAt: -1 }),
-        ]);
-        console.log("FIRST IMAGE FROM DB:", JSON.stringify(images[0], null, 2));
+        // Separate into videos and images for the gallery
+        const videos = posts.filter(p => p.media && p.media[0]?.mediaType === "video");
+        const images = posts.filter(p => p.media && p.media[0]?.mediaType === "image");
 
         return {
           videos,
           images,
-          totalCount: videos.length + images.length,
+          totalCount: posts.length,
         };
       } catch (error) {
         console.error("Gallery Error:", error);
