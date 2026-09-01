@@ -117,23 +117,35 @@ const resolvers = {
         return [];
       }
     },
+
     getMyAllNeighborhoodsGallery: async (_, __, { user, models }) => {
       if (!user) throw new Error("Authentication required");
       try {
+        // 1. Find all neighborhoods the user is a member of
         const userNeighborhoods = await models.Neighborhood.find({
           $or: [{ owner: user.userId }, { "members.user": user.userId }],
         }).select("_id");
         const neighborhoodIds = userNeighborhoods.map((n) => n._id);
 
-        // 👇 CHANGE THIS: Query the Post model and populate neighborhood
-        const posts = await models.Post.find({...})
-  .populate("neighborhood", "name")
-  .populate("author", "username profilePhoto")
-  .sort({ createdAt: -1 })
-  .lean(); // <--- ADD THIS!
+        // 2. Query the Post model (Fix the {..} placeholder!)
+        const posts = await models.Post.find({
+          $or: [
+            { neighborhood: { $in: neighborhoodIds } },
+            { author: user.userId },
+          ],
+        })
+          .populate("neighborhood", "name")
+          .populate("author", "username profilePhoto")
+          .sort({ createdAt: -1 })
+          .lean(); // Ensures 'id' is generated
 
-        // Separate into videos and images for the gallery
-// Separate into videos and images for the gallery
+        // 3. Separate into videos and images (Must be INSIDE the try block)
+        const videos = posts.filter(
+          (p) => p.media && p.media.length > 0 && p.media[0].mediaType === "video",
+        );
+        const images = posts.filter(
+          (p) => p.media && p.media.length > 0 && p.media[0].mediaType === "image",
+        );
 
         return {
           videos,
@@ -145,8 +157,6 @@ const resolvers = {
         throw new Error("Failed to fetch gallery");
       }
     },
-const videos = posts.filter(p => p.media && p.media[0]?.mediaType === "video");
-const images = posts.filter(p => p.media && p.media[0]?.mediaType === "image");
     // Get public media (no auth needed)
     publicVideos: async () => {
       return await Video.find({ isPublic: true })
