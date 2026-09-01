@@ -137,9 +137,16 @@ const resolvers = {
           .sort({ createdAt: -1 });
 
         // Separate into videos and images for the gallery
-        const videos = posts.filter(p => p.media && p.media[0]?.mediaType === "video");
-        const images = posts.filter(p => p.media && p.media[0]?.mediaType === "image");
-
+// Separate into videos and images for the gallery
+        const videos = posts.filter(p => p.media && p.media[0]?.mediaType === "video").map(p => ({
+          ...p,
+          title: p.content ? p.content.slice(0, 50) : "Untitled", // 👈 Add this!
+        }));
+        
+        const images = posts.filter(p => p.media && p.media[0]?.mediaType === "image").map(p => ({
+          ...p,
+          title: p.content ? p.content.slice(0, 50) : "Untitled", // 👈 Add this!
+        }));
         return {
           videos,
           images,
