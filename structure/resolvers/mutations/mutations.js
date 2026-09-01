@@ -138,15 +138,19 @@ const resolvers = {
 
         // Separate into videos and images for the gallery
 // Separate into videos and images for the gallery
-        const videos = posts.filter(p => p.media && p.media[0]?.mediaType === "video").map(p => ({
-          ...p,
-          title: p.content ? p.content.slice(0, 50) : "Untitled", // 👈 Add this!
-        }));
-        
-        const images = posts.filter(p => p.media && p.media[0]?.mediaType === "image").map(p => ({
-          ...p,
-          title: p.content ? p.content.slice(0, 50) : "Untitled", // 👈 Add this!
-        }));
+const videos = posts.filter(p => p.media && p.media[0]?.mediaType === "video").map(p => ({
+  ...p,
+  // ✅ FIX: Mongoose's _id becomes GraphQL's id
+  id: p._id.toString(), 
+  title: p.content ? p.content.slice(0, 50) : "Untitled",
+}));
+
+const images = posts.filter(p => p.media && p.media[0]?.mediaType === "image").map(p => ({
+  ...p,
+  // ✅ FIX: Mongoose's _id becomes GraphQL's id
+  id: p._id.toString(),
+  title: p.content ? p.content.slice(0, 50) : "Untitled",
+}));
         return {
           videos,
           images,
