@@ -275,6 +275,7 @@ const typeDefs = gql`
   }
 
   type Query {
+    myDirectMessageBubbles: [Neighborhood]
     streamBySessionId(sessionId: String!): Stream
     streamChunks(sessionId: String!): [StreamChunk]
     getMyAllNeighborhoodsGallery: GalleryResponse

@@ -160,6 +160,16 @@ const resolvers = {
       }
     },
 
+    myDirectMessageBubbles: async (_, __, { user }) => {
+      if (!user) throw new Error("Authentication required");
+
+      return await Neighborhood.find({
+        "members.user": user.userId,
+        type: "direct",
+      })
+        .populate("owner", "username profilePhoto")
+        .populate("members.user", "username profilePhoto");
+    },
     // Get public media (no auth needed)
     publicVideos: async () => {
       return await Video.find({ isPublic: true })
