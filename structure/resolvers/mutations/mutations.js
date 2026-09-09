@@ -164,8 +164,8 @@ const resolvers = {
       if (!user) throw new Error("Authentication required");
 
       return await Neighborhood.find({
-        "members.user": user.userId,
         type: "direct",
+        "members.user": user.userId, // ✅ ONLY return DMs where I'm a member
       })
         .populate("owner", "username profilePhoto")
         .populate("members.user", "username profilePhoto");
