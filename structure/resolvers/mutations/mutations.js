@@ -163,9 +163,10 @@ const resolvers = {
     myDirectMessageBubbles: async (_, __, { user }) => {
       if (!user) throw new Error("Authentication required");
 
+      // ✅ Check BOTH: If they are the owner OR a member
       return await Neighborhood.find({
         type: "direct",
-        "members.user": user.userId, // ✅ ONLY return DMs where I'm a member
+        $or: [{ owner: user.userId }, { "members.user": user.userId }],
       })
         .populate("owner", "username profilePhoto")
         .populate("members.user", "username profilePhoto");
