@@ -123,6 +123,7 @@ const resolvers = {
       try {
         // 1. Find all neighborhoods where the user is an owner or member
         const userNeighborhoods = await models.Neighborhood.find({
+          type: { $ne: "direct" },
           $or: [{ owner: user.userId }, { "members.user": user.userId }],
         }).select("_id");
 
@@ -415,6 +416,7 @@ const resolvers = {
 
       return await Neighborhood.find({
         "members.user": context.user.userId,
+        type: { $ne: "direct" },
         isActive: true,
       })
         .populate("owner", "username profilePhoto")
@@ -801,6 +803,51 @@ const resolvers = {
   },
 
   Mutation: {
+    createDirectMessageBubble: async (_, { userId }, { user }) => {
+      if (!user) throw new Error("Authentication required");
+
+      // Check if DM bubble already exists
+      const existingBubble = await Neighborhood.findOne({
+        type: "direct",
+        $and: [{ "members.user": user.userId }, { "members.user": userId }],
+      });
+
+      if (existingBubble) return existingBubble;
+
+      const newBubble = new Neighborhood({
+        name: "Direct Message",
+        type: "direct",
+        owner: user.userId,
+        members: [
+          { user: user.userId, role: "owner" },
+          { user: userId, role: "member" },
+        ],
+      });
+
+      await newBubble.save();
+      return newBubble;
+    },
+
+    acceptBubbleInvite: async (
+      _,
+      { directMessageBubbleId, originalBubbleId },
+      { user },
+    ) => {
+      if (!user) throw new Error("Authentication required");
+
+      const originalBubble = await Neighborhood.findById(originalBubbleId);
+      if (!originalBubble) throw new Error("Bubble not found");
+
+      originalBubble.members.push({
+        user: user.userId,
+        role: "member",
+        joinedAt: new Date(),
+      });
+
+      await originalBubble.save();
+      return true;
+    },
+
     addComment: async (_, { postId, content }, context) => {
       if (!context.user) throw new Error("Authentication required");
 

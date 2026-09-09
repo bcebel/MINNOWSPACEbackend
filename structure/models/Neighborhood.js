@@ -16,8 +16,17 @@ const NeighborhoodSchema = new Schema(
     },
     type: {
       type: String,
-      enum: ["personal", "private", "public", "global"],
+      enum: ["personal", "private", "public", "global", "direct"],
       default: "private",
+    },
+    isDirectMessage: {
+      type: Boolean,
+      default: false,
+    },
+    sourceBubbleId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Neighborhood",
+      default: null,
     },
     owner: {
       type: mongoose.Schema.Types.ObjectId,

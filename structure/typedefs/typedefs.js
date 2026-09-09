@@ -355,6 +355,8 @@ const typeDefs = gql`
   }
 
   type Mutation {
+    createDirectMessageBubble(userId: ID!): Neighborhood
+    acceptBubbleInvite(directMessageBubbleId: ID!, sourceBubbleId: ID!): Boolean
     addComment(postId: ID!, content: String!): Comment!
     completeStream(
       sessionId: String!
