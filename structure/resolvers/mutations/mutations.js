@@ -123,7 +123,6 @@ const resolvers = {
       try {
         // 1. Find all neighborhoods where the user is an owner or member
         const userNeighborhoods = await models.Neighborhood.find({
-       
           $or: [{ owner: user.userId }, { "members.user": user.userId }],
         }).select("_id");
 
@@ -163,12 +162,27 @@ const resolvers = {
     myDirectMessageBubbles: async (_, __, { user }) => {
       if (!user) throw new Error("Authentication required");
 
-      return await Neighborhood.find({
+      const bubbles = await Neighborhood.find({
         type: "direct",
-        "members.user": user.userId, // ✅ ONLY show DMs where I'm in members
+        "members.user": user.userId,
       })
-        .populate("owner", "username profilePhoto")
-        .populate("members.user", "username profilePhoto");
+        .populate("members.user", "username profilePhoto")
+        .lean();
+
+      // ✅ Manually convert _id → id for GraphQL
+      return bubbles.map((bubble) => ({
+        id: bubble._id.toString(),
+        name: bubble.name,
+        members: bubble.members.map((m) => ({
+          user: m.user
+            ? {
+                id: m.user._id.toString(),
+                username: m.user.username,
+                profilePhoto: m.user.profilePhoto,
+              }
+            : null,
+        })),
+      }));
     },
     // Get public media (no auth needed) ok ok ok ok ok ok ok
     publicVideos: async () => {
@@ -1136,7 +1150,6 @@ const resolvers = {
           console.error("❌ Failed to create Post from chat media:", postErr);
         }
       }
-
 
       // 3. Sync video chunk to StreamChunk model if streaming
       if (
