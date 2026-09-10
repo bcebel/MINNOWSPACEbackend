@@ -166,7 +166,9 @@ const resolvers = {
       return await Neighborhood.find({
         type: "direct",
         "members.user": user.userId, // ✅ ONLY show DMs where I'm in members
-      }).populate("members.user", "username profilePhoto");
+      })
+        .populate("members.user", "username profilePhoto")
+        .populate("members.user", "id username profilePhoto");
     },
     // Get public media (no auth needed)
     publicVideos: async () => {
