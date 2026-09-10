@@ -123,7 +123,7 @@ const resolvers = {
       try {
         // 1. Find all neighborhoods where the user is an owner or member
         const userNeighborhoods = await models.Neighborhood.find({
-          type: { $ne: "direct" },
+       
           $or: [{ owner: user.userId }, { "members.user": user.userId }],
         }).select("_id");
 
