@@ -170,7 +170,7 @@ const resolvers = {
         .populate("members.user", "username profilePhoto")
         .populate("members.user", "id username profilePhoto");
     },
-    // Get public media (no auth needed)
+    // Get public media (no auth needed) ok ok ok ok ok ok ok
     publicVideos: async () => {
       return await Video.find({ isPublic: true })
         .populate("user", "username profilePhoto")
