@@ -1105,6 +1105,37 @@ const resolvers = {
       await message.save();
       console.log("Backend: Message saved with ID:", message._id);
 
+      // ✅ NEW: If this message has media, also create a Post
+      if (
+        neighborhoodId &&
+        (imageUrl || videoUrl || magnetLink) &&
+        fileType !== "video_chunk" &&
+        fileType !== "video_header"
+      ) {
+        try {
+          await Post.create({
+            content: content || `Shared: ${fileName || "media"}`,
+            author: userId,
+            feedType: "neighborhood",
+            neighborhood: neighborhoodId,
+            media: [
+              {
+                url: imageUrl || videoUrl,
+                cid: ipfsHash,
+                magnetURI: magnetLink,
+                mediaType: fileType === "video" ? "video" : "image",
+                fileName: fileName,
+              },
+            ],
+            createdAt: new Date(),
+          });
+          console.log("✅ Created Post from chat media");
+        } catch (postErr) {
+          console.error("❌ Failed to create Post from chat media:", postErr);
+        }
+      }
+
+
       // 3. Sync video chunk to StreamChunk model if streaming
       if (
         sessionId &&
