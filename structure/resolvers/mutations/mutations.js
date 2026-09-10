@@ -167,8 +167,8 @@ const resolvers = {
         type: "direct",
         "members.user": user.userId, // ✅ ONLY show DMs where I'm in members
       })
-        .populate("members.user", "username profilePhoto")
-        .populate("members.user", "id username profilePhoto");
+        .populate("owner", "username profilePhoto")
+        .populate("members.user", "username profilePhoto");
     },
     // Get public media (no auth needed) ok ok ok ok ok ok ok
     publicVideos: async () => {
