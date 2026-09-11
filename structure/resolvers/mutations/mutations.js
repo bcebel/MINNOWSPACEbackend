@@ -838,16 +838,15 @@ const resolvers = {
       if (!neighborhood) throw new Error("Neighborhood not found");
 
       // ✅ Only the owner can set the bubble photo
-      if (neighborhood.owner.toString() !== context.user.userId) {
-        throw new Error("Only the owner can set the bubble photo");
-      }
-
+    if (neighborhood.owner.toString() !== user.userId.toString()) {
+      throw new Error("Only the owner can set the bubble photo");
+    }
       neighborhood.bubblePhotoCid = cid;
       await neighborhood.save();
 
       return neighborhood;
     },
-    
+
     createDirectMessageBubble: async (_, { userId }, { user }) => {
       if (!user) throw new Error("Authentication required");
 
