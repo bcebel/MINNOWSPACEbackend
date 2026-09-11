@@ -85,9 +85,11 @@ async function migrateAffiliateLinks() {
 
     user.affiliateLinks = cleanedLinks;
     await user.save();
+    /*
     console.log(
       `Migrated ${cleanedLinks.length} links for user ${user.username}`
     );
+    */
   }
 
   console.log("Migration complete!");

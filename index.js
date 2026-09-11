@@ -52,13 +52,11 @@ const subscriptionResolvers = {
       // Use the 'subscribe' property correctly
       subscribe: (_, { sessionId }) => {
         const channel = `LIVESTREAM_CHUNK_ADDED_${sessionId}`;
-        console.log(`📡 Attempting subscription to: ${channel}`);
 
         // Debug: Check if pubsub exists and what methods it has
         if (!pubsub) {
           console.error("🔴 PubSub is undefined!");
         } else {
-          console.log("🛠 PubSub keys:", Object.keys(pubsub));
         }
 
         return pubsub.asyncIterableIterator(channel);
@@ -366,13 +364,7 @@ app.post(
   authenticateToken,
   liveChunkUpload.single("chunk"),
   async (req, res) => {
-    console.log("🔵 [LIVE-CHUNK] Endpoint hit. Starting processing...");
-    console.log("🔵 [LIVE-CHUNK] Endpoint hit");
-    console.log("🔵 SessionId:", req.body.sessionId);
-    console.log("🔵 ChunkIndex:", req.body.chunkIndex);
-    console.log("🔵 File size:", req.file?.size);
-    console.log("🔵 File mimetype:", req.file?.mimetype);
-    console.log("rotation:", req.file?.rotation)
+
 
     try {
       // 1. DATA EXTRACTION - Use let/const consistently
@@ -414,7 +406,6 @@ app.post(
       await fs.promises.writeFile(writePath, file.buffer);
       await fs.promises.rename(writePath, tempFilePath);
 
-      console.log(`📝 Written chunk to temp file: ${tempFilePath}`);
 
       const magnetUri = await reactiveBooster.boostChunkIfNeeded(
         tempFilePath,
@@ -435,11 +426,7 @@ app.post(
         !parentStream &&
         retries < (isHeader ? maxRetriesForHeader : maxRetries)
       ) {
-        console.log(
-          `⏳ Stream document not yet created for ${sessionId}, retry ${
-            retries + 1
-          }...`,
-        );
+
         await new Promise((resolve) => setTimeout(resolve, 200));
         parentStream = await Stream.findOne({ sessionId });
         retries++;

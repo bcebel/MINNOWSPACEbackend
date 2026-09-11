@@ -53,12 +53,13 @@ class ReactiveSeedBooster {
 
     return new Promise((resolve, reject) => {
       this.client.seed(filePath, torrentOptions, (torrent) => {
-        console.log(
+     /*   console.log(
           `📤 Seeding chunk ${chunkId}. InfoHash: ${torrent.infoHash.substring(
             0,
             8,
           )}...`,
         );
+        */
 
         // Log peer connections
         torrent.on("wire", (wire, addr) => {
@@ -117,10 +118,11 @@ class ReactiveSeedBooster {
         chunksToRemove.push(chunkId);
       }
     }
-
+/*
     console.log(
       `🧼 Stopping ${chunksToRemove.length} chunks from stream ${sessionId}`,
     );
+    */
 
     for (const chunkId of chunksToRemove) {
       await this.stopBoosting(chunkId);

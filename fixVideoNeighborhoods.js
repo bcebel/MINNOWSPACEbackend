@@ -10,7 +10,6 @@ dotenv.config();
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGODB_URI);
-    console.log("✅ MongoDB connected");
   } catch (error) {
     console.error("❌ MongoDB connection error:", error);
     process.exit(1);
@@ -29,22 +28,17 @@ const isImageFile = (fileName, mimetype, fileType) => {
 };
 
 const fixImageNeighborhoods = async () => {
-  console.log(
-    "🖼️ Fixing neighborhood associations for images in Video collection..."
-  );
 
   // Find ALL images in the Video collection
   const allVideos = await Video.find({}).lean();
-  console.log(`📊 Found ${allVideos.length} total records in Video collection`);
+
 
   // Filter to find images
   const imagesInVideoCollection = allVideos.filter((video) =>
     isImageFile(video.fileName, video.mimetype, video.fileType)
   );
 
-  console.log(
-    `🖼️ Found ${imagesInVideoCollection.length} images in Video collection`
-  );
+
 
   let imagesFixed = 0;
   let alreadyFixed = 0;
@@ -53,7 +47,6 @@ const fixImageNeighborhoods = async () => {
 
   for (const img of imagesInVideoCollection) {
     try {
-      console.log(`\n🔍 Processing: ${img.fileName || img.title}`);
 
       // Try to find a matching message
       let matchingMessage = null;
@@ -117,12 +110,9 @@ const fixImageNeighborhoods = async () => {
             { $set: { neighborhood: matchingMessage.neighborhood } }
           );
           imagesFixed++;
-          console.log(
-            `✅ Fixed: Added neighborhood ${matchingMessage.neighborhood} to image`
-          );
+
         } else {
           alreadyFixed++;
-          console.log(`ℹ️ Already has neighborhood: ${img.neighborhood}`);
         }
 
         // OPTIONAL: Move to Image collection (if you want separate collections)
@@ -152,10 +142,8 @@ const fixImageNeighborhoods = async () => {
           await Video.deleteOne({ _id: img._id });
 
           movedToImageCollection++;
-          console.log(`🔄 Moved to Image collection`);
         }
       } else {
-        console.log(`❓ No matching message found for this image`);
       }
     } catch (error) {
       errors++;
@@ -163,11 +151,7 @@ const fixImageNeighborhoods = async () => {
     }
   }
 
-  console.log("\n📊 FINAL RESULTS for Images in Video Collection:");
-  console.log(`✅ Images fixed with neighborhoods: ${imagesFixed}`);
-  console.log(`ℹ️ Already had neighborhoods: ${alreadyFixed}`);
-  console.log(`🔄 Moved to Image collection: ${movedToImageCollection}`);
-  console.log(`❌ Errors: ${errors}`);
+
 
   // Also show summary of what's in each collection now
   const videoCount = await Video.countDocuments();
@@ -179,13 +163,7 @@ const fixImageNeighborhoods = async () => {
     neighborhood: { $exists: true },
   });
 
-  console.log("\n📦 COLLECTION SUMMARY:");
-  console.log(
-    `📹 Video collection: ${videoCount} total, ${videosWithNeighborhood} with neighborhoods`
-  );
-  console.log(
-    `🖼️ Image collection: ${imageCount} total, ${imagesWithNeighborhood} with neighborhoods`
-  );
+
 };
 
 // Run the script
@@ -193,7 +171,6 @@ const run = async () => {
   try {
     await connectDB();
     await fixImageNeighborhoods();
-    console.log("\n🎉 Script completed!");
     process.exit(0);
   } catch (error) {
     console.error("💥 Script failed:", error);

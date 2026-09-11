@@ -108,9 +108,10 @@ const resolvers = {
           .sort({ chunkIndex: 1 })
           .lean();
 
-        console.log(
+    /*    console.log(
           `✅ Found ${chunks.length} chunks for stream ${streamDoc._id}`,
         );
+        */
         return chunks;
       } catch (error) {
         console.error("Error fetching stream history:", error);
@@ -551,10 +552,11 @@ const resolvers = {
           .populate("user", "username profilePhoto")
           .populate("neighborhood", "name description")
           .sort({ createdAt: -1 });
-
+/*
         console.log(
           `✅ Found ${videos.length} videos SHARED TO neighborhood ${neighborhoodId}`,
         );
+        */
         return videos;
       } catch (error) {
         console.error("❌ Error:", error);
@@ -620,10 +622,11 @@ const resolvers = {
         const images = await Image.find({ neighborhood: neighborhoodId })
           .populate("user", "username profilePhoto")
           .populate("neighborhood", "name description");
-
+/*
         console.log(
           `📊 Found: ${videos.length} videos, ${images.length} images`,
         );
+        */
 
         // Return as GalleryResponse object
         return {
@@ -643,11 +646,12 @@ const resolvers = {
         if (!user) {
           throw new Error("Authentication required");
         }
-
+/*
         console.log("👤 Fetching user videos:", {
           targetUserId: userId,
           requestorId: user.userId,
         });
+        */
 
         // Users can see their own videos or public videos from others
         const query = { user: userId };
@@ -1073,14 +1077,14 @@ const resolvers = {
         totalChunks,
         neighborhoodId,
       } = input;
-
+/*
       console.log(
         "Backend: Sending message for neighborhood:",
         neighborhoodId,
         "room:",
         room,
       );
-
+*/
       // 2. Now userId is valid here:
       if (neighborhoodId) {
         if (!mongoose.Types.ObjectId.isValid(neighborhoodId)) {
@@ -1215,10 +1219,11 @@ const resolvers = {
           id: result._id.toString(),
           chunkIndex: typeof chunkIndex === "number" ? chunkIndex : -1,
         };
-
+/*
         console.log(
           `[PUB] Sending ${fileType} #${cleanChunk.chunkIndex} to ${topic}`,
         );
+        */
         pubsub.publish(topic, {
           livestreamChunkAdded: cleanChunk,
         });

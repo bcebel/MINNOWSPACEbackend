@@ -164,9 +164,9 @@ async function uploadToFilebase(fileBuffer, fileName, mimeType) {
       console.log("✅ Filebase upload successful (S3 mode)");
       return { cid, ipfsUrl };
     } catch (ipfsError) {
-      console.log(
+     /* console.log(
         "⚠️ Could not get CID from Filebase, using S3 key as reference"
-      );
+      ); */
       const ipfsUrl = `https://${FILEBASE_BUCKET_NAME}.s3.filebase.com/${key}`;
       return { cid: key, ipfsUrl };
     }
@@ -268,9 +268,10 @@ export default (app) => {
           const totalSlices = Math.ceil(fullBuffer.length / SLICE_SIZE);
           const sliceRecords = [];
 
-          console.log(
+        /*  console.log(
             `🔪 Slicing ${file.originalname} into ${totalSlices} pieces...`,
           );
+        */
 
           for (let i = 0; i < totalSlices; i++) {
             const start = i * SLICE_SIZE;
@@ -336,9 +337,10 @@ export default (app) => {
           });
         } else {
           // --- UPLOAD SMALL VIDEOS AS ONE PIECE ---
-          console.log(
+      /*    console.log(
             `📦 Uploading small video as single file: ${file.originalname}`,
           );
+          */
 
           const { cid, ipfsUrl } = await uploadToPinata(
             fullBuffer,

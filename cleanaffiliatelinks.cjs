@@ -65,7 +65,6 @@ function extractDescription(html) {
 }
 
 async function migrateAffiliateLinks() {
-  console.log("🔄 Starting affiliate link migration...");
 
   // Dynamically import User model (check both .cjs and .js)
   let User;
@@ -77,7 +76,6 @@ async function migrateAffiliateLinks() {
 
   const users = await User.find({ "affiliateLinks.0": { $exists: true } });
 
-  console.log(`Found ${users.length} users with affiliate links`);
 
   let totalCleaned = 0;
   let totalFailed = 0;
@@ -87,9 +85,7 @@ async function migrateAffiliateLinks() {
       const cleanedLinks = [];
       const userLinks = user.affiliateLinks || [];
 
-      console.log(
-        `\n👤 Processing ${user.username} (${userLinks.length} links)`
-      );
+
 
       for (const rawLink of userLinks) {
         try {
@@ -125,19 +121,14 @@ async function migrateAffiliateLinks() {
                 imageUrl: cleaned.imageUrl,
                 clicks: rawLink.clicks || 0,
               });
-              console.log(
-                `  ✓ Extracted: ${cleaned.title.substring(0, 50)}...`
-              );
+
             } else {
-              console.log(`  ✗ Could not parse: ${html.substring(0, 50)}...`);
               totalFailed++;
             }
           } else {
-            console.log(`  ⚠️  Skipping non-HTML link`);
             totalFailed++;
           }
         } catch (linkError) {
-          console.log(`  ❌ Error: ${linkError.message}`);
           totalFailed++;
         }
       }
@@ -149,10 +140,8 @@ async function migrateAffiliateLinks() {
       if (needsUpdate) {
         user.affiliateLinks = cleanedLinks;
         await user.save();
-        console.log(`  ✅ Saved ${cleanedLinks.length} clean links`);
         totalCleaned += cleanedLinks.length;
       } else {
-        console.log(`  ⏭️  No changes needed`);
       }
     } catch (userError) {
       console.error(
@@ -162,17 +151,12 @@ async function migrateAffiliateLinks() {
     }
   }
 
-  console.log(`\n🎉 Migration Summary:`);
-  console.log(`   Total users processed: ${users.length}`);
-  console.log(`   Clean links created: ${totalCleaned}`);
-  console.log(`   Failed to parse: ${totalFailed}`);
 
   return { totalCleaned, totalFailed };
 }
 
 async function runMigration() {
   try {
-    console.log("🔗 Connecting to MongoDB...");
     await mongoose.connect(
       process.env.MONGODB_URI || "mongodb://localhost:27017/minnowbe",
       {
@@ -181,14 +165,11 @@ async function runMigration() {
       }
     );
 
-    console.log("✅ Connected to MongoDB");
 
     await migrateAffiliateLinks();
 
-    console.log("\n✅ Migration completed successfully");
 
     await mongoose.disconnect();
-    console.log("🔌 Disconnected from MongoDB");
 
     process.exit(0);
   } catch (error) {
@@ -200,7 +181,6 @@ async function runMigration() {
 
 // Handle cleanup
 process.on("SIGINT", async () => {
-  console.log("\n⏹️  Migration interrupted by user");
   await mongoose.disconnect();
   process.exit(0);
 });
