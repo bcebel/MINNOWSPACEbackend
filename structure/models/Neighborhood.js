@@ -14,6 +14,7 @@ const NeighborhoodSchema = new Schema(
       type: String,
       default: "",
     },
+
     type: {
       type: String,
       enum: ["personal", "private", "public", "global", "direct"],
@@ -33,6 +34,7 @@ const NeighborhoodSchema = new Schema(
       ref: "User",
       required: true,
     },
+
     members: [
       {
         user: {
@@ -50,6 +52,10 @@ const NeighborhoodSchema = new Schema(
         },
       },
     ],
+    bubblePhotoCid: {
+      type: String,
+      default: null,
+    },
     joinRequests: [
       {
         user: {

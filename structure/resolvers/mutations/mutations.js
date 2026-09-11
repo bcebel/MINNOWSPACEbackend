@@ -108,7 +108,7 @@ const resolvers = {
           .sort({ chunkIndex: 1 })
           .lean();
 
-    /*    console.log(
+        /*    console.log(
           `✅ Found ${chunks.length} chunks for stream ${streamDoc._id}`,
         );
         */
@@ -552,7 +552,7 @@ const resolvers = {
           .populate("user", "username profilePhoto")
           .populate("neighborhood", "name description")
           .sort({ createdAt: -1 });
-/*
+        /*
         console.log(
           `✅ Found ${videos.length} videos SHARED TO neighborhood ${neighborhoodId}`,
         );
@@ -622,7 +622,7 @@ const resolvers = {
         const images = await Image.find({ neighborhood: neighborhoodId })
           .populate("user", "username profilePhoto")
           .populate("neighborhood", "name description");
-/*
+        /*
         console.log(
           `📊 Found: ${videos.length} videos, ${images.length} images`,
         );
@@ -646,7 +646,7 @@ const resolvers = {
         if (!user) {
           throw new Error("Authentication required");
         }
-/*
+        /*
         console.log("👤 Fetching user videos:", {
           targetUserId: userId,
           requestorId: user.userId,
@@ -831,6 +831,23 @@ const resolvers = {
   },
 
   Mutation: {
+    updateBubblePhoto: async (_, { neighborhoodId, cid }, context) => {
+      if (!context.user) throw new Error("Authentication required");
+
+      const neighborhood = await Neighborhood.findById(neighborhoodId);
+      if (!neighborhood) throw new Error("Neighborhood not found");
+
+      // ✅ Only the owner can set the bubble photo
+      if (neighborhood.owner.toString() !== context.user.userId) {
+        throw new Error("Only the owner can set the bubble photo");
+      }
+
+      neighborhood.bubblePhotoCid = cid;
+      await neighborhood.save();
+
+      return neighborhood;
+    },
+    
     createDirectMessageBubble: async (_, { userId }, { user }) => {
       if (!user) throw new Error("Authentication required");
 
@@ -1077,7 +1094,7 @@ const resolvers = {
         totalChunks,
         neighborhoodId,
       } = input;
-/*
+      /*
       console.log(
         "Backend: Sending message for neighborhood:",
         neighborhoodId,
@@ -1219,7 +1236,7 @@ const resolvers = {
           id: result._id.toString(),
           chunkIndex: typeof chunkIndex === "number" ? chunkIndex : -1,
         };
-/*
+        /*
         console.log(
           `[PUB] Sending ${fileType} #${cleanChunk.chunkIndex} to ${topic}`,
         );

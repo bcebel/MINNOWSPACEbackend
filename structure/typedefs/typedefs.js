@@ -52,6 +52,7 @@ const typeDefs = gql`
     name: String!
     description: String
     type: String!
+    bubblePhotoCid: String
     owner: User!
     members: [NeighborhoodMember]
     joinRequests: [JoinRequest]
@@ -356,6 +357,7 @@ const typeDefs = gql`
   }
 
   type Mutation {
+    updateBubblePhoto(neighborhoodId: ID!, cid: String!): Neighborhood
     createDirectMessageBubble(userId: ID!): Neighborhood
     acceptBubbleInvite(directMessageBubbleId: ID!, sourceBubbleId: ID!): Boolean
     addComment(postId: ID!, content: String!): Comment!
